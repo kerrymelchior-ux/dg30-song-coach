@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>DG30 Song Coach</title>
+<meta name="version" content="1.8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+<style>
+/* Layout: a lacquered piano fallboard. Library is a single column of song cards; practice is a full-height stage with falling notes over the keys. */
+:root{
+  --lacquer:#14110f;      /* ebony polish ground */
+  --panel:#1f1a17;        /* raised panel */
+  --line:#3a322c;         /* hairlines */
+  --ivory:#f3ece0;        /* text and white keys */
+  --muted:#a89c8e;        /* secondary text */
+  --chrome:#9fc3d6;       /* accent: the DG30's silver-chrome fittings */
+  --right:#e8b04a;        /* right hand */
+  --left:#6fb8a8;         /* left hand */
+  --good:#7fd18b;
+  --bad:#ef6a5a;
+  --f-display:"Bodoni Moda", "Didot", Georgia, serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--lacquer);color:var(--ivory);font:15px/1.5 var(--f-body);-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--chrome);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* ---------- Library ---------- */
+#library{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:calc(env(safe-area-inset-top,0px) + 14px) calc(env(safe-area-inset-bottom,0px) + 32px);display:flex;flex-direction:column;gap:22px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;gap:0}
+.brand h1{font:700 30px/1.05 var(--f-display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.brand span{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:500}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.on i{background:var(--good);box-shadow:0 0 8px var(--good)}
+.warn{border:1px solid var(--bad);color:var(--ivory);padding:12px 14px;border-radius:10px;font-size:14px;background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.add{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:14px;background:linear-gradient(180deg,var(--panel),var(--lacquer));border:1px solid var(--line)}
+.add h2{font:500 21px/1.2 var(--f-display);margin:0}
+.add p{margin:0;color:var(--muted);font-size:14px;max-width:60ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:600}
+.btn.primary{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+#songs{display:flex;flex-direction:column;gap:10px}
+.song{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:14px 16px;border-radius:12px;border-bottom:1px solid var(--line);background:transparent}
+.song:hover{background:var(--panel)}
+.song h3{margin:0;font:600 16px/1.3 var(--f-body);min-width:0;overflow-wrap:anywhere}
+.song .meta{grid-column:1;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.song .acts{grid-column:2;grid-row:1/3;display:flex;gap:6px}
+.song .acts button{min-height:40px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:600}
+.song .acts .go{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.tag{font:500 10px/1 var(--f-mono);letter-spacing:.06em;padding:3px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:2px}
+.tips{color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:6px;max-width:62ch}
+.tips b{color:var(--ivory);font-weight:600}
+
+/* ---------- Sheets ---------- */
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ivory);padding:0;width:min(520px,calc(100% - 32px));max-height:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.sheet{padding:20px;display:flex;flex-direction:column;gap:16px}
+.sheet h2{margin:0;font:500 22px/1.2 var(--f-display)}
+.sheet p{margin:0;color:var(--muted);font-size:14px}
+.opt{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--lacquer)}
+.opt strong{font-weight:600}
+.opt small{color:var(--muted);font-size:13px}
+.status{font:500 12px/1.4 var(--f-mono);color:var(--chrome);min-height:1.4em;overflow-wrap:anywhere}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-wrap:nowrap}
+.seg button{border:0;background:transparent;padding:0 12px;min-height:38px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field input[type=text]{min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px}
+input[type=range]{accent-color:var(--chrome);width:100%}
+select{min-height:40px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 10px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--chrome);transition:width .2s}
+
+/* ---------- Practice stage ---------- */
+#practice{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--lacquer);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+.ctrl .title{flex:1 1 140px;min-width:0;font:500 17px/1.2 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1}
+.icon.play{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.tempo{display:flex;align-items:center;gap:8px;min-width:150px;flex:1 1 150px}
+.tempo output{font:500 12px var(--f-mono);min-width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+.stats{display:flex;gap:14px;font:500 12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ivory);font-weight:500}
+#stage{position:relative;flex:1;min-height:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,17,15,.85);border:1px solid var(--line);font-size:13px;font-weight:500;white-space:nowrap;pointer-events:none}
+.scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
+.scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
+.result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.thumbs figure{margin:0;position:relative;flex:none}
+.thumbs img{width:76px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+.thumbs figcaption{position:absolute;left:4px;top:4px;font:500 10px/1 var(--f-mono);background:var(--lacquer);padding:3px 5px;border-radius:4px}
+.thumbs button{position:absolute;right:3px;top:3px;width:24px;height:24px;border-radius:50%;border:0;background:var(--lacquer);color:var(--ivory);font-size:13px;line-height:1}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+/* Tempo stepper */
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
+.stepper button{width:38px;min-height:38px;border:0;background:var(--lacquer);font-size:20px;line-height:1;font-weight:600}
+.stepper span{display:flex;flex-direction:column;align-items:center;padding:0 8px;line-height:1.1;min-width:58px}
+.stepper small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.stepper output{font:500 13px var(--f-mono);font-variant-numeric:tabular-nums}
+/* Sound picker */
+#soundList{display:flex;flex-direction:column;gap:4px;max-height:52vh;overflow-y:auto}
+@media (max-height:520px){#soundDlg .sheet{gap:10px;padding:14px}#soundDlg h2{font-size:18px}#soundList{max-height:44vh}}
+.sgroup{margin-top:10px}
+.snd{text-align:left;min-height:42px;padding:0 12px;border-radius:9px;border:1px solid transparent;background:transparent;font-weight:500}
+.snd:hover{background:var(--lacquer)}
+.snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
+/* Sideways on a phone: one slim strip so the notes get the room */
+@media (max-height:520px){
+  #bars{flex-wrap:nowrap;padding:4px 10px;gap:6px}
+  #bars .title{flex:1 1 60px;font-size:15px}
+  .icon{width:36px;height:36px;font-size:16px;flex:none}
+  .seg{flex:none}.seg button{min-height:34px;padding:0 9px}
+  .stepper button{width:34px;min-height:34px}
+  .scrub{padding:2px 10px 4px}
+  #banner{top:8px}
+}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LIBRARY ================= -->
+<main id="library">
+  <div class="top">
+    <div class="brand"><span>Kawai DG30</span><h1>Song Coach</h1></div>
+    <button class="pill" id="connPill" type="button"><i></i><span id="connText">Connect piano</span></button>
+  </div>
+
+  <div class="warn" id="secureWarn" hidden>This page is opened from a local file, so Chrome won't allow Bluetooth, MIDI or the microphone. Open it from its https:// web address instead.</div>
+
+  <section class="add">
+    <h2>Add a song</h2>
+    <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
+    <div class="row">
+      <label class="btn primary" for="fileIn">Choose a file</label>
+      <input id="fileIn" type="file" accept="audio/*,.mid,.midi,.musicxml,.xml,.mxl" hidden>
+      <label class="btn" for="camIn">Photograph sheet music</label>
+      <input id="camIn" type="file" accept="image/*" capture="environment" hidden>
+      <label class="btn ghost" for="picIn">Choose photos</label>
+      <input id="picIn" type="file" accept="image/*" multiple hidden>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div class="label">Your songs</div>
+    <div id="songs"></div>
+  </section>
+
+  <section class="add" id="settings">
+    <h2>Settings</h2>
+    <div class="row" style="justify-content:space-between">
+      <div class="field" style="gap:2px"><span class="label">Piano sound</span><span id="setSoundName"></span></div>
+      <button class="btn" id="setSoundBtn" type="button">Change sound</button>
+    </div>
+    <label class="row" style="gap:8px;font-size:14px"><input id="autoFs" type="checkbox"> Go full screen when practice starts (Chrome shows a short notice each time)</label>
+    <div class="field">
+      <label class="label" for="setKey">Anthropic API key (for reading sheet music)</label>
+      <input id="setKey" type="password" autocomplete="off" placeholder="sk-ant-…" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
+      <small style="color:var(--muted)">Create one at console.anthropic.com → API keys. It's saved only on this phone.</small>
+    </div>
+    <div class="row"><button class="btn" id="setKeySave" type="button">Save key</button><button class="btn ghost" id="setKeyClear" type="button">Remove key</button><span class="status" id="setKeyStatus"></span></div>
+  </section>
+
+  <section class="tips">
+    <div class="label">How practice works</div>
+    <div><b>Wait</b> stops the notes until you press the right keys on the piano.</div>
+    <div><b>Play</b> keeps time and scores each note you hit within a quarter second.</div>
+    <div><b>Listen</b> plays the song on your piano so you can hear it first.</div>
+    <div>Turn your phone sideways for the widest keyboard.</div>
+    <div class="label" style="margin-top:10px" id="verLabel"></div>
+  </section>
+</main>
+
+<!-- ================= PRACTICE ================= -->
+<section id="practice" hidden>
+  <div id="bars" class="ctrl">
+    <button class="icon" id="backBtn" type="button" aria-label="Back to songs">&#8592;</button>
+    <div class="title" id="pTitle">Song</div>
+    <button class="icon play" id="playBtn" type="button" aria-label="Play">&#9654;</button>
+    <button class="icon" id="restartBtn" type="button" aria-label="Start over">&#8634;</button>
+    <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+      <button type="button" data-v="wait" aria-pressed="true">Wait</button>
+      <button type="button" data-v="play" aria-pressed="false">Play</button>
+      <button type="button" data-v="listen" aria-pressed="false">Listen</button>
+    </div>
+    <div class="seg" id="handSeg" role="group" aria-label="Hands">
+      <button type="button" data-v="L" aria-pressed="false" aria-label="Left hand">L</button>
+      <button type="button" data-v="B" aria-pressed="true" aria-label="Both hands">Both</button>
+      <button type="button" data-v="R" aria-pressed="false" aria-label="Right hand">R</button>
+    </div>
+    <div class="stepper" role="group" aria-label="Tempo">
+      <button type="button" id="tempoDown" aria-label="Slower">&#8722;</button>
+      <span><small>Tempo</small><output id="tempoOut">75%</output></span>
+      <button type="button" id="tempoUp" aria-label="Faster">+</button>
+    </div>
+    <button class="icon" id="soundBtn" type="button" aria-label="Piano sound" title="Piano sound">&#9835;</button>
+    <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
+    <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
+  </div>
+  <video id="keepAwake" muted playsinline loop hidden aria-hidden="true">
+    <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
+    <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
+  </video>
+  <div id="stage"><canvas id="cv"></canvas><div id="banner" hidden></div></div>
+  <div class="scrub"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><output id="timeOut">0:00 / 0:00</output></div>
+</section>
+
+<!-- ================= CONNECT SHEET ================= -->
+<dialog id="connDlg">
+  <div class="sheet">
+    <h2>Connect your piano</h2>
+    <p>Use one option. Bluetooth MIDI is the most accurate: the piano tells the app exactly which keys you press, including chords.</p>
+    <div class="opt">
+      <strong>Bluetooth MIDI (recommended)</strong>
+      <small>On the DG30, make sure Bluetooth MIDI is on. Close the Kawai PianoRemote app first, since only one app can connect at a time.</small>
+      <div class="row"><button class="btn primary" id="bleBtn" type="button">Find my piano</button><button class="btn" id="bleAllBtn" type="button">Show all Bluetooth devices</button></div>
+      <small>Don't pair the piano in your phone's Bluetooth settings for this. That pairing is for music audio. The app connects to the piano's MIDI itself when you tap Find my piano.</small>
+    </div>
+    <div class="opt">
+      <strong>USB cable or already-paired MIDI</strong>
+      <small>For a USB-C to USB-B cable into the piano's USB to Host port.</small>
+      <div class="row"><button class="btn" id="midiBtn" type="button">Use MIDI devices</button></div>
+    </div>
+    <div class="opt">
+      <strong>Phone microphone</strong>
+      <small>Backup option. Hears one note at a time and can mistake octaves, so it is forgiving about octave.</small>
+      <div class="row"><button class="btn" id="micBtn" type="button">Listen with mic</button></div>
+    </div>
+    <div class="field">
+      <span class="label">Song sound in Listen mode and for the other hand</span>
+      <select id="outSel">
+        <option value="piano">Play on the piano</option>
+        <option value="phone">Play on the phone</option>
+        <option value="off">Silent</option>
+      </select>
+    </div>
+    <div class="status" id="connStatus"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="connClose" type="button">Done</button></div>
+  </div>
+</dialog>
+
+<!-- ================= IMPORT SHEET ================= -->
+<dialog id="impDlg">
+  <form class="sheet" id="impForm">
+    <h2>Turn this into notes</h2>
+    <div class="field"><label class="label" for="impName">Song name</label><input id="impName" type="text" autocomplete="off"></div>
+    <div class="field">
+      <span class="label">How much to play</span>
+      <div class="seg" id="lvlSeg" role="group" aria-label="Detail">
+        <button type="button" data-v="melody" aria-pressed="false">Melody only</button>
+        <button type="button" data-v="easy" aria-pressed="true">Easy</button>
+        <button type="button" data-v="full" aria-pressed="false">Every note</button>
+      </div>
+      <small style="color:var(--muted)" id="lvlHelp">Up to two notes in the right hand and one bass note in the left.</small>
+    </div>
+    <div class="field" id="sensField">
+      <label class="label" for="sens">Note pickup</label>
+      <input id="sens" type="range" min="1" max="9" value="5">
+      <div class="row" style="justify-content:space-between;color:var(--muted);font-size:12px"><span>Fewer, clearer notes</span><span>More notes</span></div>
+    </div>
+    <div class="bar" id="impBar" hidden><i></i></div>
+    <div class="status" id="impStatus"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" type="button" id="impCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="impGo">Convert to notes</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= SHEET MUSIC SHEET ================= -->
+<dialog id="scanDlg">
+  <form class="sheet" id="scanForm">
+    <h2>Read sheet music</h2>
+    <p>Add the pages in any order; they're sorted by the page numbers printed on them. Claude reads each page and writes out every note. Pages are read two at a time; a busy page can take a minute or two. Keep each page flat, well lit and square to the camera, with the whole page in frame.</p>
+    <div class="thumbs" id="scanThumbs"></div>
+    <div class="row">
+      <label class="btn" for="camIn">Add another page</label>
+      <label class="btn ghost" for="picIn">Add from photos</label>
+    </div>
+    <div class="field"><label class="label" for="scanName">Song name</label><input id="scanName" type="text" autocomplete="off" placeholder="Read from the page if left blank"></div>
+    <div class="field">
+      <label class="label" for="scanTempo">Speed (beats per minute)</label>
+      <input id="scanTempo" type="text" inputmode="numeric" autocomplete="off" placeholder="Use the marking on the page">
+    </div>
+    <div class="field">
+      <label class="label" for="scanModel">Reader</label>
+      <select id="scanModel">
+        <option value="claude-opus-5-5">Most accurate (Claude Opus 5.5)</option>
+        <option value="claude-sonnet-5-5">Faster and cheaper (Claude Sonnet 5.5)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="scanKey">Anthropic API key</label>
+      <input id="scanKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+      <small style="color:var(--muted)">Needed once. It stays on this phone and is sent only to Anthropic. Get one at console.anthropic.com; each page usually costs a few cents.</small>
+    </div>
+    <div class="bar" id="scanBar" hidden><i></i></div>
+    <div class="status" id="scanStatus"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" type="button" id="scanCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="scanGo">Read the music</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= SOUND SHEET ================= -->
+<dialog id="soundDlg">
+  <div class="sheet">
+    <h2>Piano sound</h2>
+    <input id="soundSearch" type="text" autocomplete="off" placeholder="Search sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
+    <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
+    <div id="soundList"></div>
+    <div class="status" id="soundStatus"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button" autofocus>Done</button></div>
+  </div>
+</dialog>
+
+<!-- ================= RESULT SHEET ================= -->
+<dialog id="resDlg">
+  <div class="sheet">
+    <span class="label">Finished</span>
+    <div class="result" id="resAcc">0%</div>
+    <p id="resText"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" id="resLib" type="button">Songs</button>
+      <button class="btn primary" id="resAgain" type="button">Play again</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ============================================================
+   DG30 Song Coach
+   - Bluetooth MIDI via Web Bluetooth (direct BLE-MIDI), or Web MIDI
+   - Audio -> notes on device with Spotify Basic Pitch
+   - Falling notes, Wait / Play / Listen modes, scoring
+   ============================================================ */
+
+const APP_VERSION = "1.8";
+const BP_VER = "1.0.1";
+const BP_SOURCES = [
+  { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
+  { mod:`https://esm.sh/@spotify/basic-pitch@${BP_VER}`, model:`https://unpkg.com/@spotify/basic-pitch@${BP_VER}/model/model.json` }
+];
+const BLE_MIDI_SERVICE = "03b80e5a-ede8-4b33-a751-6ce34ec4c700";
+const BLE_MIDI_CHAR    = "7772e5db-3868-4112-a1a9-f2669d106bf3";
+const NAMES = ["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"];
+const isBlack = p => [1,3,6,8,10].includes(p % 12);
+const noteName = p => NAMES[p % 12] + (Math.floor(p / 12) - 1);
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + String(Math.floor(s%60)).padStart(2,"0"); };
+
+/* ---------------- storage (per-device) ---------------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+
+/* ---------------- song model ----------------
+   note = {t: start sec, d: duration sec, p: midi pitch, h: "R"|"L", v: velocity 1-127} */
+function packNotes(ns){ return ns.map(n => [+n.t.toFixed(3), +n.d.toFixed(3), n.p, n.h === "L" ? 0 : 1, n.v|0]); }
+function unpackNotes(a){ return a.map(x => ({t:x[0], d:x[1], p:x[2], h:x[3] ? "R" : "L", v:x[4]})); }
+
+function songMeta(id){ return store.get("dg30.songs", []).find(s => s.id === id); }
+function saveSong(meta, notes){
+  const list = store.get("dg30.songs", []).filter(s => s.id !== meta.id);
+  list.unshift(meta);
+  const ok = store.set("dg30.song." + meta.id, packNotes(notes)) && store.set("dg30.songs", list);
+  return ok;
+}
+function loadNotes(id){
+  if (id.startsWith("demo-")) return DEMOS[id].notes();
+  return unpackNotes(store.get("dg30.song." + id, []));
+}
+function deleteSong(id){
+  store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
+  store.del("dg30.song." + id); store.del("dg30.best." + id);
+}
+
+/* ---------------- demo songs (public domain) ---------------- */
+function seq(str, bpm, hand, startBeat = 0){
+  const b = 60 / bpm, out = []; let beat = startBeat;
+  for (const tok of str.trim().split(/\s+/)){
+    const [nm, len] = tok.split(":"); const L = parseFloat(len || "1");
+    if (nm !== "r"){
+      const m = nm.match(/^([A-G])(#|b)?(\d)$/);
+      const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]] + (m[2]==="#"?1:m[2]==="b"?-1:0);
+      out.push({t: beat*b, d: L*b*0.92, p: base + (parseInt(m[3])+1)*12, h: hand, v: hand==="R"?80:64});
+    }
+    beat += L;
+  }
+  return out;
+}
+const DEMOS = {
+  "demo-ode": { title:"Ode to Joy", by:"Beethoven", notes:() => [
+    ...seq("E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 E4:1.5 D4:0.5 D4:2 E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 D4:1.5 C4:0.5 C4:2", 96, "R"),
+    ...seq("C3:4 G2:4 C3:4 G2:4 C3:4 G2:4 C3:2 G2:2 C3:4", 96, "L")
+  ].sort((a,b)=>a.t-b.t) },
+  "demo-twinkle": { title:"Twinkle, Twinkle, Little Star", by:"Traditional", notes:() => [
+    ...seq("C4 C4 G4 G4 A4 A4 G4:2 F4 F4 E4 E4 D4 D4 C4:2 G4 G4 F4 F4 E4 E4 D4:2 G4 G4 F4 F4 E4 E4 D4:2 C4 C4 G4 G4 A4 A4 G4:2 F4 F4 E4 E4 D4 D4 C4:2", 100, "R"),
+    ...seq("C3:4 F3:2 C3:2 G2:2 C3:2 G2:2 C3:2 C3:2 G2:2 C3:2 G2:2 C3:2 G2:2 C3:2 G2:2 C3:4 F3:2 C3:2 G2:2 C3:2 G2:2 C3:2", 100, "L")
+  ].sort((a,b)=>a.t-b.t) }
+};
+
+/* ---------------- simplify transcribed / imported notes ---------------- */
+function simplify(raw, level, opts = {}){
+  const split = opts.split ?? 60, minDur = opts.minDur ?? 0.06;
+  let ns = raw.filter(n => n.p >= 21 && n.p <= 108 && n.d >= minDur).map(n => ({...n}))
+              .sort((a,b) => a.t - b.t || b.p - a.p);
+  // group notes that start within 50 ms into one chord and line them up
+  const groups = [];
+  for (const n of ns){
+    const g = groups[groups.length - 1];
+    if (g && n.t - g.t <= 0.05){ n.t = g.t; g.n.push(n); } else groups.push({t:n.t, n:[n]});
+  }
+  const out = [];
+  for (const g of groups){
+    for (const n of g.n) if (!n.h) n.h = n.p >= split ? "R" : "L";
+    const R = g.n.filter(n => n.h === "R").sort((a,b) => b.p - a.p);
+    const L = g.n.filter(n => n.h === "L").sort((a,b) => a.p - b.p);
+    if (level === "melody"){ if (R.length) out.push(R[0]); else if (L.length && opts.keepBassOnly) out.push(L[0]); }
+    else if (level === "easy"){ out.push(...R.slice(0, 2), ...L.slice(0, 1)); }
+    else out.push(...g.n);
+  }
+  // remove duplicate pitches in a chord and trim overlapping repeats of the same key
+  const seen = new Set(), last = new Map(), res = [];
+  for (const n of out.sort((a,b) => a.t - b.t || b.p - a.p)){
+    const key = n.t + ":" + n.p; if (seen.has(key)) continue; seen.add(key);
+    const prev = last.get(n.p);
+    if (prev && prev.t + prev.d > n.t - 0.02) prev.d = Math.max(0.05, n.t - prev.t - 0.02);
+    last.set(n.p, n); res.push(n);
+  }
+  return res;
+}
+
+/* ---------------- audio -> notes (Basic Pitch) ---------------- */
+let bpLib = null;
+async function loadBasicPitch(){
+  if (bpLib) return bpLib;
+  let lastErr;
+  for (const src of BP_SOURCES){
+    try { const lib = await import(src.mod); bpLib = {lib, model: src.model}; return bpLib; }
+    catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error("Could not load the note converter.");
+}
+async function transcribe(file, sensitivity, onProgress, onStatus){
+  onStatus("Loading the note converter (first time takes a moment)…");
+  const {lib, model} = await loadBasicPitch();
+  onStatus("Reading the audio…");
+  const arr = await file.arrayBuffer();
+  const tmp = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = await tmp.decodeAudioData(arr); tmp.close();
+  if (buf.duration > 15 * 60) throw new Error("That file is over 15 minutes. Try a shorter clip.");
+  const off = new OfflineAudioContext(1, Math.ceil(buf.duration * 22050), 22050);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  const mono = await off.startRendering();
+  onStatus("Listening for notes… keep this screen open.");
+  const bp = new lib.BasicPitch(model);
+  const frames = [], onsets = [], contours = [];
+  await bp.evaluateModel(mono, (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c); }, p => onProgress(p));
+  // sensitivity 1..9 → onset threshold 0.7..0.3
+  const onsetT = 0.7 - (sensitivity - 1) * 0.05, frameT = 0.4 - (sensitivity - 1) * 0.0225;
+  const evs = lib.noteFramesToTime(lib.addPitchBendsToNoteEvents(contours, lib.outputToNotesPoly(frames, onsets, onsetT, frameT, 5)));
+  return evs.map(n => ({ t:n.startTimeSeconds, d:n.durationSeconds, p:n.pitchMidi, v: Math.max(30, Math.min(120, Math.round(n.amplitude * 127))) }));
+}
+
+/* ---------------- MIDI file import / export ---------------- */
+function readMidiFile(arrBuf){
+  const MidiCls = window.Midi && (window.Midi.Midi || window.Midi);
+  if (!MidiCls) throw new Error("The MIDI reader didn't load. Check your connection and reload.");
+  const midi = new MidiCls(arrBuf);
+  const tracks = midi.tracks.filter(t => t.notes.length && t.channel !== 9);
+  if (!tracks.length) throw new Error("No piano notes found in that MIDI file.");
+  let handOf = () => null;
+  if (tracks.length === 2){
+    const avg = t => t.notes.reduce((s,n)=>s+n.midi,0) / t.notes.length;
+    const rightT = avg(tracks[0]) >= avg(tracks[1]) ? tracks[0] : tracks[1];
+    handOf = t => t === rightT ? "R" : "L";
+  }
+  const notes = [];
+  for (const t of tracks) for (const n of t.notes)
+    notes.push({t:n.time, d:n.duration, p:n.midi, v:Math.round(n.velocity*127) || 80, h:handOf(t)});
+  return notes.sort((a,b) => a.t - b.t);
+}
+function downloadMidi(title, notes){
+  const MidiCls = window.Midi && (window.Midi.Midi || window.Midi);
+  if (!MidiCls) return;
+  const m = new MidiCls(); m.header.name = title;
+  const r = m.addTrack(), l = m.addTrack(); r.name = "Right hand"; l.name = "Left hand";
+  for (const n of notes) (n.h === "L" ? l : r).addNote({midi:n.p, time:n.t, duration:n.d, velocity:n.v/127});
+  const blob = new Blob([m.toArray()], {type:"audio/midi"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = title.replace(/[^\w\- ]+/g, "").trim() + ".mid"; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* ---------------- phone synth ---------------- */
+let actx = null;
+function audioCtx(){ if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
+const synthVoices = new Map();
+function synthOn(p, v){
+  const a = audioCtx(), t = a.currentTime, f = 440 * Math.pow(2, (p - 69) / 12);
+  const g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter();
+  o1.type = "triangle"; o2.type = "sine"; o1.frequency.value = f; o2.frequency.value = f * 2;
+  lp.type = "lowpass"; lp.frequency.value = Math.min(9000, f * 6);
+  const peak = 0.18 * (v / 127);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(peak * 0.35, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0008, t + 3.5);
+  const g2 = a.createGain(); g2.gain.value = 0.3;
+  o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(a.destination);
+  o1.start(t); o2.start(t); o1.stop(t + 3.6); o2.stop(t + 3.6);
+  synthOff(p); synthVoices.set(p, {g, o1, o2});
+}
+function synthOff(p){
+  const s = synthVoices.get(p); if (!s || !actx) return;
+  const t = actx.currentTime; s.g.gain.cancelScheduledValues(t); s.g.gain.setTargetAtTime(0, t, 0.06);
+  try { s.o1.stop(t + 0.4); s.o2.stop(t + 0.4); } catch(e){}
+  synthVoices.delete(p);
+}
+
+/* ---------------- piano connection ---------------- */
+const conn = { kind:null, name:"", midiOut:null, bleChar:null, bleDev:null, outMode: store.get("dg30.out", "piano") };
+const bleQueue = { pending:[], busy:false };
+
+function setConnected(kind, name){
+  conn.kind = kind; conn.name = name;
+  $("connPill").classList.toggle("on", !!kind);
+  $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano";
+  $("connStatus").textContent = kind ? "Connected: " + (name || kind) : "";
+}
+
+// BLE-MIDI packet parser (Bluetooth LE MIDI spec)
+function parseBleMidi(d, emit){
+  let i = 1, status = 0;
+  const len = d.length;
+  const dataLen = s => { const hi = s & 0xF0; return (hi === 0xC0 || hi === 0xD0) ? 1 : (s >= 0xF0 ? 0 : 2); };
+  while (i < len){
+    let b = d[i];
+    if (b & 0x80){                       // timestamp byte
+      i++; if (i >= len) break; b = d[i];
+      if (b & 0x80){                     // status byte
+        if (b === 0xF0){ while (i < len && d[i] !== 0xF7) i++; i++; continue; }
+        if (b >= 0xF0){ i++; continue; }
+        status = b; i++;
+      }
+    }
+    if (!status){ i++; continue; }
+    const n = dataLen(status); if (i + n > len) break;
+    emit(status, d[i], n > 1 ? d[i+1] : 0); i += n;
+  }
+}
+function handleMidi(status, d1, d2){
+  const hi = status & 0xF0;
+  if (hi === 0xB0 && d1 === 32){ soundState.pendingBank = d2; return; }
+  if (hi === 0xC0){ onProgramFromPiano(d1); return; }
+  if (hi === 0x90 && d2 > 0) onKeyDown(d1, d2);
+  else if (hi === 0x80 || (hi === 0x90 && d2 === 0)) onKeyUp(d1);
+}
+
+async function connectBle(showAll){
+  const st = $("connStatus");
+  if (!navigator.bluetooth){ st.textContent = "This browser can't use Bluetooth. Open the page in Chrome on Android from its https:// address."; return; }
+  try {
+    st.textContent = "Choose your piano in the list…";
+    const dev = await navigator.bluetooth.requestDevice(showAll === true
+      ? { acceptAllDevices:true, optionalServices:[BLE_MIDI_SERVICE] }
+      : { filters:[{services:[BLE_MIDI_SERVICE]}, {namePrefix:"DG"}, {namePrefix:"Kawai"}, {namePrefix:"KAWAI"}], optionalServices:[BLE_MIDI_SERVICE] });
+    st.textContent = "Connecting to " + (dev.name || "piano") + "…";
+    const server = await dev.gatt.connect();
+    const svc = await server.getPrimaryService(BLE_MIDI_SERVICE);
+    const ch = await svc.getCharacteristic(BLE_MIDI_CHAR);
+    await ch.startNotifications();
+    ch.addEventListener("characteristicvaluechanged", e => {
+      const v = e.target.value; parseBleMidi(new Uint8Array(v.buffer, v.byteOffset, v.byteLength), handleMidi);
+    });
+    dev.addEventListener("gattserverdisconnected", () => { if (conn.bleDev === dev){ conn.bleChar = null; setConnected(null); toast("Piano disconnected"); } });
+    stopMic(); conn.bleDev = dev; conn.bleChar = ch; conn.midiOut = null;
+    setConnected("ble", dev.name || "DG30");
+  } catch(e){
+    if (/service|GATT/i.test(e.message || "")){ st.textContent = "That device doesn't offer Bluetooth MIDI. Pick the entry for your piano's MIDI, often named DG30 or KAWAI."; return; }
+    st.textContent = e.name === "NotFoundError" ? "No piano chosen. If the list was empty: turn Bluetooth MIDI on at the piano, close PianoRemote, allow Chrome the Nearby devices permission, then try “Show all Bluetooth devices”." : "Couldn't connect: " + e.message;
+  }
+}
+function bleSend(bytes){
+  if (!conn.bleChar) return;
+  bleQueue.pending.push(bytes); pumpBle();
+}
+async function pumpBle(){
+  if (bleQueue.busy || !bleQueue.pending.length || !conn.bleChar) return;
+  bleQueue.busy = true;
+  const ts = Math.floor(performance.now()) & 0x1FFF;
+  const pkt = [0x80 | ((ts >> 7) & 0x3F)];
+  while (bleQueue.pending.length && pkt.length + 4 <= 20){ pkt.push(0x80 | (ts & 0x7F), ...bleQueue.pending.shift()); }
+  try {
+    const ch = conn.bleChar, data = new Uint8Array(pkt);
+    if (ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(data); else await ch.writeValue(data);
+  } catch(e){ /* drop on busy */ }
+  bleQueue.busy = false;
+  if (bleQueue.pending.length) pumpBle();
+}
+
+async function connectMidi(){
+  const st = $("connStatus");
+  if (!navigator.requestMIDIAccess){ st.textContent = "This browser doesn't support MIDI. Use Chrome."; return; }
+  try {
+    const acc = await navigator.requestMIDIAccess({sysex:false});
+    const wire = () => {
+      const ins = [...acc.inputs.values()], outs = [...acc.outputs.values()];
+      ins.forEach(inp => inp.onmidimessage = e => { const d = e.data; if (d.length >= 2) handleMidi(d[0], d[1], d[2] || 0); });
+      const pick = list => list.find(p => /kawai|dg|piano/i.test(p.name)) || list[0] || null;
+      conn.midiOut = pick(outs);
+      if (ins.length){ stopMic(); conn.bleChar = null; setConnected("midi", (pick(ins) || {}).name || "MIDI"); }
+      else st.textContent = "No MIDI devices found. For Bluetooth, use “Find my piano” instead.";
+    };
+    acc.onstatechange = wire; wire();
+  } catch(e){ st.textContent = "MIDI access was blocked: " + e.message; }
+}
+
+/* microphone pitch detection (monophonic) */
+const mic = { stream:null, timer:null, an:null, buf:null, cur:-1, cand:-1, candN:0, lastRms:0 };
+function detectPitch(buf, sr){
+  let size = buf.length, rms = 0;
+  for (let i = 0; i < size; i++) rms += buf[i]*buf[i];
+  rms = Math.sqrt(rms / size);
+  if (rms < 0.012) return {f:-1, rms};
+  let r1 = 0, r2 = size - 1; const th = 0.2;
+  for (let i = 0; i < size/2; i++) if (Math.abs(buf[i]) < th){ r1 = i; break; }
+  for (let i = 1; i < size/2; i++) if (Math.abs(buf[size-i]) < th){ r2 = size - i; break; }
+  const b = buf.slice(r1, r2); size = b.length;
+  const c = new Float32Array(size);
+  for (let i = 0; i < size; i++) for (let j = 0; j < size - i; j++) c[i] += b[j]*b[j+i];
+  let d = 0; while (d < size - 1 && c[d] > c[d+1]) d++;
+  let maxv = -1, maxp = -1;
+  for (let i = d; i < size; i++) if (c[i] > maxv){ maxv = c[i]; maxp = i; }
+  if (maxp <= 0) return {f:-1, rms};
+  let T0 = maxp; const x1 = c[T0-1], x2 = c[T0], x3 = c[T0+1];
+  const a = (x1 + x3 - 2*x2)/2, bb = (x3 - x1)/2; if (a) T0 = T0 - bb/(2*a);
+  const f = sr / T0; return {f: (f > 26 && f < 4200) ? f : -1, rms};
+}
+async function startMic(){
+  const st = $("connStatus");
+  if (!navigator.mediaDevices?.getUserMedia){ st.textContent = "The microphone isn't available here. Open the page from its https:// address."; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+    const a = audioCtx(); const src = a.createMediaStreamSource(stream);
+    const an = a.createAnalyser(); an.fftSize = 2048; src.connect(an);
+    Object.assign(mic, {stream, an, buf:new Float32Array(an.fftSize), cur:-1, cand:-1, candN:0, lastRms:0});
+    mic.timer = setInterval(() => {
+      mic.an.getFloatTimeDomainData(mic.buf);
+      const {f, rms} = detectPitch(mic.buf, a.sampleRate);
+      if (f < 0){ if (mic.cur >= 0){ onKeyUp(mic.cur); mic.cur = -1; } mic.candN = 0; mic.lastRms = rms; return; }
+      const p = Math.round(69 + 12 * Math.log2(f / 440));
+      if (p === mic.cand) mic.candN++; else { mic.cand = p; mic.candN = 1; }
+      const reattack = p === mic.cur && rms > mic.lastRms * 1.8 && rms > 0.03;
+      if ((mic.candN === 2 && p !== mic.cur) || reattack){
+        if (mic.cur >= 0) onKeyUp(mic.cur);
+        mic.cur = p; onKeyDown(p, 90, true);
+      }
+      mic.lastRms = rms;
+    }, 28);
+    conn.bleChar = null; conn.midiOut = null; setConnected("mic", "Microphone");
+  } catch(e){ st.textContent = "Microphone permission was declined."; }
+}
+function stopMic(){
+  if (mic.timer) clearInterval(mic.timer); mic.timer = null;
+  if (mic.stream) mic.stream.getTracks().forEach(t => t.stop()); mic.stream = null;
+}
+
+/* sound out: piano speakers, phone, or silent */
+function noteOut(p, v, on){
+  if (conn.outMode === "off") return;
+  if (conn.outMode === "piano" && (conn.midiOut || conn.bleChar)){
+    const msg = on ? [0x90, p, v] : [0x80, p, 0];
+    if (conn.midiOut) conn.midiOut.send(msg); else bleSend(msg);
+    return;
+  }
+  if (on) synthOn(p, v); else synthOff(p);
+}
+
+/* ---------------- DG30 sounds (Kawai DG30 MIDI manual, Multi-timbral Off) ----------------
+   Sounds are numbered in order: bank = floor(i/128) sent as Bank Select LSB (CC32), program = i % 128. */
+const SOUND_GROUPS = [
+  ["Pianos", "SK ConcertGrand|EX ConcertGrand|SK-5 GrandPiano|Studio Grand|Studio Grand 2|Mellow Grand|Mellow Grand 2|Upright Piano|Standard Grand|Pop Grand|Upright Piano 2|Modern Piano|Upright Piano 3|Honky Tonk", true],
+  ["Electric pianos", "Classic E.Piano|60's E.P.|Modern E.P.|Electric Grand|Classic E.P. 2|Classic E.P. 3|Modern E.P. 2", true],
+  ["Organs", "Jazz Organ|Blues Organ|Ballad Organ|Gospel Organ|Church Organ|Mellow Flutes|Medium Ensemble|Loud Ensemble", true],
+  ["Harpsichord & mallets", "Harpsichord|Vibraphone|Clavi|Marimba|Celesta|Music Box OctUP", true],
+  ["Strings & choir", "Slow Strings|String Pad|Warm Strings|String Ensemble|Choir|Choir 2|New Age|Atmosphere", true],
+  ["Bass", "Wood Bass|Electric Bass|Fretless Bass|W. Bass & Ride", true],
+  ["More pianos", "Jazz Grand|Studio Grand 3|Mellow Grand 3|Rock Piano|New Age Piano|New Age Piano 2|New Age Piano 3|Piano Octaves|Wide Honky Tonk"],
+  ["More electric pianos", "Electric Grand2|Dolce E.P.|Crystal E.P.|Tremolo E.P.|Classic E.P. 4|Classic E.P. 5|New Age E.P.|Modern E.P. 3|Modern E.P. 4|Legend E.P.|Phase E.P."],
+  ["More harpsichord & mallets", "Harpsichord wTC|Harpsichord 2|Harpsichord Oct|WideHarpsichord|Synth Clavi|Glockenspiel|Music Box|Toy Piano|Wide Vibraphone|Wide Marimba|Xylophone|Handbells|Tubular Bells|Church Bells|Carillon|Dulcimer"],
+  ["More organs", "Drawbar Organ|Drawbar Organ 2|Drawbar Organ 3|Drawbar Organ 4|Drawbar Organ 5|Jazzer|Soft Solo|ElectronicOrgan|60's Organ|Perc. Organ|Tibia Bass|Rock Organ|Principal Oct.|Soft Diapason|Soft Strings|Bright Ensemble|Full Organ|Reed Ensemble|Diapason|Full Ensemble|Diapason Oct.|Theater Organ|8' Celeste|Small Ensemble|Reeds|Chiffy Tibia|Principal Pipe|Church Organ 2|Church Organ 3|Reed Organ|Puff Organ"],
+  ["Accordion & harmonica", "FrenchAccordion|Fr. Accordion 2|Accordion|Accordion 2|Blues Harmonica|Harmonica|Tango Accordion"],
+  ["Guitar", "FingerNylon Gtr|Nylon Acoustic|Nylon Acoustic2|Nylon Acoustic3|Ukulele|Ballad Guitar|Steel Guitar|Steel Guitar 2|12 String|Mandolin|Jazz Guitar|Pedal Steel|Rhythm Guitar|Electric Guitar|E. Guitar 2|E. Guitar 3|Muted Electric|Cutting Guitar|Country Lead|OverdriveGuitar|Dynmic Ov.drive|Distortion|Dist Feedback|Dist Rhythm|E.Gtr Harmonics|Guitar Feedback"],
+  ["More bass", "Wood Bass 2|Wood Bass 3|Wood Bass 4|Electric Bass 2|Electric Bass 3|FingerSlap Bass|Pick Bass|Slap Bass|Slap Bass 2|Synth Bass|Synth Bass 2|Synth Bass 3|Synth Bass 4|Warm Synth Bass|Clavi Bass|Hammer Bass|Rubber Bass|Attack Bass"],
+  ["Strings & orchestra", "Violin|Slow Violin|Viola|Cello|Contrabass|Tremolo Strings|Strings & Brass|60's Strings|Strings sf.|StringEnsemble2|Synth Strings|Synth Strings 2|Synth Strings 3|Pizzicato|Harp|Celtic Harp|Timpani"],
+  ["Choir & hits", "Choir 3|Voice Oohs|Humming|DoReMi #|DoReMi b|Synth Vocal|Analog Voice|Orchestra Hit|Bass Hit Plus|6th Hit|Euro Hit"],
+  ["Brass", "Trumpet|Solo Trumpet|Flugel Horn|SentimentalBone|Trombone|Trombone 2|Bright Trombone|Tuba|CupMute Trumpet|CupMuteTrombone|Muted Trumpet|Muted Trumpet 2|French Horns|Warm FrenchHorn|Brass Section|Brass Section 2|Synth Brass|Synth Brass 2|Synth Brass 3|Synth Brass 4|Jump Brass|Analog Brass|Analog Brass 2"],
+  ["Reeds & flutes", "Oboe & Strings|Soprano Sax|Alto Sax|Soft Tenor Sax|Tenor Sax|Baritone Sax|Oboe|English Horn|Bassoon|Clarinet|Flute & Strings|Piccolo|Jazz Flute|Big Band Winds|OrchestralWinds|Flute|Ballad Flute|Recorder|Pan Flute|Blown Bottle|Shakuhachi|Whistle|Ocarina"],
+  ["Synth lead", "Square|Square 2|Sine|Classic Synth|Classic Synth 2|Lead|Classic Synth 3|SequencedAnalog|Caliope|Chiff|Charang|Wire Lead|Voice|Fifth|Bass & Lead|Soft Wire Lead"],
+  ["Synth pads & effects", "Itopia|New Age 2|New Age 3|New Age 4|Warm Pad|Sine Pad|Bright Warm Pad|Polysynth|Choir Pad|Bowed Pad|Metallic Pad|Halo Pad|Sweep Pad|Multi Sweep|Rain Pad|Soundtrack|Crystal|Synth Mallet|Brightness|Brightness 2|Goblin|Echoes|Echo Bell|Echo Pan|Sci-Fi"],
+  ["World", "Sitar|Sitar 2|Banjo|Shamisen|Koto|Taisho Koto|Kalimba|Bag Pipe|Fiddle|Shanai"],
+  ["Percussion & sound effects", "Tinkle Bell|Agogo|Steel Drums|Woodblock|Castanet|Taiko Drums|Concert BD|Melodic Toms|Melodic Toms 2|Synth Drum|Rhythm Box Tom|Electric Drum|Reverse Cymbal|Gtr Fret Noise|GtrCuttingNoise|CuttingNoise 2|Ac Bass Slap|Breath Noise|Flute Key Click|Seashore|Rain|Thunder|Wind|Stream|Bubble|Bird Tweet|Dog Barking|Horse Gallop|Bird Tweet 2|Cat&Dog&Harp|Telephone|Telephone 2|Door Creak|Door Slam|Scratch|Wind Chime|Helicopter|Car Engine|Car Stopping|Car Passing|Car Crash|Siren|Train|Jet Plane|Starship|Burst Noise|Applause|Laughing|Screaming|Punch|Heartbeat|Foot Step|Gunshot|Machine Gun|Laser Gun|Explosion"],
+  ["Drum kits", "Standard Set|Room Set|Power Set|Electronic Set|Analog Set|Jazz Set|Brush Set|Orchestra Set|SFX Set"]
+];
+const SOUNDS = []; // {i, name, group, main}
+for (const [group, names, main] of SOUND_GROUPS) for (const name of names.split("|")) SOUNDS.push({i: SOUNDS.length, name, group, main: !!main});
+const soundState = { cur: store.get("dg30.sound", null), pendingBank: 0 };
+
+function sendMidi(bytes){
+  if (conn.midiOut){ conn.midiOut.send(bytes); return true; }
+  if (conn.bleChar){ bleSend(bytes); return true; }
+  return false;
+}
+function selectSound(i, quiet){
+  const s = SOUNDS[i]; if (!s) return;
+  const bank = Math.floor(i / 128), prog = i % 128;
+  const ok = sendMidi([0xB0, 32, bank]) && sendMidi([0xC0, prog]);
+  soundState.cur = i; store.set("dg30.sound", i); renderSoundLabel();
+  if (!quiet) $("soundStatus").textContent = ok ? "Piano set to " + s.name : "Connect the piano first, then pick a sound.";
+  renderSoundList();
+}
+function onProgramFromPiano(prog){
+  const i = soundState.pendingBank * 128 + prog;
+  if (SOUNDS[i]){ soundState.cur = i; store.set("dg30.sound", i); renderSoundLabel(); if ($("soundDlg").open) renderSoundList(); }
+}
+function renderSoundLabel(){
+  const s = SOUNDS[soundState.cur];
+  $("soundBtn").title = s ? "Sound: " + s.name : "Piano sound";
+  $("setSoundName").textContent = s ? s.name : "Not set from this app yet";
+}
+function renderSoundList(){
+  const q = $("soundSearch").value.trim().toLowerCase(), box = $("soundList");
+  box.textContent = "";
+  let lastGroup = null;
+  for (const s of SOUNDS){
+    if (q ? !(s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q)) : (!s.main && !$("soundAll").checked)) continue;
+    if (s.group !== lastGroup){ const h = document.createElement("div"); h.className = "label sgroup"; h.textContent = s.group; box.appendChild(h); lastGroup = s.group; }
+    const b = document.createElement("button"); b.type = "button"; b.className = "snd"; b.textContent = s.name;
+    b.setAttribute("aria-pressed", String(s.i === soundState.cur));
+    b.onclick = () => selectSound(s.i);
+    box.appendChild(b);
+  }
+  if (!box.children.length){ const p = document.createElement("p"); p.textContent = "No sounds match."; box.appendChild(p); }
+}
+function openSounds(){ $("soundStatus").textContent = conn.midiOut || conn.bleChar ? "" : "Connect the piano first to change its sound."; renderSoundList(); $("soundDlg").showModal(); }
+
+/* ---------------- practice engine ---------------- */
+const P = {
+  song:null, notes:[], steps:[], len:0, t:0, playing:false, waiting:false,
+  mode:"wait", hands:"B", tempo:0.75, stepIdx:0, noteIdx:0, sounding:[],
+  correct:0, total:0, wrong:0, streak:0, best:0,
+  pressed:new Map(), flashes:[], lastFrame:0, wake:null
+};
+const handOn = h => P.hands === "B" || P.hands === h;
+
+function buildSteps(notes){
+  const steps = [];
+  for (const n of notes){
+    let s = steps[steps.length - 1];
+    if (!s || n.t - s.t > 0.06){ s = {t:n.t, req:new Set(), hit:new Set(), notes:[], done:false, ok:false}; steps.push(s); }
+    s.notes.push(n); if (handOn(n.h)) s.req.add(n.p);
+  }
+  return steps;
+}
+function resetRun(fromT){
+  allNotesOff();
+  P.steps = buildSteps(P.notes);
+  P.total = P.steps.filter(s => s.req.size).length;
+  P.correct = 0; P.wrong = 0; P.streak = 0; P.bestStreak = 0; P.waiting = false;
+  const first = P.notes.length ? P.notes[0].t : 0;
+  P.t = fromT == null ? first - 2 : fromT;
+  P.stepIdx = P.steps.findIndex(s => s.t >= P.t - 0.01); if (P.stepIdx < 0) P.stepIdx = P.steps.length;
+  for (let i = 0; i < P.stepIdx; i++) P.steps[i].done = true;
+  P.noteIdx = P.notes.findIndex(n => n.t >= P.t); if (P.noteIdx < 0) P.noteIdx = P.notes.length;
+  updateStats();
+}
+function allNotesOff(){ for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; }
+
+function resolveStep(s, ok){
+  s.done = true; s.ok = ok; P.stepIdx++;
+  if (s.req.size){ if (ok){ P.correct++; P.streak++; P.bestStreak = Math.max(P.bestStreak || 0, P.streak); } else P.streak = 0; }
+  P.waiting = false; updateStats();
+}
+function currentStep(){
+  while (P.stepIdx < P.steps.length){
+    const s = P.steps[P.stepIdx];
+    if (s.req.size === 0 && (P.mode !== "play" || P.t >= s.t)){ s.done = true; P.stepIdx++; continue; }
+    return s;
+  }
+  return null;
+}
+function onKeyDown(p, v, fromMic){
+  P.pressed.set(p, {t:performance.now(), state:"neutral"});
+  if (practiceVisible() && conn.kind !== "mic" && conn.outMode === "phone" && !(conn.midiOut || conn.bleChar)) synthOn(p, v);
+  if (!P.playing || P.mode === "listen") return;
+  const s = currentStep(); if (!s) return;
+  const lead = s.t - P.t, win = P.mode === "wait" ? 0.5 : 0.25;
+  if (lead <= win && lead >= -0.3){
+    let m = s.req.has(p) ? p : null;
+    if (m == null && fromMic) for (const q of s.req) if ((q - p) % 12 === 0){ m = q; break; }
+    if (m != null){
+      s.hit.add(m); P.pressed.get(p).state = "good";
+      if ([...s.req].every(q => s.hit.has(q))) resolveStep(s, true);
+      return;
+    }
+  }
+  P.wrong++; P.streak = 0; P.pressed.get(p).state = "bad"; updateStats();
+}
+function onKeyUp(p){
+  const k = P.pressed.get(p); if (k){ P.flashes.push({p, state:k.state, t:performance.now()}); P.pressed.delete(p); }
+  if (conn.outMode === "phone" && !(conn.midiOut || conn.bleChar) && conn.kind !== "mic") synthOff(p);
+}
+
+function step(now){
+  const dt = Math.min(0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
+  if (P.playing){
+    let nt = P.t + dt * P.tempo;
+    if (P.mode === "wait"){
+      const s = currentStep();
+      if (s && nt >= s.t){ nt = s.t; if (!P.waiting){ P.waiting = true; } }
+    }
+    P.t = nt;
+    // play notes the app should voice (Listen mode, or the hand you're not practicing)
+    while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
+      const n = P.notes[P.noteIdx++];
+      if (P.mode === "listen" || !handOn(n.h)){ noteOut(n.p, n.v, true); P.sounding.push({p:n.p, end:n.t + n.d}); }
+    }
+    P.sounding = P.sounding.filter(s => { if (s.end <= P.t){ noteOut(s.p, 0, false); return false; } return true; });
+    // timing mode: missed chords
+    if (P.mode === "play"){
+      let s; while ((s = currentStep()) && s.t < P.t - 0.3) resolveStep(s, false);
+    }
+    if (P.mode === "listen"){ while (P.stepIdx < P.steps.length && P.steps[P.stepIdx].t <= P.t){ P.steps[P.stepIdx].done = true; P.stepIdx++; } }
+    if (P.t > P.len + 1 && !currentStep()) finish();
+    syncScrub();
+  }
+  draw();
+  requestAnimationFrame(step);
+}
+
+function updateStats(){
+  const done = P.correct + P.steps.slice(0, P.stepIdx).filter(s => s.req.size && !s.ok).length;
+  $("sAcc").textContent = done ? Math.round(100 * P.correct / done) + "%" : "–";
+  $("sStreak").textContent = P.streak; $("sWrong").textContent = P.wrong;
+}
+function syncScrub(){
+  if (document.activeElement !== $("seek")) $("seek").value = P.len ? Math.round(1000 * Math.max(0, P.t) / P.len) : 0;
+  $("timeOut").textContent = fmt(P.t) + " / " + fmt(P.len);
+}
+function setPlaying(on){
+  P.playing = on; $("playBtn").innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
+  if (!on) allNotesOff(); else audioCtx();
+  keepAwake();
+}
+function finish(){
+  setPlaying(false);
+  if (P.mode === "listen" || !P.total){ resetRun(); return; }
+  const acc = Math.round(100 * P.correct / P.total);
+  const key = "dg30.best." + P.song.id, best = store.get(key, 0);
+  if (acc > best) store.set(key, acc);
+  $("resAcc").textContent = acc + "%";
+  $("resText").textContent = `${P.correct} of ${P.total} notes and chords right, ${P.wrong} wrong key${P.wrong===1?"":"s"}, longest streak ${P.bestStreak || 0}. ` +
+    (acc > best ? "That's your best on this song." : `Your best is ${best}%.`);
+  $("resDlg").showModal();
+}
+
+/* ---------------- keep the screen on + full screen ---------------- */
+let wakeLock = null;
+async function keepAwake(){
+  if (document.hidden) return;
+  // 1) Screen Wake Lock API
+  if ("wakeLock" in navigator && !wakeLock){
+    try { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    catch(e){ wakeLock = null; }
+  }
+  // 2) Backup for phones that ignore it: a silent 16-pixel looping video keeps Chrome awake
+  const v = $("keepAwake");
+  if (v && v.paused){ v.play().catch(() => {}); }
+}
+function isFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+const installedApp = () => matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches;
+async function enterFullscreen(){
+  const el = document.documentElement;
+  if (installedApp() && matchMedia("(display-mode: fullscreen)").matches){ try { await screen.orientation?.lock?.("landscape"); } catch(e){} return; } // already full screen, no Chrome notice
+  if (!store.get("dg30.autoFs", true) && !enterFullscreen.manual) return;
+  try {
+    if (!isFullscreen()){
+      if (el.requestFullscreen) await el.requestFullscreen({navigationUI:"hide"});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+    if (screen.orientation?.lock) await screen.orientation.lock("landscape").catch(() => {});
+  } catch(e){}
+}
+function exitFullscreen(){
+  try { if (isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch(e){}
+}
+document.addEventListener("fullscreenchange", () => { $("fsBtn").innerHTML = isFullscreen() ? "&#x2715;" : "&#x26F6;"; $("fsBtn").setAttribute("aria-label", isFullscreen() ? "Exit full screen" : "Full screen"); setTimeout(() => practiceVisible() && layout(), 150); });
+// any tap in the app re-arms keep-awake (browsers need a tap before the backup video can play)
+["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, keepAwake, {passive:true}));
+
+/* ---------------- drawing ---------------- */
+const cv = $("cv"), cx = cv.getContext("2d");
+let L = null;
+function practiceVisible(){ return !$("practice").hidden; }
+function layout(){
+  const r = cv.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1);
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = r.width, H = r.height;
+  let lo = 108, hi = 21;
+  for (const n of P.notes){ if (n.p < lo) lo = n.p; if (n.p > hi) hi = n.p; }
+  if (lo > hi){ lo = 48; hi = 72; }
+  lo -= 2; hi += 2;
+  while (hi - lo < 24){ lo--; hi++; }
+  lo = Math.max(21, lo); hi = Math.min(108, hi);
+  while (isBlack(lo)) lo--; while (isBlack(hi)) hi++;
+  const whites = []; for (let p = lo; p <= hi; p++) if (!isBlack(p)) whites.push(p);
+  const ww = W / whites.length, kbH = Math.max(70, Math.min(170, H * 0.26, ww * 6));
+  const keys = new Map(); let wi = 0;
+  for (let p = lo; p <= hi; p++){
+    if (!isBlack(p)){ keys.set(p, {x: wi * ww, w: ww, black:false}); wi++; }
+    else { const bw = ww * 0.6; keys.set(p, {x: wi * ww - bw / 2, w: bw, black:true}); }
+  }
+  L = {W, H, kbH, hitY: H - kbH, ww, keys, lo, hi, pps: Math.max(90, (H - kbH) / 3.2)};
+}
+function rr(x, y, w, h, r){ r = Math.min(r, w/2, h/2); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let C = {};
+function readColors(){ C = {bg:css("--lacquer"), panel:css("--panel"), line:css("--line"), ivory:css("--ivory"), muted:css("--muted"), chrome:css("--chrome"), R:css("--right"), L:css("--left"), good:css("--good"), bad:css("--bad")}; }
+
+function draw(){
+  if (!practiceVisible() || !L) return;
+  const {W, H, kbH, hitY, keys, pps} = L, now = performance.now();
+  cx.fillStyle = C.bg; cx.fillRect(0, 0, W, H);
+  // octave guide lines at each C
+  cx.strokeStyle = C.line; cx.lineWidth = 1;
+  for (const [p, k] of keys) if (p % 12 === 0){ cx.beginPath(); cx.moveTo(k.x + .5, 0); cx.lineTo(k.x + .5, hitY); cx.stroke(); }
+  // falling notes
+  const cur = P.steps[P.stepIdx], horizon = P.t + hitY / pps;
+  cx.font = "600 11px " + css("--f-body"); cx.textAlign = "center"; cx.textBaseline = "bottom";
+  for (const n of P.notes){
+    if (n.t > horizon) break;
+    if (n.t + n.d < P.t - 0.3) continue;
+    const k = keys.get(n.p); if (!k) continue;
+    const y1 = hitY - (n.t - P.t) * pps, y0 = y1 - Math.max(n.d * pps, 8);
+    const active = handOn(n.h), col = n.h === "L" ? C.L : C.R;
+    const isCur = cur && cur.notes.includes(n) && active;
+    cx.globalAlpha = active ? 1 : 0.28;
+    cx.fillStyle = col; rr(k.x + 1.5, y0, k.w - 3, y1 - y0, Math.min(6, k.w / 3)); cx.fill();
+    if (isCur && P.waiting){
+      cx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 160);
+      cx.strokeStyle = C.ivory; cx.lineWidth = 2; cx.stroke();
+    }
+    cx.globalAlpha = 1;
+    if (active && k.w >= 13 && y1 - y0 >= 16 && y1 > 14){ cx.fillStyle = C.bg; cx.fillText(NAMES[n.p % 12], k.x + k.w / 2, Math.min(y1, hitY) - 3); }
+  }
+  // hit line
+  cx.fillStyle = C.chrome; cx.globalAlpha = 0.9; cx.fillRect(0, hitY - 2, W, 2); cx.globalAlpha = 1;
+  // keyboard
+  const expect = new Map();
+  if (cur && P.mode !== "listen" && cur.t - P.t < 0.6) for (const n of cur.notes) if (handOn(n.h) && !cur.hit.has(n.p)) expect.set(n.p, n.h);
+  for (const s of P.sounding) if (!expect.has(s.p)) expect.set(s.p, "S");
+  const keyFill = (p, k) => {
+    const pr = P.pressed.get(p);
+    if (pr) return pr.state === "good" ? C.good : pr.state === "bad" ? C.bad : C.chrome;
+    const fl = P.flashes.find(f => f.p === p && now - f.t < 180);
+    if (fl && fl.state === "bad") return C.bad;
+    if (expect.has(p)){ const h = expect.get(p); return h === "L" ? C.L : h === "R" ? C.R : C.muted; }
+    return k.black ? "#0b0908" : C.ivory;
+  };
+  for (const [p, k] of keys) if (!k.black){
+    cx.fillStyle = keyFill(p, k); rr(k.x + 0.75, hitY, k.w - 1.5, kbH - 2, 4); cx.fill();
+    if (p % 12 === 0 && k.w >= 14){ cx.fillStyle = "#6b6157"; cx.font = "500 10px " + css("--f-mono"); cx.textBaseline = "bottom"; cx.fillText(noteName(p), k.x + k.w / 2, H - 6); }
+  }
+  for (const [p, k] of keys) if (k.black){
+    cx.fillStyle = keyFill(p, k); rr(k.x, hitY, k.w, kbH * 0.62, 3); cx.fill();
+  }
+  P.flashes = P.flashes.filter(f => now - f.t < 300);
+  // banner
+  const b = $("banner");
+  let msg = "";
+  if (!P.playing) msg = conn.kind ? "Press play" : "Connect your piano to start";
+  else if (P.mode === "wait" && P.waiting && cur) msg = "Play " + [...cur.req].filter(q => !cur.hit.has(q)).sort((a,b)=>a-b).map(noteName).join(" + ");
+  else if (P.t < (P.notes[0]?.t ?? 0)) msg = "Get ready…";
+  b.hidden = !msg; b.textContent = msg;
+}
+
+/* ---------------- library UI ---------------- */
+function allSongs(){
+  const mine = store.get("dg30.songs", []);
+  const demos = Object.entries(DEMOS).map(([id, d]) => ({id, title:d.title, by:d.by, demo:true}));
+  return [...mine, ...demos];
+}
+function renderLibrary(){
+  const box = $("songs"); box.textContent = "";
+  for (const s of allSongs()){
+    const notes = s.demo ? loadNotes(s.id) : null;
+    const count = s.count ?? notes.length, len = s.len ?? (notes.length ? notes[notes.length-1].t + notes[notes.length-1].d : 0);
+    const best = store.get("dg30.best." + s.id, null);
+    const el = document.createElement("div"); el.className = "song";
+    const h = document.createElement("h3"); h.textContent = s.title;
+    if (s.demo){ const t = document.createElement("span"); t.className = "tag"; t.textContent = "SAMPLE"; h.appendChild(t); }
+    const meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = `${fmt(len)} · ${count} notes` + (s.src === "sheet" ? " · sheet music" : s.level ? ` · ${({melody:"melody", easy:"easy", full:"every note"})[s.level]}` : "") + (best != null ? ` · best ${best}%` : "");
+    const acts = document.createElement("div"); acts.className = "acts";
+    const go = document.createElement("button"); go.className = "go"; go.type = "button"; go.textContent = "Practice"; go.onclick = () => openPractice(s.id);
+    acts.appendChild(go);
+    if (!s.demo){
+      const dl = document.createElement("button"); dl.type = "button"; dl.textContent = "MIDI"; dl.title = "Save as a MIDI file";
+      dl.onclick = () => downloadMidi(s.title, loadNotes(s.id));
+      const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
+      del.onclick = () => { if (del.dataset.arm){ deleteSong(s.id); renderLibrary(); } else { del.dataset.arm = 1; del.textContent = "Sure?"; setTimeout(() => { if (del.isConnected){ delete del.dataset.arm; del.textContent = "Delete"; } }, 3000); } };
+      acts.append(dl, del);
+    }
+    el.append(h, meta, acts); box.appendChild(el);
+  }
+}
+
+/* ---------------- MusicXML import ---------------- */
+function loadScript(src){
+  return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => bad(new Error("Failed to load " + src)); document.head.appendChild(s); });
+}
+async function readMusicXmlFile(file){
+  let text;
+  if (/\.mxl$/i.test(file.name)){
+    if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    let path = null;
+    const cont = zip.file("META-INF/container.xml");
+    if (cont){ const m = (await cont.async("string")).match(/full-path="([^"]+)"/); if (m) path = m[1]; }
+    if (!path) path = Object.keys(zip.files).find(n => /\.(xml|musicxml)$/i.test(n) && !n.startsWith("META-INF"));
+    if (!path) throw new Error("That .mxl file has no score inside.");
+    text = await zip.file(path).async("string");
+  } else text = await file.text();
+  return parseMusicXml(text);
+}
+function parseMusicXml(text){
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.querySelector("parsererror") || !doc.querySelector("part")) throw new Error("That file isn't a readable MusicXML score.");
+  const STEP = {C:0, D:2, E:4, F:5, G:7, A:9, B:11};
+  let bpm = null;
+  const snd = doc.querySelector("sound[tempo]"); if (snd) bpm = parseFloat(snd.getAttribute("tempo"));
+  if (!bpm){ const pm = doc.querySelector("metronome per-minute"); if (pm) bpm = parseFloat(pm.textContent); }
+  if (!bpm || !isFinite(bpm)) bpm = 90;
+  const spq = 60 / bpm;                    // seconds per quarter note
+  const parts = [...doc.querySelectorAll("part")];
+  const notes = [];
+  const title = (doc.querySelector("work-title")?.textContent || doc.querySelector("movement-title")?.textContent || "").trim();
+  parts.forEach((part, pi) => {
+    let div = 1, time = 0, lastStart = 0, staves = 1;
+    const openTies = new Map();
+    for (const meas of part.querySelectorAll(":scope > measure")){
+      for (const el of meas.children){
+        const tag = el.tagName;
+        if (tag === "attributes"){
+          const d = el.querySelector("divisions"); if (d) div = parseFloat(d.textContent) || div;
+          const st = el.querySelector("staves"); if (st) staves = parseInt(st.textContent) || staves;
+        } else if (tag === "backup"){ time -= parseFloat(el.querySelector("duration")?.textContent || 0) / div; }
+        else if (tag === "forward"){ time += parseFloat(el.querySelector("duration")?.textContent || 0) / div; }
+        else if (tag === "note"){
+          if (el.querySelector("grace")) continue;
+          const dur = parseFloat(el.querySelector("duration")?.textContent || 0) / div;
+          const isChord = !!el.querySelector("chord");
+          const start = isChord ? lastStart : time;
+          if (!isChord){ lastStart = time; time += dur; }
+          const pitch = el.querySelector("pitch"); if (!pitch || el.querySelector("rest")) continue;
+          const midi = STEP[pitch.querySelector("step").textContent.trim()] + Math.round(parseFloat(pitch.querySelector("alter")?.textContent || 0)) + (parseInt(pitch.querySelector("octave").textContent) + 1) * 12;
+          const ties = [...el.querySelectorAll(":scope > tie")].map(t => t.getAttribute("type"));
+          const staff = parseInt(el.querySelector("staff")?.textContent || "1");
+          const hand = staves > 1 ? (staff >= 2 ? "L" : "R") : (parts.length > 1 ? (pi === 0 ? "R" : "L") : null);
+          if (ties.includes("stop") && openTies.has(midi)){
+            const n = openTies.get(midi); n.qd += dur;
+            if (!ties.includes("start")) openTies.delete(midi);
+            continue;
+          }
+          const n = {qs:start, qd:dur, p:midi, h:hand, v:80};
+          notes.push(n); if (ties.includes("start")) openTies.set(midi, n);
+        }
+      }
+    }
+  });
+  if (!notes.length) throw new Error("No notes found in that score.");
+  return { title, bpm, notes: notes.map(n => ({t:n.qs * spq, d:Math.max(0.08, n.qd * spq * 0.95), p:n.p, h:n.h, v:n.v})).sort((a,b) => a.t - b.t) };
+}
+
+/* ---------------- sheet music photos → notes (Claude) ---------------- */
+const scan = { pages: [] };
+async function shrinkImage(file, maxSide = 2000){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("Couldn't open that photo.")); i.src = url; });
+    const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    const g = c.getContext("2d"); g.filter = "grayscale(1) contrast(1.15)"; g.drawImage(img, 0, 0, c.width, c.height);
+    const dataUrl = c.toDataURL("image/jpeg", 0.88);
+    return { dataUrl, b64: dataUrl.split(",")[1] };
+  } finally { URL.revokeObjectURL(url); }
+}
+function renderThumbs(){
+  const box = $("scanThumbs"); box.textContent = "";
+  scan.pages.forEach((pg, i) => {
+    const f = document.createElement("figure");
+    const im = document.createElement("img"); im.src = pg.dataUrl; im.alt = "Page " + (i + 1);
+    const cap = document.createElement("figcaption"); cap.textContent = "p" + (i + 1);
+    const x = document.createElement("button"); x.type = "button"; x.textContent = "✕"; x.setAttribute("aria-label", "Remove page " + (i + 1));
+    x.onclick = () => { scan.pages.splice(i, 1); renderThumbs(); };
+    f.append(im, cap, x); box.appendChild(f);
+  });
+  $("scanGo").disabled = !scan.pages.length;
+}
+async function addScanPages(files){
+  if (!files.length) return;
+  if (!$("scanDlg").open){
+    scan.pages = []; $("scanName").value = ""; $("scanTempo").value = ""; $("scanStatus").textContent = ""; $("scanBar").hidden = true;
+    $("scanKey").value = store.get("dg30.apikey", ""); $("scanModel").value = store.get("dg30.scanModel", "claude-opus-5-5");
+    $("scanGo").disabled = false; $("scanDlg").showModal();
+  }
+  for (const f of files){ try { scan.pages.push(await shrinkImage(f)); } catch(e){ $("scanStatus").textContent = e.message; } }
+  renderThumbs();
+}
+$("camIn").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; addScanPages(fs); });
+$("picIn").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; addScanPages(fs); });
+$("scanCancel").onclick = () => $("scanDlg").close();
+
+const SCAN_PROMPT = `You are an expert music engraver. This image is ONE page of piano sheet music. Transcribe every note on this page so a practice app can play it.
+
+Rules:
+- Treble staff = right hand R, bass staff = left hand L (single staff: R).
+- Apply clef changes, the key signature and accidentals (they last to the end of the measure; naturals cancel). Write pitches like C#4, Bb3, F##4. Middle C is C4. Handwritten letter names on the page may help you check pitches.
+- Number the measures on this page 1, 2, 3… in order, starting at the first measure on this page.
+- Beat = position inside the measure in quarter notes, starting at 0. Length is in quarter notes (eighth 0.5, dotted half 3, triplet eighth 0.3333, sixteenth 0.25).
+- Merge tied notes into one longer note. Skip rests. Notes of a chord share the same beat. Rolled chords: play all notes together.
+- Write repeats on this page out in full only if both repeat signs are on this page.
+- If something is hard to read, make your best musical guess and keep going. Never stop early.
+
+Reply in exactly this plain-text format, nothing else:
+PAGE <the page number printed on this page, usually in a top or bottom corner, as a plain number; if the only numbering is a footer like "Song - 4 - 2" meaning page 2 of 4, use that; if there is none, ->
+TITLE <title if printed on this page, otherwise ->
+TEMPO <quarter notes per minute from the tempo marking, or ->
+TIME <time signature at the start of this page, e.g. 4/4>
+MEASURES <number of measures on this page>
+then one line per note: <measure> <beat> <length> <pitch> <hand>
+e.g.
+1 0 0.3333 G#3 R
+1 0 4 C#3 L
+END`;
+
+function pitchToMidi(name){
+  const m = String(name).trim().match(/^([A-Ga-g])\s*(##|bb|#|b|♯|♭|x)?\s*(-?\d)$/);
+  if (!m) return null;
+  const acc = {"#":1, "♯":1, "x":2, "##":2, "b":-1, "♭":-1, "bb":-2}[m[2] || ""] || 0;
+  return {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1].toUpperCase()] + acc + (parseInt(m[3]) + 1) * 12;
+}
+// Parse one page's plain-text reply → {title, tempo, beatsPerMeasure, measures, notes:[{m,b,d,p,h}]}
+function parsePageText(text){
+  const out = {page:null, title:"", tempo:null, beatsPerMeasure:4, measures:0, notes:[]};
+  for (const raw of text.split(/\r?\n/)){
+    const line = raw.trim(); if (!line) continue;
+    let m;
+    if ((m = line.match(/^PAGE\s+(\d+)/i))){ out.page = parseInt(m[1]); continue; }
+    if (/^PAGE\b/i.test(line)) continue;
+    if ((m = line.match(/^TITLE\s+(.+)$/i))){ if (m[1].trim() !== "-") out.title = m[1].trim(); continue; }
+    if ((m = line.match(/^TEMPO\s+([\d.]+)/i))){ out.tempo = parseFloat(m[1]); continue; }
+    if ((m = line.match(/^TIME\s+(\d+)\s*\/\s*(\d+)/i))){ out.beatsPerMeasure = parseInt(m[1]) * 4 / parseInt(m[2]); continue; }
+    if (/^TIME\s+C\|?$/i.test(line)){ out.beatsPerMeasure = /\|/.test(line) ? 2 * 2 : 4; continue; }
+    if ((m = line.match(/^MEASURES\s+(\d+)/i))){ out.measures = parseInt(m[1]); continue; }
+    if ((m = line.match(/^(\d+)\s+([\d.]+)\s+([\d.]+)\s+([A-Ga-g](?:##|bb|#|b|♯|♭|x)?-?\d)\s+([RL])\b/))){
+      const p = pitchToMidi(m[4]); const d = parseFloat(m[3]);
+      if (p != null && d > 0) out.notes.push({m:parseInt(m[1]), b:parseFloat(m[2]), d, p, h:m[5].toUpperCase()});
+    }
+  }
+  return out;
+}
+// Join pages end to end and convert beats to seconds
+function pagesToNotes(pages, bpmOverride){
+  const tempo = bpmOverride || pages.map(p => p.tempo).find(t => t > 20 && t < 320) || 72;
+  const spq = 60 / tempo, notes = [];
+  let offset = 0;
+  for (const pg of pages){
+    const bpm = pg.beatsPerMeasure || 4;
+    let end = (pg.measures || 0) * bpm;
+    for (const n of pg.notes){
+      const s = offset + (n.m - 1) * bpm + n.b;
+      notes.push({t: s * spq, d: Math.max(0.08, n.d * spq * 0.95), p: n.p, h: n.h, v: 80});
+      end = Math.max(end, (n.m - 1) * bpm + n.b + n.d);
+    }
+    offset += end;
+  }
+  return {tempo, notes: notes.sort((a,b) => a.t - b.t)};
+}
+// One page → Claude, streamed so long answers don't time out
+async function readOnePage(page, model, key, onNotes){
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "content-type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+    body: JSON.stringify({ model, max_tokens:32000, stream:true, messages:[{role:"user", content:[
+      {type:"image", source:{type:"base64", media_type:"image/jpeg", data:page.b64}},
+      {type:"text", text:SCAN_PROMPT}
+    ]}] })
+  });
+  if (!res.ok){
+    const body = await res.json().catch(() => ({})), msg = body?.error?.message || res.statusText;
+    if (res.status === 401) throw new Error("That API key wasn't accepted. Check it at console.anthropic.com.");
+    if (/credit|balance/i.test(msg)) throw new Error("Your Anthropic account is out of credit. Add credit at console.anthropic.com.");
+    if (res.status === 404 || /model/i.test(msg)) throw new Error("That reader isn't available on your API account. Switch the Reader setting and try again. (" + msg + ")");
+    if (res.status === 429 || res.status === 529) throw new Error("Claude is busy right now. Wait a minute and try again.");
+    throw new Error("Claude couldn't read it: " + msg);
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = "", text = "", stop = null;
+  for (;;){
+    const {done, value} = await reader.read(); if (done) break;
+    buf += dec.decode(value, {stream:true});
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0){
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith("data:")) continue;
+      let ev; try { ev = JSON.parse(line.slice(5)); } catch(e){ continue; }
+      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta"){ text += ev.delta.text; onNotes((text.match(/\n\d+\s+[\d.]+\s/g) || []).length); }
+      else if (ev.type === "message_delta" && ev.delta?.stop_reason) stop = ev.delta.stop_reason;
+      else if (ev.type === "error") throw new Error(ev.error?.type === "overloaded_error" ? "Claude is busy right now. Wait a minute and try again." : "Claude stopped: " + (ev.error?.message || "unknown error"));
+    }
+  }
+  const page_ = parsePageText(text);
+  page_.cutOff = stop === "max_tokens";
+  return page_;
+}
+// Put pages in printed page order. Falls back to the order you added them if numbers are missing or repeated.
+function orderPages(pages){
+  pages.forEach((p, i) => p.added = i + 1);
+  const nums = pages.map(p => p.page);
+  const allNumbered = nums.every(n => Number.isInteger(n)) && new Set(nums).size === nums.length;
+  const sorted = allNumbered ? [...pages].sort((a, b) => a.page - b.page) : [...pages];
+  sorted.orderedBy = allNumbered ? "page" : "added";
+  sorted.reordered = allNumbered && sorted.some((p, i) => p.added !== i + 1);
+  return sorted;
+}
+async function readSheetMusic(pages, model, key, onStatus, onTick){
+  const results = new Array(pages.length), counts = new Array(pages.length).fill(0), done = new Array(pages.length).fill(false);
+  const show = () => {
+    const finished = done.filter(Boolean).length, total = counts.reduce((a,b) => a + b, 0);
+    onStatus(`Reading page${pages.length > 1 ? "s" : ""}: ${finished} of ${pages.length} done · ${total} notes so far`);
+    onTick(Math.min(0.97, (finished + counts.reduce((a, c, i) => a + (done[i] ? 0 : Math.min(0.9, c / 500)), 0)) / pages.length));
+  };
+  show();
+  let next = 0, failure = null;
+  const worker = async () => {
+    while (next < pages.length && !failure){
+      const i = next++;
+      try {
+        results[i] = await readOnePage(pages[i], model, key, c => { counts[i] = c; show(); });
+        if (!results[i].notes.length) throw new Error(`Page ${i + 1} came back with no notes. Retake it flatter and brighter, with the whole page in frame.`);
+        done[i] = true; show();
+      } catch(e){ failure = failure || (pages.length > 1 && !/Page \d/.test(e.message) ? new Error(`Page ${i + 1}: ` + e.message) : e); }
+    }
+  };
+  await Promise.all([worker(), worker()]);       // two pages at a time
+  if (failure) throw failure;
+  onTick(1);
+  return orderPages(results);
+}
+$("scanForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (!scan.pages.length) return;
+  const key = $("scanKey").value.trim(), model = $("scanModel").value, st = $("scanStatus"), go = $("scanGo"), bar = $("scanBar");
+  if (!/^sk-ant-/.test(key)){ st.textContent = "Paste your Anthropic API key first. It starts with sk-ant-."; $("scanKey").focus(); return; }
+  store.set("dg30.apikey", key); store.set("dg30.scanModel", model); $("setKey").value = key; $("setKeyStatus").textContent = "Key saved";
+  go.disabled = true; bar.hidden = false; bar.firstElementChild.style.width = "0%";
+  if ("wakeLock" in navigator) keepAwake();
+  try {
+    const pages = await readSheetMusic(scan.pages, model, key, m => st.textContent = m, p => bar.firstElementChild.style.width = Math.round(p * 100) + "%");
+    const bpmIn = parseFloat($("scanTempo").value);
+    const joined = pagesToNotes(pages, isFinite(bpmIn) && bpmIn > 0 ? bpmIn : null);
+    const notes = simplify(joined.notes, "full", {minDur:0.03});
+    if (!notes.length) throw new Error("No notes were found. Try a sharper, brighter photo.");
+    const t0 = notes[0].t; if (t0 > 1) notes.forEach(n => n.t -= t0 - 1);
+    const last = notes[notes.length - 1];
+    const title = $("scanName").value.trim() || pages.map(p => p.title).find(Boolean) || "Scanned music";
+    const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", count:notes.length, len:last.t + last.d, added:Date.now() };
+    if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+    const cut = pages.findIndex(p => p.cutOff);
+    const orderNote = pages.length < 2 ? "" : pages.orderedBy === "page"
+      ? (pages.reordered ? ` Put in page order ${pages.map(p => p.page).join(", ")}.` : "")
+      : " Couldn't read page numbers on every page, so pages were kept in the order you added them.";
+    $("scanDlg").close(); renderLibrary();
+    toast(cut >= 0 ? `Added “${title}”. Page ${cut + 1} was too long to finish; its end may be missing.` : `Added “${title}” (${notes.length} notes at ${Math.round(joined.tempo)} bpm).${orderNote} Use Listen to check it.`);
+  } catch(err){ st.textContent = /Failed to fetch|NetworkError|network/i.test(err.message) ? "Couldn't reach Anthropic. Check your internet connection and keep the screen on while it reads." : err.message; go.disabled = false; }
+});
+
+/* ---------------- import flow ---------------- */
+let pending = null, impLevel = "easy";
+const LVL_HELP = { melody:"Just the tune, right hand only. Best place to start.", easy:"Up to two notes in the right hand and one bass note in the left.", full:"Everything the converter heard. Can be busy for full songs." };
+function setSeg(segId, v){ $(segId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v))); }
+$("fileIn").addEventListener("change", e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (/\.(musicxml|xml|mxl)$/i.test(f.name)){
+    readMusicXmlFile(f).then(sc => {
+      const notes = simplify(sc.notes, "full", {minDur:0.03});
+      const last = notes[notes.length - 1];
+      const meta = { id:"s" + Date.now().toString(36), title: sc.title || f.name.replace(/\.[^.]+$/, ""), level:"full", src:"sheet", count:notes.length, len:last.t + last.d, added:Date.now() };
+      if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+      renderLibrary(); toast(`Added “${meta.title}”`);
+    }).catch(err => toast(err.message));
+    return;
+  }
+  const isMidi = /\.midi?$/i.test(f.name) || /midi/.test(f.type);
+  pending = {file:f, isMidi};
+  $("impName").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  impLevel = isMidi ? "full" : "easy"; setSeg("lvlSeg", impLevel); $("lvlHelp").textContent = LVL_HELP[impLevel];
+  $("sensField").hidden = isMidi; $("impBar").hidden = true; $("impStatus").textContent = "";
+  $("impGo").disabled = false; $("impGo").textContent = isMidi ? "Add song" : "Convert to notes";
+  $("impDlg").showModal();
+});
+$("lvlSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; impLevel = b.dataset.v; setSeg("lvlSeg", impLevel); $("lvlHelp").textContent = LVL_HELP[impLevel]; });
+$("impCancel").onclick = () => $("impDlg").close();
+$("impForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (!pending) return;
+  const go = $("impGo"), st = $("impStatus"), bar = $("impBar");
+  go.disabled = true;
+  try {
+    let raw;
+    if (pending.isMidi) raw = readMidiFile(await pending.file.arrayBuffer());
+    else {
+      bar.hidden = false; bar.firstElementChild.style.width = "0%";
+      raw = await transcribe(pending.file, +$("sens").value, p => { bar.firstElementChild.style.width = Math.round(p * 100) + "%"; }, m => st.textContent = m);
+    }
+    const notes = simplify(raw, impLevel);
+    if (!notes.length) throw new Error("No notes were found. Try “More notes” or a cleaner piano or melody track.");
+    const t0 = notes[0].t; if (t0 > 1.5) notes.forEach(n => n.t -= t0 - 1);  // trim long silent intros
+    const last = notes[notes.length - 1];
+    const meta = { id: "s" + Date.now().toString(36), title: $("impName").value.trim() || "Untitled song", level: impLevel, count: notes.length, len: last.t + last.d, added: Date.now() };
+    if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+    $("impDlg").close(); renderLibrary(); toast(`Added “${meta.title}”`);
+  } catch(err){
+    console.error(err);
+    st.textContent = /import|fetch|module|Failed to load/i.test(String(err && err.message)) ?
+      "The note converter couldn't load. Check your internet connection. Or convert the file at basicpitch.spotify.com and add the MIDI file it gives you." :
+      (err.message || String(err));
+    go.disabled = false;
+  }
+});
+
+/* ---------------- practice UI ---------------- */
+function openPractice(id){
+  const meta = allSongs().find(s => s.id === id); if (!meta) return;
+  P.song = meta; P.notes = loadNotes(id).sort((a,b) => a.t - b.t);
+  const last = P.notes[P.notes.length - 1]; P.len = last ? last.t + last.d : 0;
+  $("pTitle").textContent = meta.title;
+  $("library").hidden = true; $("practice").hidden = false;
+  readColors(); resetRun(); layout(); syncScrub(); setPlaying(false);
+  enterFullscreen(); keepAwake();
+}
+function closePractice(){
+  setPlaying(false); $("practice").hidden = true; $("library").hidden = false; renderLibrary();
+  try { screen.orientation?.unlock?.(); } catch(e){}
+  exitFullscreen();
+}
+$("backBtn").onclick = closePractice;
+$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); };
+$("restartBtn").onclick = () => { const was = P.playing; setPlaying(false); resetRun(); if (was) setPlaying(true); };
+$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.mode = b.dataset.v; setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+$("handSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.hands = b.dataset.v; setSeg("handSeg", P.hands); store.set("dg30.hands", P.hands); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+function setTempo(pct){ pct = Math.max(25, Math.min(150, Math.round(pct / 5) * 5)); P.tempo = pct / 100; $("tempoOut").textContent = pct + "%"; store.set("dg30.tempo", pct); }
+$("tempoDown").onclick = () => setTempo(P.tempo * 100 - 5);
+$("tempoUp").onclick = () => setTempo(P.tempo * 100 + 5);
+$("soundBtn").onclick = openSounds;
+$("setSoundBtn").onclick = openSounds;
+$("soundClose").onclick = () => $("soundDlg").close();
+$("soundSearch").addEventListener("input", renderSoundList);
+$("soundAll").addEventListener("change", renderSoundList);
+$("seek").addEventListener("input", e => { const was = P.playing; setPlaying(false); resetRun(P.len * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
+$("resAgain").onclick = () => { $("resDlg").close(); resetRun(); setPlaying(true); };
+$("resLib").onclick = () => { $("resDlg").close(); closePractice(); };
+
+/* ---------------- connect sheet ---------------- */
+$("connPill").onclick = () => $("connDlg").showModal();
+$("connClose").onclick = () => $("connDlg").close();
+$("bleBtn").onclick = () => connectBle(false);
+$("bleAllBtn").onclick = () => connectBle(true);
+$("midiBtn").onclick = connectMidi;
+$("micBtn").onclick = startMic;
+$("outSel").value = conn.outMode;
+$("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
+
+/* small toast via the banner on library */
+function toast(msg){
+  const t = document.createElement("div"); t.textContent = msg; t.setAttribute("role", "status");
+  Object.assign(t.style, {position:"fixed", left:"50%", bottom:"calc(env(safe-area-inset-bottom,0px) + 20px)", transform:"translateX(-50%)", background:"var(--ivory)", color:"var(--lacquer)", padding:"10px 16px", borderRadius:"999px", fontWeight:"600", zIndex:50, maxWidth:"calc(100% - 32px)"});
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+}
+
+/* ---------------- boot ---------------- */
+(function boot(){
+  if (!window.isSecureContext) $("secureWarn").hidden = false;
+  P.mode = store.get("dg30.mode", "wait"); setSeg("modeSeg", P.mode);
+  P.hands = store.get("dg30.hands", "B"); setSeg("handSeg", P.hands);
+  setTempo(store.get("dg30.tempo", 75));
+  renderSoundLabel();
+  $("verLabel").textContent = "DG30 Song Coach · version " + APP_VERSION;
+  const k = store.get("dg30.apikey", ""); $("setKey").value = k; $("setKeyStatus").textContent = k ? "Key saved" : "";
+  $("setKeySave").onclick = () => {
+    const v = $("setKey").value.trim();
+    if (!/^sk-ant-/.test(v)){ $("setKeyStatus").textContent = "That doesn't look like a key. It starts with sk-ant-."; return; }
+    $("setKeyStatus").textContent = store.set("dg30.apikey", v) ? "Key saved" : "Couldn't save on this phone.";
+  };
+  $("setKeyClear").onclick = () => { store.del("dg30.apikey"); $("setKey").value = ""; $("setKeyStatus").textContent = "Key removed"; };
+  renderLibrary();
+  window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else keepAwake(); });
+  $("fsBtn").onclick = async () => { if (isFullscreen()) exitFullscreen(); else { enterFullscreen.manual = true; await enterFullscreen(); enterFullscreen.manual = false; } };
+  if (installedApp() && matchMedia("(display-mode: fullscreen)").matches) $("fsBtn").hidden = true;
+  $("autoFs").checked = store.get("dg30.autoFs", true);
+  $("autoFs").onchange = e => store.set("dg30.autoFs", e.target.checked);
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  requestAnimationFrame(step);
+})();
+
+/* exported for testing */
+window.__coach = { SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pagesToNotes, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
+</script>
+</body>
+</html>

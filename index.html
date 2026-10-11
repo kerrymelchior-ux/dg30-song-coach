@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.13">
+<meta name="version" content="1.14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -107,6 +107,23 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
 .scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+/* Export + sheet music */
+.optbtn{text-align:left;cursor:pointer;color:inherit;font:inherit}
+.optbtn:hover{border-color:var(--chrome)}
+#sheetView{max-width:900px;margin:0 auto;padding-inline:16px;padding-block:calc(env(safe-area-inset-top,0px) + 10px) 40px;display:flex;flex-direction:column;gap:12px}
+.sheetbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sheetbar .title{flex:1 1 140px;min-width:0;font:500 20px/1.2 var(--f-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheetnote{margin:0;color:var(--muted);font-size:14px;max-width:70ch}
+#sheetPages{display:flex;flex-direction:column;gap:16px}
+.paper{background:#fff;color:#111;border-radius:6px;padding:10px 8px;overflow-x:auto}
+.paper svg{max-width:100%}
+.paper .abcjs-title{font-family:var(--f-display)}
+@media print{
+  body{background:#fff}
+  #library,#practice,.sheetbar,.sheetnote,dialog{display:none!important}
+  #sheetView{display:block!important;max-width:none;padding:0}
+  .paper{border-radius:0;padding:0;break-after:page;overflow:visible}
+}
 .thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .thumbs figure{margin:0;position:relative;flex:none}
 .thumbs img{width:76px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
@@ -210,6 +227,18 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="label" style="margin-top:10px" id="verLabel"></div>
   </section>
 </main>
+
+<!-- ================= SHEET MUSIC VIEW ================= -->
+<section id="sheetView" hidden>
+  <div class="sheetbar">
+    <button class="icon" id="sheetBack" type="button" aria-label="Back to songs">&#8592;</button>
+    <div class="title" id="sheetTitle">Sheet music</div>
+    <button class="btn" id="sheetScanBtn" type="button">Reader details</button>
+    <button class="btn primary" id="sheetPdf" type="button">Save as PDF</button>
+  </div>
+  <p class="sheetnote" id="sheetNote"></p>
+  <div id="sheetPages"></div>
+</section>
 
 <!-- ================= PRACTICE ================= -->
 <section id="practice" hidden>
@@ -347,6 +376,17 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </dialog>
 
+<!-- ================= EXPORT SHEET ================= -->
+<dialog id="expDlg">
+  <div class="sheet">
+    <h2 id="expTitle">Export</h2>
+    <button class="opt optbtn" id="expSheet" type="button"><strong>Sheet music</strong><small>See the notes as printed music, page by page, and save it as a PDF.</small></button>
+    <button class="opt optbtn" id="expMidi" type="button"><strong>MIDI file</strong><small>For other piano apps or a computer.</small></button>
+    <button class="opt optbtn" id="expScan" type="button"><strong>Reader details</strong><small>A text file of exactly what Claude read on each page. Attach it in your chat with Claude to find out why notes were missed.</small></button>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="expClose" type="button">Close</button></div>
+  </div>
+</dialog>
+
 <!-- ================= RESULT SHEET ================= -->
 <dialog id="resDlg">
   <div class="sheet">
@@ -369,7 +409,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.14";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -410,7 +450,7 @@ function loadNotes(id){
 }
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
-  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id);
+  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.transpose." + id);
 }
 
 /* ---------------- demo songs (public domain) ---------------- */
@@ -1492,9 +1532,10 @@ function renderLibrary(){
     const acts = document.createElement("div"); acts.className = "acts";
     const go = document.createElement("button"); go.className = "go"; go.type = "button"; go.textContent = "Play"; go.onclick = () => openPractice(s.id);
     acts.appendChild(go);
+    if (s.demo){ const sh = document.createElement("button"); sh.type = "button"; sh.textContent = "Sheet"; sh.onclick = () => openSheet(s.id); acts.appendChild(sh); }
     if (!s.demo){
-      const dl = document.createElement("button"); dl.type = "button"; dl.textContent = "MIDI"; dl.title = "Save as a MIDI file";
-      dl.onclick = () => downloadMidi(s.title, loadNotes(s.id));
+      const dl = document.createElement("button"); dl.type = "button"; dl.textContent = "Export"; dl.title = "Sheet music, MIDI file or reader details";
+      dl.onclick = () => openExport(s.id);
       const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
       del.onclick = () => { if (del.dataset.arm){ deleteSong(s.id); renderLibrary(); } else { del.dataset.arm = 1; del.textContent = "Sure?"; setTimeout(() => { if (del.isConnected){ delete del.dataset.arm; del.textContent = "Delete"; } }, 3000); } };
       acts.append(dl, del);
@@ -1590,7 +1631,15 @@ async function shrinkImage(file, maxSide = 2000){
     const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     const g = c.getContext("2d"); g.filter = "grayscale(1) contrast(1.15)"; g.drawImage(img, 0, 0, c.width, c.height);
     const dataUrl = c.toDataURL("image/jpeg", 0.88);
-    return { dataUrl, b64: dataUrl.split(",")[1] };
+    // zoomed halves (overlapping) so small, tightly packed notes stay sharp
+    const half = (y0, y1) => {
+      const sw = img.naturalWidth, sh = (y1 - y0) * img.naturalHeight, kk = Math.min(1, 1568 / Math.max(sw, sh));
+      const h = document.createElement("canvas"); h.width = Math.round(sw * kk); h.height = Math.round(sh * kk);
+      const hg = h.getContext("2d"); hg.filter = "grayscale(1) contrast(1.15)";
+      hg.drawImage(img, 0, y0 * img.naturalHeight, sw, sh, 0, 0, h.width, h.height);
+      return h.toDataURL("image/jpeg", 0.9).split(",")[1];
+    };
+    return { dataUrl, b64: dataUrl.split(",")[1], top: half(0, 0.56), bottom: half(0.44, 1) };
   } finally { URL.revokeObjectURL(url); }
 }
 function renderThumbs(){
@@ -1619,9 +1668,28 @@ async function addScanPages(files){
 $("camIn").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; addScanPages(fs); });
 $("picIn").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; addScanPages(fs); });
 $("scanCancel").onclick = () => $("scanDlg").close();
+function openExport(id){
+  const meta = allSongs().find(s => s.id === id); if (!meta) return;
+  $("expDlg").dataset.id = id; $("expTitle").textContent = "Export “" + meta.title + "”";
+  $("expScan").hidden = !store.get("dg30.scan." + id, null);
+  $("expDlg").showModal();
+}
+$("expClose").onclick = () => $("expDlg").close();
+$("expSheet").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").close(); openSheet(id); };
+$("expMidi").onclick = () => { const id = $("expDlg").dataset.id, m = allSongs().find(s => s.id === id); $("expDlg").close(); downloadMidi(m.title, loadNotes(id)); };
+const scanFileName = id => (allSongs().find(s => s.id === id)?.title || "song").replace(/[^\w\- ]+/g, "").trim() + " - reader details.txt";
+$("expScan").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").close(); saveTextFile(scanFileName(id), scanDetailsText(id)); };
+$("sheetBack").onclick = closeSheet;
+$("sheetPdf").onclick = () => { try { window.print(); } catch(e){ toast("Printing isn't available here. Use your browser's Share or Print menu."); } };
+$("sheetScanBtn").onclick = () => { const id = $("sheetView").dataset.id; saveTextFile(scanFileName(id), scanDetailsText(id)); };
 $("scanToSettings").onclick = () => { $("scanDlg").close(); $("settings").scrollIntoView({behavior:"smooth", block:"start"}); setTimeout(() => $("setKey").focus(), 400); };
 
 const SCAN_PROMPT = `You are an expert music engraver. This image is ONE page of sheet music for piano. It may be a piano-vocal score with a vocal staff above the two piano staves. Transcribe it so a practice app can play it and show the words.
+
+READING CAREFULLY
+- The first image is the whole page; when zoomed views of its top and bottom halves follow, use them to read every note head precisely, and number measures by the whole page. Don't count a measure twice where the halves overlap.
+- Note heads in a chord or between the staves are sometimes printed a little out of line. Place each note at the beat of the stem or chord column it belongs to, and don't skip small, cramped or slightly offset notes.
+- Before writing each measure, check it: in each staff, the notes and rests of each voice should add up to the full time signature. If they don't, look again for missed notes, dots, ties and triplet marks.
 
 NOTES
 - Transcribe the piano part: treble piano staff = R, bass piano staff = L. If there is a separate vocal or melody staff above the piano staves, do NOT write its notes (the piano part already has the tune); use it only for the lyrics. If the page has only a melody staff and no piano part, write those notes as R.
@@ -1668,7 +1736,7 @@ function pitchToMidi(name){
 }
 const PITCH_RE = "([A-Ga-g](?:##|bb|#|b|♯|♭|x)?-?\\d)";
 function parsePageText(text){
-  const out = {page:null, title:"", key:"", measures:0, times:{}, tempos:{}, repStart:new Set(), repEnd:new Set(), endings:{}, notes:[], words:[], chords:[]};
+  const out = {page:null, title:"", key:"", measures:0, times:{}, timeLabels:{}, tempos:{}, repStart:new Set(), repEnd:new Set(), endings:{}, notes:[], words:[], chords:[]};
   const timeToBeats = s => { const t = s.trim(); if (/^C\|$/i.test(t)) return 4; if (/^C$/i.test(t)) return 4; const m = t.match(/^(\d+)\s*\/\s*(\d+)$/); return m ? parseInt(m[1]) * 4 / parseInt(m[2]) : null; };
   for (const raw of text.split(/\r?\n/)){
     const line = raw.trim(); if (!line) continue;
@@ -1677,8 +1745,8 @@ function parsePageText(text){
     if ((m = line.match(/^KEY\s+(\S+)/i))){ if (m[1] !== "-") out.key = m[1]; continue; }
     if ((m = line.match(/^TITLE\s+(.+)$/i))){ if (m[1].trim() !== "-") out.title = m[1].trim(); continue; }
     if ((m = line.match(/^MEASURES\s+(\d+)/i))){ out.measures = parseInt(m[1]); continue; }
-    if ((m = line.match(/^TIME\s+(\d+)\s+(\S+)/i))){ const b = timeToBeats(m[2]); if (b) out.times[+m[1]] = b; continue; }
-    if ((m = line.match(/^TIME\s+(\S+)$/i))){ const b = timeToBeats(m[1]); if (b) out.times[1] = b; continue; }
+    if ((m = line.match(/^TIME\s+(\d+)\s+(\S+)/i))){ const b = timeToBeats(m[2]); if (b){ out.times[+m[1]] = b; out.timeLabels[+m[1]] = m[2]; } continue; }
+    if ((m = line.match(/^TIME\s+(\S+)$/i))){ const b = timeToBeats(m[1]); if (b){ out.times[1] = b; out.timeLabels[1] = m[1]; } continue; }
     if ((m = line.match(/^TEMPO\s+(\d+)\s+([\d.]+)/i))){ const v = parseFloat(m[2]); if (v > 20 && v < 320) out.tempos[+m[1]] = v; continue; }
     if ((m = line.match(/^TEMPO\s+([\d.]+)$/i))){ const v = parseFloat(m[1]); if (v > 20 && v < 320) out.tempos[1] = v; continue; }
     if ((m = line.match(/^REPEAT_START\s+(\d+)/i))){ out.repStart.add(+m[1]); continue; }
@@ -1686,7 +1754,7 @@ function parsePageText(text){
     if ((m = line.match(/^ENDING\s+(\d+)\s+(\d+)/i))){ out.endings[+m[2]] = +m[1]; continue; }
     if ((m = line.match(new RegExp("^(?:N\\s+)?(\\d+)\\s+([\\d.]+)\\s+([\\d.]+)\\s+" + PITCH_RE + "\\s+([RLrl])\\b")))){
       const p = pitchToMidi(m[4]), d = parseFloat(m[3]);
-      if (p != null && d > 0) out.notes.push({m:+m[1], b:parseFloat(m[2]), d, p, h:m[5].toUpperCase()});
+      if (p != null && d > 0) out.notes.push({m:+m[1], b:parseFloat(m[2]), d, p, h:m[5].toUpperCase(), nm:m[4]});
       continue;
     }
     if ((m = line.match(/^C\s+(\d+)\s+([\d.]+)\s+(\S+)/))){ out.chords.push({m:+m[1], b:parseFloat(m[2]), c:m[3]}); continue; }
@@ -1744,6 +1812,8 @@ async function readOnePage(page, model, key, onNotes){
     headers:{ "content-type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
     body: JSON.stringify({ model, max_tokens:32000, stream:true, messages:[{role:"user", content:[
       {type:"image", source:{type:"base64", media_type:"image/jpeg", data:page.b64}},
+      ...(page.top ? [{type:"text", text:"Zoomed view of the top half of the same page:"}, {type:"image", source:{type:"base64", media_type:"image/jpeg", data:page.top}},
+                      {type:"text", text:"Zoomed view of the bottom half of the same page (overlaps the top half a little):"}, {type:"image", source:{type:"base64", media_type:"image/jpeg", data:page.bottom}}] : []),
       {type:"text", text:SCAN_PROMPT}
     ]}] })
   });
@@ -1771,6 +1841,7 @@ async function readOnePage(page, model, key, onNotes){
     }
   }
   const page_ = parsePageText(text);
+  page_.raw = text;
   page_.cutOff = stop === "max_tokens";
   return page_;
 }
@@ -1825,6 +1896,7 @@ $("scanForm").addEventListener("submit", async e => {
     const title = $("scanName").value.trim() || pages.map(p => p.title).find(Boolean) || "Scanned music";
     const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
     if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+    store.set("dg30.scan." + meta.id, pages.map(p => ({page: p.page, text: p.raw || ""})));
     const cut = pages.findIndex(p => p.cutOff);
     const orderNote = pages.length < 2 ? "" : pages.orderedBy === "page"
       ? (pages.reordered ? ` Put in page order ${pages.map(p => p.page).join(", ")}.` : "")
@@ -1833,6 +1905,275 @@ $("scanForm").addEventListener("submit", async e => {
     toast(cut >= 0 ? `Added “${title}”. Page ${cut + 1} was too long to finish; its end may be missing.` : `Added “${title}” (${notes.length} notes${joined.lyrics.length ? ", with words" : ""}${joined.chords.length ? " and guitar chords" : ""}, tempo ${Math.round(joined.bpm)}).${orderNote} Use Listen to check it.`);
   } catch(err){ st.textContent = /Failed to fetch|NetworkError|network/i.test(err.message) ? "Couldn't reach Anthropic. Check your internet connection and keep the screen on while it reads." : err.message; go.disabled = false; }
 });
+
+/* ---------------- sheet music export ----------------
+   Rebuilds engraved sheet music from what the reader found, one block per printed page with the
+   same measure numbers, so it can be checked against the original. Drawn with abcjs. */
+const ABCJS_URL = "https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js";
+const U = 12;                                    // ABC units per quarter note (L:1/48)
+const SHARP_ORDER = ["F","C","G","D","A","E","B"], FLAT_ORDER = ["B","E","A","D","G","C","F"];
+const MAJ_FIFTHS = {C:0,G:1,D:2,A:3,E:4,B:5,"F#":6,"C#":7,F:-1,Bb:-2,Eb:-3,Ab:-4,Db:-5,Gb:-6,Cb:-7};
+const PC_NAME = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+
+function keyInfo(keyStr){
+  const k = parseKeyName(keyStr) || {root:0, minor:false};
+  const majRoot = k.minor ? (k.root + 3) % 12 : k.root;
+  let name = PC_NAME[majRoot]; if (!(name in MAJ_FIFTHS)) name = {"C#":"Db","D#":"Eb","G#":"Ab","A#":"Bb"}[name] || name;
+  let fifths = MAJ_FIFTHS[name] ?? 0;
+  const sig = {};                                // letter -> -1/0/+1 from the key signature
+  for (let i = 0; i < Math.abs(fifths); i++) sig[(fifths > 0 ? SHARP_ORDER : FLAT_ORDER)[i]] = fifths > 0 ? 1 : -1;
+  const label = PC_NAME[k.root].replace("#", "#") + (k.minor ? "m" : "");
+  return {fifths, sig, abc: (fifths < 0 ? FLAT_NAMES : SHARP_NAMES)[k.root].replace("♯","#").replace("♭","b") + (k.minor ? "m" : ""), label};
+}
+// spell a MIDI pitch for this key: letter, alteration, octave
+function spell(p, ki){
+  const pc = p % 12, oct = Math.floor(p / 12) - 1;
+  const inKey = Object.entries(ki.sig).find(([L, a]) => ({C:0,D:2,E:4,F:5,G:7,A:9,B:11}[L] + a + 12) % 12 === pc);
+  if (inKey) { const L = inKey[0], a = inKey[1]; const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[L]; return {L, a, oct: oct + (base + a < 0 ? 1 : base + a > 11 ? -1 : 0)}; }
+  const natural = {0:"C",2:"D",4:"E",5:"F",7:"G",9:"A",11:"B"}[pc];
+  if (natural) return {L:natural, a:0, oct};
+  const useFlat = ki.fifths < 0;
+  const L = useFlat ? {1:"D",3:"E",6:"G",8:"A",10:"B"}[pc] : {1:"C",3:"D",6:"F",8:"G",10:"A"}[pc];
+  return {L, a: useFlat ? -1 : 1, oct};
+}
+// keep the spelling the reader wrote (G#3 stays G#, not Ab)
+function spellName(nm){
+  const m = String(nm).match(/^([A-Ga-g])(##|bb|#|b|♯|♭|x)?(-?\d)$/); if (!m) return null;
+  return {L: m[1].toUpperCase(), a: {"#":1,"♯":1,"x":2,"##":2,"b":-1,"♭":-1,"bb":-2}[m[2] || ""] || 0, oct: parseInt(m[3])};
+}
+function abcPitch(sp, acc){
+  let s = acc === null ? "" : acc === 1 ? "^" : acc === -1 ? "_" : acc === 2 ? "^^" : acc === -2 ? "__" : "=";
+  if (sp.oct >= 5){ s += sp.L.toLowerCase() + "'".repeat(sp.oct - 5); }
+  else { s += sp.L + ",".repeat(Math.max(0, 4 - sp.oct)); }
+  return s;
+}
+const NOTE_LENS = [48, 36, 24, 18, 12, 9, 6, 3];
+function splitLen(len){ const out = []; let r = len; while (r > 0.5){ const v = NOTE_LENS.find(x => x <= r + 0.01) || 3; out.push(v); r -= v; } return out; }
+
+// one voice in one measure → ABC text. events: [{s, e, ps:[pitches], chord?, word?}] (units), nothing overlaps
+function voiceMeasureAbc(events, mlen, ki, accState, invisibleRest, marks){
+  // which beats need triplets: any boundary near 1/3 or 2/3 of a beat
+  const beats = Math.ceil(mlen / U), trip = new Array(beats).fill(false);
+  for (const ev of events) for (const x of [ev.s, ev.e]){ const b = Math.floor(x / U), r = x - b * U; if (b < beats && (Math.abs(r - 4) < 0.7 || Math.abs(r - 8) < 0.7)) trip[b] = true; }
+  const q = x => { const b = Math.min(beats - 1, Math.floor(x / U)), r = x - b * U, g = trip[b] ? 4 : 3; return Math.min(mlen, b * U + Math.round(r / g) * g); };
+  const evs = events.map(ev => ({...ev, s:q(ev.s), e:q(ev.e)})).filter(ev => ev.e > ev.s).sort((a, b) => a.s - b.s);
+  // fill gaps with rests and cut every piece at triplet-beat edges
+  const cuts = []; trip.forEach((on, b) => { if (on){ cuts.push(b * U, (b + 1) * U); } });
+  const pieces = []; let t = 0;
+  const push = (s, e, ev) => {
+    const inner = cuts.filter(x => x > s + 0.01 && x < e - 0.01).sort((x, y) => x - y);
+    let a = s; for (const x of [...inner, e]){ pieces.push({s:a, e:x, ev, first: a === s}); a = x; }
+  };
+  for (const ev of evs){ if (ev.s > t) push(t, ev.s, null); if (ev.s < t) ev.s = t; if (ev.e > ev.s) push(ev.s, ev.e, ev); t = Math.max(t, ev.e); }
+  if (t < mlen) push(t, mlen, null);
+  let out = "", i = 0;
+  const pitchesAbc = (ps, nm) => {
+    const parts = ps.map(p => { const sp = (nm && nm[p] && spellName(nm[p])) || spell(p, ki), key = sp.L + sp.oct; const cur = key in accState ? accState[key] : (ki.sig[sp.L] || 0);
+      const acc = sp.a === cur ? null : sp.a; accState[key] = sp.a; return abcPitch(sp, acc); });
+    return parts.length > 1 ? "[" + parts.join("") + "]" : parts[0];
+  };
+  const emit = (pc, writtenLen, tieNext) => {
+    let pre = "";
+    if (pc.first && pc.ev){ if (pc.ev.mark) pre += `"^${pc.ev.mark}"`; if (pc.ev.chord) pre += `"${pc.ev.chord}"`; }
+    const lens = splitLen(writtenLen);
+    lens.forEach((L, k) => {
+      if (!pc.ev) out += (invisibleRest ? "x" : "z") + L + " ";
+      else { out += (k === 0 ? pre : "") + pitchesAbc(pc.ev.ps, pc.ev.nm) + L + ((k < lens.length - 1 || tieNext) ? "-" : "") + " ";
+             if (k === 0 && pc.first && marks) marks.push(pc.ev); }
+    });
+  };
+  while (i < pieces.length){
+    const pc = pieces[i], b = Math.floor(pc.s / U);
+    if (trip[b]){
+      const grp = []; while (i < pieces.length && Math.floor(pieces[i].s / U) === b){ grp.push(pieces[i]); i++; }
+      out += `(3:2:${grp.reduce((n, g) => n + splitLen((g.e - g.s) * 1.5).length, 0)}`;
+      grp.forEach((g, k) => { const nxt = grp[k + 1] || pieces[i]; emit(g, (g.e - g.s) * 1.5, g.ev && nxt && nxt.ev === g.ev); });
+    } else { const nxt = pieces[i + 1]; emit(pc, pc.e - pc.s, pc.ev && nxt && nxt.ev === pc.ev); i++; }
+  }
+  return out.trim();
+}
+// split one staff's notes in a measure into up to 3 non-overlapping voices
+function staffVoices(notes, mlen){
+  const groups = new Map();
+  let over = false;
+  for (const n of notes){
+    const s = Math.max(0, n.b * U); let e = s + n.d * U;
+    if (e > mlen + 1.5) over = true; e = Math.min(e, mlen);
+    if (e - s < 0.6) continue;
+    const k = Math.round(s * 4) + ":" + Math.round(e * 4);
+    if (!groups.has(k)) groups.set(k, {s, e, ps:[], nm:{}}); const g0 = groups.get(k);
+    if (!g0.ps.includes(n.p)) g0.ps.push(n.p); if (n.nm) g0.nm[n.p] = n.nm;
+  }
+  const gl = [...groups.values()].sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
+  gl.forEach(g => g.ps.sort((a, b) => a - b));
+  const voices = [];
+  for (const g of gl){
+    let v = voices.find(v => v.end <= g.s + 0.3);
+    if (!v){ if (voices.length < 3){ v = {end:0, evs:[]}; voices.push(v); } else { v = voices.reduce((a, b) => a.end < b.end ? a : b); const last = v.evs[v.evs.length - 1]; if (last) last.e = Math.max(last.s + 1, g.s); } }
+    v.evs.push(g); v.end = g.e;
+  }
+  // highest voice first so stems go up on top
+  voices.sort((a, b) => avgPitch(b) - avgPitch(a));
+  return {voices: voices.map(v => v.evs), over};
+}
+const avgPitch = v => v.evs.reduce((s, g) => s + g.ps.reduce((a, b) => a + b, 0) / g.ps.length, 0) / (v.evs.length || 1);
+
+// measures: [{beats, timeLabel, bpm, notes:[{b,d,p,h}], words:[{b,w}], chords:[{b,c}]}]
+function measuresToAbc(title, keyStr, measures, opts = {}){
+  const ki = keyInfo(keyStr);
+  const R = [], Lh = [];
+  let maxR = 1, maxL = 1;
+  const per = measures.map((m, idx) => {
+    const mlen = Math.round(m.beats * U);
+    const r = staffVoices(m.notes.filter(n => n.h !== "L"), mlen), l = staffVoices(m.notes.filter(n => n.h === "L"), mlen);
+    maxR = Math.max(maxR, r.voices.length); maxL = Math.max(maxL, l.voices.length);
+    // chord symbols and a warning marker ride on the top voice
+    const top = r.voices[0] || (r.voices[0] = []);
+    for (const c of m.chords || []){
+      const s = c.b * U, cands = top.filter(e => e.s <= s + 1.5);
+      const ev = cands.length ? cands[cands.length - 1] : top[0];
+      if (ev) ev.chord = ev.chord ? ev.chord + " " + c.c : c.c;
+    }
+    const empty = !m.notes.length;
+    const warn = empty ? "no notes read" : (r.over || l.over) ? "too long for the bar" : "";
+    return {m, mlen, r, l, warn, idx};
+  });
+  const nV = {R: Math.min(3, maxR), L: Math.min(3, maxL)};
+  let head = `X:1\nT:${title.replace(/\n/g, " ")}\n`;
+  const first = measures[0] || {timeLabel:"4/4", bpm:100};
+  head += `M:${first.timeLabel || "4/4"}\nL:1/48\n${first.bpm ? `Q:1/4=${Math.round(first.bpm)}\n` : ""}`;
+  head += `%%barnumbers 1\n%%score {(R1${nV.R > 1 ? " R2" : ""}${nV.R > 2 ? " R3" : ""}) | (L1${nV.L > 1 ? " L2" : ""}${nV.L > 2 ? " L3" : ""})}\n`;
+  for (let i = 1; i <= nV.R; i++) head += `V:R${i} clef=treble${nV.R > 1 ? (i === 1 ? " stem=up" : " stem=down") : ""}\n`;
+  for (let i = 1; i <= nV.L; i++) head += `V:L${i} clef=bass${nV.L > 1 ? (i === 1 ? " stem=up" : " stem=down") : ""}\n`;
+  head += `K:${ki.abc}\n`;
+  const perLine = opts.perLine || 4;
+  let body = "";
+  for (let a = 0; a < per.length; a += perLine){
+    const chunk = per.slice(a, a + perLine);
+    for (const [st, nv] of [["R", nV.R], ["L", nV.L]]){
+      for (let v = 0; v < nv; v++){
+        let line = `[V:${st}${v + 1}] `, lyricTokens = [];
+        let prevLabel = a > 0 ? per[a - 1].m.timeLabel : first.timeLabel;
+        for (const c of chunk){
+          const voices = (st === "R" ? c.r : c.l).voices;
+          const evs = (voices[v] || []).map(e => ({...e}));
+          if (st === "R" && v === 0 && c.warn){ if (evs[0]) evs[0].mark = "⚠ " + c.warn; }
+          let pre = "";
+          if (c.m.timeLabel && c.m.timeLabel !== prevLabel) pre += `[M:${c.m.timeLabel}]`;
+          prevLabel = c.m.timeLabel || prevLabel;
+          const marks = st === "R" && v === 0 ? [] : null;
+          const txt = voiceMeasureAbc(evs.filter(e => e.ps), c.mlen, ki, {}, v > 0, marks);
+          if (st === "R" && v === 0 && !evs.length && c.warn) line += `"^⚠ ${c.warn}"`;
+          line += pre + txt + " | ";
+          if (marks){
+            for (const ev of marks){
+              const w = (c.m.words || []).find(x => Math.abs(x.b * U - ev.s) < 1.6);
+              lyricTokens.push(w ? w.w.replace(/[*_~|\\]/g, "").replace(/\s+/g, "~") : "*");
+            }
+          }
+        }
+        body += line.replace(/\|\s*$/, a + perLine >= per.length ? "|]" : "|") + "\n";
+        if (lyricTokens.some(t => t !== "*")) body += "w: " + lyricTokens.map(t => /-$/.test(t) ? t : t + " ").join("").trim() + "\n";
+      }
+    }
+  }
+  return head + body;
+}
+
+// measures for one scanned page (as the reader saw it, before repeats are played out)
+function pageToMeasures(pg, carry){
+  const out = [], maxM = Math.max(pg.measures || 0, ...pg.notes.map(n => n.m), ...pg.words.map(w => w.m), ...pg.chords.map(c => c.m), 0);
+  for (let m = 1; m <= maxM; m++){
+    if (pg.times[m]) carry.beats = pg.times[m];
+    if (pg.timeLabels && pg.timeLabels[m]) carry.label = pg.timeLabels[m];
+    if (pg.tempos[m]) carry.bpm = pg.tempos[m];
+    out.push({beats:carry.beats, timeLabel:carry.label, bpm:carry.bpm,
+      notes: pg.notes.filter(n => n.m === m), words: pg.words.filter(w => w.m === m && (w.v || 1) === 1).map(w => ({b:w.b, w:w.w})),
+      chords: pg.chords.filter(c => c.m === m).map(c => ({b:c.b, c:c.c}))});
+  }
+  return out;
+}
+// measures rebuilt from timed notes (audio, MIDI and older scans), 4/4 at the song's tempo
+function timedToMeasures(notes, lyrics, chords, bpm){
+  const spq = 60 / (bpm || 100), mq = 4, end = Math.max(0, ...notes.map(n => (n.t + n.d) / spq));
+  const count = Math.max(1, Math.ceil(end / mq)), ms = [];
+  for (let i = 0; i < count; i++) ms.push({beats:mq, timeLabel:"4/4", bpm, notes:[], words:[], chords:[]});
+  const at = t => { const q = t / spq, i = Math.min(count - 1, Math.max(0, Math.floor(q / mq))); return {i, b: q - i * mq}; };
+  for (const n of notes){
+    const {i, b} = at(n.t); let d = Math.min(n.d / spq / 0.95, mq * 2);
+    const end = b + d, beatEnd = Math.round(end);            // notes played slightly short still fill their beat
+    if (Math.abs(end - beatEnd) < 0.3 && beatEnd > b) d = beatEnd - b;
+    ms[i].notes.push({b, d, p:n.p, h:n.h || (n.p >= 60 ? "R" : "L")});
+  }
+  for (const l of lyrics || []){ const {i, b} = at(l.t); ms[i].words.push({b, w:l.w}); }
+  for (const c of chords || []){ const {i, b} = at(c.t); ms[i].chords.push({b, c:c.name}); }
+  return ms;
+}
+let abcjsLoad = null;
+function loadAbcjs(){
+  if (window.ABCJS) return Promise.resolve();
+  return abcjsLoad || (abcjsLoad = loadScript(ABCJS_URL).catch(e => { abcjsLoad = null; throw e; }));
+}
+// build the printable sheet for a song: [{heading, abc}]
+function songSheets(id){
+  const meta = allSongs().find(s => s.id === id); if (!meta) return [];
+  const scan = store.get("dg30.scan." + id, null);
+  const key = meta.key || (meta.demo ? DEMOS[id].key : "") || keyLabel(estimateKey(loadNotes(id))).replace("♯","#").replace("♭","b");
+  if (scan && scan.length){
+    const carry = {beats:4, label:"4/4", bpm:meta.bpm || 100};
+    return scan.map((s, i) => {
+      const pg = parsePageText(s.text);
+      const ms = pageToMeasures(pg, carry);
+      const head = `${meta.title}: ${s.page ? "page " + s.page : "page " + (i + 1)}`;
+      return {heading: head, abc: measuresToAbc(head, pg.key || key, ms), measures: ms.length, notes: pg.notes.length};
+    });
+  }
+  const notes = loadNotes(id), bpm = meta.bpm || (meta.demo ? DEMOS[id].bpm : 0) || estimateTempo(notes);
+  const ms = timedToMeasures(notes, loadLyrics(id), loadChords(id), bpm);
+  const pages = []; const PER = 16;
+  for (let i = 0; i < ms.length; i += PER){
+    const head = `${meta.title}${ms.length > PER ? ": part " + (i / PER + 1) : ""}`;
+    pages.push({heading: head, abc: measuresToAbc(head, key, ms.slice(i, i + PER)), measures: Math.min(PER, ms.length - i), notes: ms.slice(i, i + PER).reduce((a, m) => a + m.notes.length, 0)});
+  }
+  return pages;
+}
+async function openSheet(id){
+  const meta = allSongs().find(s => s.id === id); if (!meta) return;
+  const view = $("sheetView"), box = $("sheetPages");
+  $("sheetTitle").textContent = meta.title;
+  const hasScan = !!store.get("dg30.scan." + id, null);
+  $("sheetNote").textContent = hasScan
+    ? "This is exactly what the reader saw on each printed page, with the same measure numbers. Hold it next to your sheet music to spot missing or misplaced notes. Measures marked ⚠ need a look."
+    : meta.src === "sheet"
+      ? "This song was scanned before the app kept the reader's page-by-page results, so it's rebuilt from the notes in 4/4. Rescan it for an exact page-by-page copy."
+      : "Rebuilt from the notes the app detected, in 4/4 at the song's tempo. Rhythms are rounded to the nearest sixteenth or triplet.";
+  $("sheetScanBtn").hidden = !hasScan;
+  box.textContent = ""; view.hidden = false; $("library").hidden = true;
+  view.dataset.id = id;
+  const st = document.createElement("p"); st.className = "status"; st.textContent = "Drawing the sheet music…"; box.appendChild(st);
+  try { await loadAbcjs(); } catch(e){ st.textContent = "The sheet music drawer couldn't load. Check your internet connection and try again."; return; }
+  st.remove();
+  for (const pg of songSheets(id)){
+    const paper = document.createElement("section"); paper.className = "paper";
+    const div = document.createElement("div"); paper.appendChild(div); box.appendChild(paper);
+    try { ABCJS.renderAbc(div, pg.abc, {responsive:"resize", add_classes:true, staffwidth:740, paddingtop:6, paddingbottom:6, wrap:{minSpacing:1.6, maxSpacing:2.6, preferredMeasuresPerLine:4}}); }
+    catch(e){ div.textContent = "Couldn't draw this page: " + e.message; }
+  }
+}
+function closeSheet(){ $("sheetView").hidden = true; $("library").hidden = false; }
+function scanDetailsText(id){
+  const meta = allSongs().find(s => s.id === id), scan = store.get("dg30.scan." + id, []) || [];
+  let t = `DG30 Song Coach ${APP_VERSION}: reader results for "${meta.title}"\nReader: ${store.get("dg30.scanModel", "claude-opus-5-5")}\nSaved: ${new Date(meta.added || Date.now()).toLocaleString()}\nTempo ${meta.bpm || "?"}, key ${meta.key || "?"}\n\n`;
+  scan.forEach((s, i) => { t += `===== Page ${s.page || i + 1} =====\n${s.text.trim()}\n\n`; });
+  return t;
+}
+function saveTextFile(name, text){
+  const blob = new Blob([text], {type:"text/plain"});
+  const file = new File([blob], name, {type:"text/plain"});
+  if (navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file], title:name}).catch(() => {}); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
 
 /* ---------------- import flow ---------------- */
 let pending = null, impLevel = "easy";
@@ -2021,7 +2362,7 @@ function toast(msg){
 })();
 
 /* exported for testing */
-window.__coach = { estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
+window.__coach = { measuresToAbc, pageToMeasures, timedToMeasures, songSheets, openSheet, estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
 </script>
 </body>
 </html>

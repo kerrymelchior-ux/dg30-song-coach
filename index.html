@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.37">
+<meta name="version" content="1.38">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -432,7 +432,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
     <div class="row"><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
     <span class="status" id="backupStatus"></span>
-    <div class="row"><button class="btn ghost" id="coversBtn" type="button">Find album covers for my songs</button></div>
+    <div class="row"><button class="btn ghost" id="coversBtn" type="button">Find album covers for my songs</button><button class="btn ghost" id="lyricsAllBtn" type="button">Find lyrics for my songs</button></div>
     <small style="color:var(--muted)">Looks up a cover for every song that has an artist but no picture yet. You can change any of them with Edit.</small>
     <small style="color:var(--muted)" id="storageInfo"></small>
     <div class="warn" id="storageFix" hidden>
@@ -770,6 +770,16 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </div>
 
+<dialog id="lyrDlg" aria-labelledby="lyrH">
+  <div class="sheet">
+    <h2 id="lyrH">Lyrics timing</h2>
+    <p><span id="lyrTitle"></span>: the words come from the original recording, so they can drift from this arrangement. Shift them if they're early or late all the way through; stretch them if they start right but drift by the end.</p>
+    <div class="row" style="justify-content:space-between"><span class="label">Shift</span><div class="seg"><button type="button" id="lyrShiftDn" aria-label="Earlier">Earlier</button><button type="button" id="lyrShift" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrShiftUp" aria-label="Later">Later</button></div></div>
+    <div class="row" style="justify-content:space-between"><span class="label">Stretch</span><div class="seg"><button type="button" id="lyrStrDn">Shorter</button><button type="button" id="lyrStretch" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrStrUp">Longer</button></div></div>
+    <div class="row" style="justify-content:space-between"><button class="btn ghost" id="lyrRemove" type="button">Remove lyrics</button><span class="row"><button class="btn" id="lyrCancel" type="button">Cancel</button><button class="btn primary" id="lyrSave" type="button">Save</button></span></div>
+  </div>
+</dialog>
+
 <dialog id="rowDlg" aria-labelledby="rowTitle">
   <div class="sheet"><div class="topbar" hidden></div>
     <div class="rowhead"><div class="art" id="rowArt"></div><div><h2 id="rowTitle"></h2><p id="rowSub"></p></div></div>
@@ -788,7 +798,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.37";
+const APP_VERSION = "1.38";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1038,7 +1048,7 @@ function loadLyrics(id){
     const rh = d.notes().filter(n => n.h === "R");
     return d.words.split(" ").map((w, i) => ({t: rh[i] ? rh[i].t : 0, w}));
   }
-  return store.get("dg30.lyrics." + id, []).map(x => ({t:x[0], w:x[1]}));
+  return store.get("dg30.lyrics." + id, []).map(x => ({t:x[0], w:x[1], nl:!!x[2]}));
 }
 function buildLyricLines(lyrics){
   const lines = []; let cur = null, prev = null;
@@ -1046,7 +1056,7 @@ function buildLyricLines(lyrics){
     const text = String(l.w).trim(); if (!text) continue;
     const joins = /-$/.test(text), shown = text.replace(/-$/, "");
     const lineLen = cur ? cur.items.reduce((a, it) => a + it.text.length + 1, 0) : 0;
-    const breakHere = !cur || (prev && !prev.joins && (l.t - prev.t > 2.2 || /[.!?;:]$/.test(prev.raw) || (lineLen > 30 && /[,]$/.test(prev.raw)) || lineLen > 38));
+    const breakHere = !cur || l.nl || (prev && !prev.joins && (l.t - prev.t > 2.2 || /[.!?;:]$/.test(prev.raw) || (lineLen > 30 && /[,]$/.test(prev.raw)) || lineLen > 38));
     if (breakHere){ cur = {t0:l.t, items:[]}; lines.push(cur); }
     const it = {t:l.t, text:shown, joins, raw:text}; cur.items.push(it); prev = it;
   }
@@ -2249,10 +2259,7 @@ function drawPiano(now){
   const {W, H, kbH, hitY, keys, pps} = L;
   drawBackdrop(now, W, hitY);
   if (L.palmH){ cx.fillStyle = "#0d0b0a"; cx.fillRect(0, hitY + kbH, W, H - hitY - kbH); }
-  // octave guide lines at each C
-  cx.strokeStyle = C.line; cx.lineWidth = 1;
   const noBars = P.words || sheetView();
-  if (!noBars) for (const [p, k] of keys) if (p % 12 === 0){ cx.beginPath(); cx.moveTo(k.x + .5, 0); cx.lineTo(k.x + .5, hitY); cx.stroke(); }
   // falling notes (hidden while the words are shown)
   const cur = P.steps[P.stepIdx], horizon = P.t + hitY / pps;
   cx.font = "600 11px " + css("--f-body"); cx.textAlign = "center"; cx.textBaseline = "bottom";
@@ -2799,6 +2806,13 @@ function openRowMenu(s){
   else {
     item("edit", "Edit details", "Name, artist, picture, key and tempo", () => openEdit(s.id));
     item("export", "Export", "Sheet music, MIDI file or reader details", () => openExport(s.id));
+    const raw = store.get("dg30.lyrraw." + s.id, null);
+    if (f.lyrics && raw && raw.lines) item("lyrics", "Lyrics timing", "Shift or stretch the words to match", () => openLyricTiming(s));
+    else if (!f.lyrics) item("lyrics", "Find lyrics", raw && raw.instrumental ? "Listed as instrumental" : "Look them up online", async () => {
+      toast("Looking up lyrics…");
+      try { const r = await findLyricsFor(s); renderLibrary(); toast(r === "added" ? "Lyrics added. Tap Aa in the song to show them." : r === "instrumental" ? "That song is listed as instrumental." : "No lyrics found. Check the title and artist with Edit details."); }
+      catch(e){ toast("Couldn't reach the lyrics service. Check the connection and try again."); }
+    });
   }
   $("rowDlg").showModal();
 }
@@ -3655,7 +3669,7 @@ async function restoreFrom(file){
     savePlaylists();
     renderLibrary();
     st.textContent = added ? `Added ${added} song${added === 1 ? "" : "s"} from the backup.` : "Everything in that backup is already on this device.";
-    if (added){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true), 500); }
+    if (added){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true).finally(() => autoLyrics(true)), 500); }
   } catch(e){ st.textContent = e.message || "Couldn't read that file."; }
 }
 
@@ -4246,6 +4260,121 @@ async function autoCovers(quiet){
 }
 $("coversBtn").onclick = () => { toast("Looking for album covers…"); autoCovers(false); };
 
+/* ---------------- lyrics from LRCLIB (free, open lyrics database, no key) ----------------
+   Looked up on the phone, like album covers. Synced lyrics are timed to the original recording,
+   so lines are stretched to this arrangement's length and each word is nudged onto the nearest melody note.
+   Timing can be shifted and stretched afterwards from the song menu. */
+let lyricsRunning = false;
+const cleanTitle = t => String(t || "").replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+async function lrclibSearch(params){
+  const r = await fetch("https://lrclib.net/api/search?" + new URLSearchParams(params));
+  if (!r.ok) throw new Error("The lyrics service didn't answer (" + r.status + ").");
+  return await r.json();
+}
+async function lookupLyrics(m, songLen){
+  const title = cleanTitle(m.title), artist = (m.artist || "").split(/\s*(?:&|,| feat\.? | ft\.? | with )\s*/i)[0];
+  let res = [];
+  if (artist) res = await lrclibSearch({track_name: title, artist_name: artist});
+  if (!res.length) res = await lrclibSearch({q: (title + " " + (artist || "")).trim()});
+  if (!res.length) return null;
+  const lyr = x => x.syncedLyrics || x.plainLyrics || x.lyrics || "";
+  const withText = res.filter(x => !x.instrumental && lyr(x).trim());
+  if (!withText.length) return res.some(x => x.instrumental) ? {instrumental:true} : null;
+  const score = x => (x.syncedLyrics ? 0 : 1000) + Math.abs((x.duration || songLen) - songLen);
+  withText.sort((a, b) => score(a) - score(b));
+  const x = withText[0], lines = [];
+  if (x.syncedLyrics){
+    for (const ln of x.syncedLyrics.split(/\r?\n/)){
+      const mm = ln.match(/^\s*\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/); if (!mm) continue;
+      lines.push([+mm[1] * 60 + +mm[2], mm[3].trim()]);
+    }
+  } else {
+    const ls = lyr(x).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const dur = x.duration || songLen; ls.forEach((l, i) => lines.push([dur * 0.08 + dur * 0.85 * i / Math.max(1, ls.length), l]));
+  }
+  if (!lines.some(l => l[1])) return null;
+  return {lines, dur: x.duration || songLen, synced: !!x.syncedLyrics, name: x.trackName || x.name, artist: x.artistName || x.artist};
+}
+// turn recording-timed lines into word timings for this song
+function placeLyrics(id, raw, shift, stretch){
+  const notes = loadNotes(id).sort((a, b) => a.t - b.t); if (!notes.length) return [];
+  const end = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
+  const scale = (end / (raw.dur || end)) * (stretch || 1);
+  const mel = notes.filter(n => n.h === "R").map(n => n.t); const ons = mel.length > 20 ? mel : notes.map(n => n.t);
+  const snap = (t, lo, hi) => { let best = t, bd = 0.35; for (let i = 0; i < ons.length; i++){ const o = ons[i]; if (o < lo) continue; if (o > hi) break; const d = Math.abs(o - t); if (d < bd){ bd = d; best = o; } } return best; };
+  const out = [], L = raw.lines;
+  for (let i = 0; i < L.length; i++){
+    const text = L[i][1]; if (!text) continue;
+    const t0 = L[i][0] * scale + (shift || 0), next = i + 1 < L.length ? L[i + 1][0] * scale + (shift || 0) : t0 + 4;
+    const span = Math.min(Math.max(0.6, (next - t0) * 0.85), 7 * scale);
+    const words = text.split(/\s+/).filter(Boolean); let last = t0 - 0.01;
+    words.forEach((w, k) => {
+      let t = snap(t0 + span * k / words.length, last + 0.05, next - 0.05);
+      if (t <= last) t = last + 0.05;
+      out.push([+Math.max(0, t).toFixed(3), w, k === 0 ? 1 : 0]); last = t;
+    });
+  }
+  return out;
+}
+function setSongMeta(id, patch){
+  const list = store.get("dg30.songs", []), m = list.find(x => x.id === id); if (!m) return;
+  Object.assign(m, patch); store.set("dg30.songs", list);
+}
+async function findLyricsFor(m){
+  const notes = loadNotes(m.id); if (!notes.length) return "none";
+  const len = notes.reduce((a, n) => Math.max(a, n.t + n.d), 0);
+  const raw = await lookupLyrics(m, len);
+  store.set("dg30.lyrtried." + m.id, Date.now());
+  if (!raw) return "none";
+  if (raw.instrumental){ store.set("dg30.lyrraw." + m.id, {instrumental:true}); return "instrumental"; }
+  const adj = {shift:0, stretch:1};
+  store.set("dg30.lyrraw." + m.id, {...raw, ...adj});
+  const words = placeLyrics(m.id, raw, 0, 1);
+  if (!words.length || !(await store.setAsync("dg30.lyrics." + m.id, words))) return "none";
+  setSongMeta(m.id, {words:true});
+  return "added";
+}
+async function autoLyrics(quiet, force){
+  if (lyricsRunning || navigator.onLine === false) return;
+  lyricsRunning = true; const tally = {added:0, instrumental:0, none:0}; let err = null;
+  try {
+    for (const m of store.get("dg30.songs", [])){
+      if (store.get("dg30.lyrics." + m.id, []).length) continue;
+      if (!force && store.get("dg30.lyrtried." + m.id, null)) continue;
+      try { tally[await findLyricsFor(m)]++; renderLibrary(); }
+      catch(e){ err = e; if (/fetch|network/i.test(e.message)) break; }
+    }
+  } finally { lyricsRunning = false; }
+  if (!quiet){
+    if (err && !tally.added) toast("Couldn't reach the lyrics service. Check the connection and try again.");
+    else toast(`Added lyrics to ${tally.added} song${tally.added === 1 ? "" : "s"}.` + (tally.instrumental ? ` ${tally.instrumental} ${tally.instrumental === 1 ? "is" : "are"} instrumental.` : "") + (tally.none ? ` No lyrics found for ${tally.none}.` : ""));
+  }
+}
+$("lyricsAllBtn").onclick = () => { toast("Looking up lyrics…"); autoLyrics(false, true); };
+// timing adjustments
+function openLyricTiming(s){
+  const raw = store.get("dg30.lyrraw." + s.id, null); if (!raw || !raw.lines) return;
+  let shift = raw.shift || 0, stretch = raw.stretch || 1;
+  const show = () => { $("lyrShift").textContent = (shift > 0 ? "+" : "") + shift.toFixed(1) + " s"; $("lyrStretch").textContent = Math.round(stretch * 100) + "%"; };
+  $("lyrTitle").textContent = s.title; show();
+  $("lyrShiftDn").onclick = () => { shift = Math.round((shift - 0.5) * 10) / 10; show(); };
+  $("lyrShiftUp").onclick = () => { shift = Math.round((shift + 0.5) * 10) / 10; show(); };
+  $("lyrStrDn").onclick = () => { stretch = Math.max(0.5, Math.round((stretch - 0.02) * 100) / 100); show(); };
+  $("lyrStrUp").onclick = () => { stretch = Math.min(1.5, Math.round((stretch + 0.02) * 100) / 100); show(); };
+  $("lyrSave").onclick = async () => {
+    store.set("dg30.lyrraw." + s.id, {...raw, shift, stretch});
+    await store.setAsync("dg30.lyrics." + s.id, placeLyrics(s.id, raw, shift, stretch));
+    $("lyrDlg").close(); toast("Lyrics timing saved");
+  };
+  $("lyrRemove").onclick = () => {
+    store.del("dg30.lyrics." + s.id); store.del("dg30.lyrraw." + s.id); setSongMeta(s.id, {words:false});
+    $("lyrDlg").close(); renderLibrary(); toast("Lyrics removed");
+  };
+  $("lyrCancel").onclick = () => $("lyrDlg").close();
+  $("lyrDlg").showModal();
+}
+
+
 /* ---------------- tags inside MP3 files: title, artist and cover picture ---------------- */
 function readId3(buf){
   const b = new Uint8Array(buf);
@@ -4612,7 +4741,7 @@ async function showStorageInfo(){
   if (!store.get("dg30.primary", null)) showSplash();
   renderLibrary();
   songStoreReady = loadSongStore();
-  songStoreReady.then(() => { renderLibrary(); runJobs(); });
+  songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true), 4000); });
   if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });

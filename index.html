@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.23">
+<meta name="version" content="1.24">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -311,6 +311,15 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="row"><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
     <span class="status" id="backupStatus"></span>
     <small style="color:var(--muted)" id="storageInfo"></small>
+    <div class="warn" id="storageFix" hidden>
+      <strong>Fix storage</strong>
+      <ol style="margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
+        <li>Tap <b>Save backup to my phone</b> above first, so nothing is lost.</li>
+        <li>In Chrome, tap the icon left of the web address → <b>Permissions</b> (or <b>Site settings</b>). Make sure <b>On-device site data</b> (or Cookies and site data) is <b>Allowed</b>.</li>
+        <li>If it already is, tap <b>Delete data</b> / <b>Clear &amp; reset</b> for this site there. That repairs Chrome's damaged storage for the app.</li>
+        <li>Reopen the app, then <b>Restore from a backup</b> and pick the file you saved.</li>
+      </ol>
+    </div>
     <label class="row" style="gap:8px;font-size:14px;align-items:flex-start"><input id="bgAudioChk" type="checkbox" style="margin-top:4px"> <span>Keep converting when I switch to other apps. Android pauses hidden apps unless they're playing sound, so the app plays a silent sound and shows its progress in your notifications. Music playing in another app may pause while it runs.</span></label>
   </section>
 
@@ -571,7 +580,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.23";
+const APP_VERSION = "1.24";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -596,17 +605,23 @@ const ls = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
 const store = {
-  get(k, d){ if (BIG.test(k) && big.ok) return big.cache.has(k) ? big.cache.get(k) : ls.get(k, d); return ls.get(k, d); },
+  get(k, d){ if (BIG.test(k) && big.ok) return big.cache.has(k) ? big.cache.get(k) : (big.kv && big.kv.small ? d : ls.get(k, d)); return ls.get(k, d); },
+  // waits until the song data is really saved; resolves false if the phone refused
+  async setAsync(k, v){
+    if (!(BIG.test(k) && big.ok)) return ls.set(k, v);
+    big.cache.set(k, v); if (!big.kv.small) ls.del(k);
+    try { await big.kv.put(k, v); return true; } catch(e){ big.cache.delete(k); return false; }
+  },
   set(k, v){
     if (BIG.test(k) && big.ok){
-      big.cache.set(k, v); ls.del(k);
+      big.cache.set(k, v); if (!big.kv.small) ls.del(k);
       big.kv.put(k, v).catch(() => { if (!big.warned){ big.warned = true; toast("Your phone is very low on storage, so a song couldn't be saved. Free up some space and add it again."); } });
       return true;
     }
     return ls.set(k, v);
   },
   del(k){ if (BIG.test(k)){ big.cache.delete(k); if (big.ok) big.kv.del(k).catch(() => {}); } ls.del(k); },
-  keys(){ const out = new Set(big.cache.keys()); try { for (let i = 0; i < localStorage.length; i++) out.add(localStorage.key(i)); } catch(e){} return [...out]; }
+  keys(){ const out = new Set(big.cache.keys()); try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (!(BIG.test(k) && big.ok)) out.add(k); } } catch(e){} return [...out]; }
 };
 
 /* ---------------- song model ----------------
@@ -2617,7 +2632,7 @@ async function restoreFrom(file){
       if (k === "dg30.songs" || k === "dg30.playlists") continue;
       const m = k.match(/^dg30\.[a-z]+\.(.+)$/); if (m && have.has(m[1])) continue;   // keep this device's copy of songs it already has
       let val; try { val = JSON.parse(v); } catch(e){ continue; }
-      if (!store.set(k, val)) throw new Error("This phone's storage is full. Free up some space and try again.");
+      if (!(await store.setAsync(k, val)) && !/^dg30\.scan\./.test(k)) throw new Error(storageProblem());
     }
     for (const s of theirs) if (!have.has(s.id)){ mine.push(s); added++; }
     store.set("dg30.songs", mine.sort((a, b) => (b.added || 0) - (a.added || 0)));
@@ -2661,17 +2676,23 @@ function shareFile(fileName, text, title, message, savedMsg){
   navigator.share({files:[file], title, text: message}).catch(err => { if (err && err.name !== "AbortError") download(); });
 }
 function storageProblem(){
-  if (!big.ok) return `The phone wouldn't open the app's storage (${big.err || "blocked"}) and the small backup storage is full. Restart the phone and try again. If it still fails, check that the phone has at least 1 GB free in Settings → Storage.`;
+  if (!big.ok || (big.kv && big.kv.small)) return `There's no room left. This phone's Chrome is blocking the app's main storage (${big.err || "blocked"}), so songs have to fit in a small space. Settings tab → “Fix storage” shows how to unblock it.`;
   return ls.lastErr === "QuotaExceededError" ? "This phone is out of storage space. Free up some space and try again." : `The phone refused to save the song (${ls.lastErr || "unknown reason"}).`;
 }
-function importSongPackage(pkg){
+async function importSongPackage(pkg){
   if (!pkg || pkg.app !== "DG30 Song Coach" || pkg.kind !== "song" || !pkg.meta || !pkg.song) throw new Error("That file isn't a DG30 Song Coach song.");
   const songs = store.get("dg30.songs", []);
   if (songs.some(s => s.id === pkg.meta.id && s.title === pkg.meta.title)) return {meta: pkg.meta, dup: true};
   const meta = {...pkg.meta, id: songs.some(s => s.id === pkg.meta.id) ? "s" + Date.now().toString(36) : pkg.meta.id, added: Date.now(), shared: true};
-  for (const k of SONG_KEYS) if (pkg[k] != null){ if (!store.set(`dg30.${k}.${meta.id}`, pkg[k])) throw new Error(storageProblem()); }
+  let trimmed = false;
+  for (const k of ["song", "lyrics", "chords", "pedal", "scan"]) if (pkg[k] != null){
+    if (await store.setAsync(`dg30.${k}.${meta.id}`, pkg[k])) continue;
+    if (k === "scan"){ trimmed = true; continue; }          // the page-by-page reader record is optional
+    for (const j of SONG_KEYS) store.del(`dg30.${j}.${meta.id}`);
+    throw new Error(storageProblem());
+  }
   songs.unshift(meta); if (!store.set("dg30.songs", songs)) throw new Error(storageProblem());
-  return {meta, dup: false};
+  return {meta, dup: false, trimmed};
 }
 
 /* ---------------- sheet music export ----------------
@@ -2965,8 +2986,8 @@ $("songIn").addEventListener("change", e => {
   songStoreReady.then(() => f.text()).then(t => {
     let obj; try { obj = JSON.parse(t); } catch(_){ throw new Error("That isn't a Song Coach song file. Song files are named like “Song name (DG30 song).txt”."); }
     if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
-    const r = importSongPackage(obj); renderLibrary(); showTab("songs");
-    toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”. Tap Play to start.`);
+    return importSongPackage(obj).then(r => { renderLibrary(); showTab("songs");
+      toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”. Tap Play to start.` + (r.trimmed ? " (Saved without its sheet-music record to save space.)" : "")); });
   }).catch(err => toast(err.message || "Couldn't add that file."));
 });
 $("fileIn").addEventListener("change", e => {
@@ -2976,8 +2997,7 @@ $("fileIn").addEventListener("change", e => {
       const obj = JSON.parse(t);
       if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
       if (!obj || obj.app !== "DG30 Song Coach") throw new Error("That file isn't a DG30 Song Coach song.");
-      const r = importSongPackage(obj); renderLibrary();
-      toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”`);
+      return importSongPackage(obj).then(r => { renderLibrary(); toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”`); });
     }).catch(err => toast(err.message && !/JSON/.test(err.message) ? err.message : "That file isn't a DG30 Song Coach song."));
     return;
   }
@@ -3204,16 +3224,47 @@ async function openSongStorage(){
         all: async () => { const out = []; for (const r of await c.keys()){ if (!r.url.startsWith(base)) continue; const res = await c.match(r); try { out.push([decodeURIComponent(r.url.slice(base.length)), await res.json()]); } catch(e){} } return out; }};
     } catch(e){ errs.push("file storage: " + (e && (e.name || e.message))); }
   }
+  // the phone's private file area for this app (a third, separate kind of storage)
+  if (navigator.storage && navigator.storage.getDirectory){
+    try {
+      const root = await navigator.storage.getDirectory(), dir = await root.getDirectoryHandle("dg30-songs", {create:true});
+      const fname = k => encodeURIComponent(k) + ".json";
+      const put = async (k, v) => { const fh = await dir.getFileHandle(fname(k), {create:true}); const w = await fh.createWritable(); await w.write(JSON.stringify(v)); await w.close(); };
+      await put("__probe", 1); await dir.removeEntry(fname("__probe"));
+      return {name: "phone's app files", put, del: k => dir.removeEntry(fname(k)).catch(() => {}),
+        all: async () => { const out = []; for await (const [n, h] of dir.entries()){ if (!n.endsWith(".json")) continue; try { out.push([decodeURIComponent(n.slice(0, -5)), JSON.parse(await (await h.getFile()).text())]); } catch(e){} } return out; }};
+    } catch(e){ errs.push("app files: " + (e && (e.name || e.message))); }
+  }
   big.err = errs.join("; ") || "unavailable";
-  return null;
+  // last resort: the small browser storage, with songs compressed so several times more fit
+  return {name: "small browser storage (compressed)", small: true,
+    put: async (k, v) => { const z = await gzipText(JSON.stringify(v)); try { localStorage.setItem(k, "gz:" + z); } catch(e){ ls.lastErr = e.name; throw e; } },
+    del: async k => ls.del(k),
+    all: async () => { const out = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (!k || !BIG.test(k)) continue;
+      const raw = localStorage.getItem(k); try { out.push([k, raw.startsWith("gz:") ? JSON.parse(await gunzipText(raw.slice(3))) : JSON.parse(raw), !raw.startsWith("gz:")]); } catch(e){} } return out; }};
+}
+async function gzipText(str){
+  const buf = new Uint8Array(await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+  let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+async function gunzipText(b64){
+  const bin = atob(b64), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
 }
 async function loadSongStore(){
   try {
     big.kv = await openSongStorage();
     if (!big.kv) throw new Error(big.err);
-    for (const [k, v] of await big.kv.all()) big.cache.set(k, v);
-    const old = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && BIG.test(k)) old.push(k); }
-    for (const k of old){ const v = ls.get(k, null); if (v != null){ await big.kv.put(k, v); big.cache.set(k, v); } ls.del(k); }   // frees the small storage
+    const rows = await big.kv.all();
+    for (const [k, v] of rows) big.cache.set(k, v);
+    if (big.kv.small){
+      // squeeze songs saved before compression, freeing room in the small storage
+      for (const [k, v, uncompressed] of rows) if (uncompressed){ try { ls.del(k); await big.kv.put(k, v); } catch(e){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(_){} } }
+    } else {
+      const old = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && BIG.test(k)) old.push(k); }
+      for (const k of old){ const v = ls.get(k, null); if (v != null){ await big.kv.put(k, v); big.cache.set(k, v); } ls.del(k); }   // frees the small storage
+    }
     big.ok = true;
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   } catch(e){ big.ok = false; big.err = big.err || (e && (e.name || e.message)) || "unavailable"; }
@@ -3221,7 +3272,8 @@ async function loadSongStore(){
 }
 async function showStorageInfo(){
   const el = $("storageInfo"); if (!el) return;
-  let line = big.ok ? `Songs are kept in the ${big.kv.name}.` : `Songs are kept in the small browser storage (about 5 MB), because the app storage wouldn't open (${big.err}).`;
+  $("storageFix").hidden = !!(big.ok && !big.kv.small);
+  let line = big.ok ? `Songs are kept in the ${big.kv.name}.` + (big.kv.small ? ` The main app storage is blocked on this phone (${big.err}).` : "") : `Songs are kept in the small browser storage (about 5 MB), because the app storage wouldn't open (${big.err}).`;
   try { const e = await navigator.storage.estimate(); line += ` Using ${(e.usage / 1048576).toFixed(1)} MB of ${(e.quota / 1048576).toFixed(0)} MB available.`; } catch(e){}
   el.textContent = line;
 }

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.19">
+<meta name="version" content="1.20">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -79,6 +79,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .opt{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--lacquer)}
 .opt strong{font-weight:600}
 .opt small{color:var(--muted);font-size:13px}
+.connmsg:empty{display:none}
+.status.connmsg{padding:10px 12px;border-radius:10px;border:1px solid var(--chrome);background:var(--lacquer);font:500 13px/1.45 var(--f-body);color:var(--ivory)}
 .status{font:500 12px/1.4 var(--f-mono);color:var(--chrome);min-height:1.4em;overflow-wrap:anywhere}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-wrap:nowrap}
 .seg button{border:0;background:transparent;padding:0 12px;min-height:38px;font-size:13px;font-weight:600;color:var(--muted)}
@@ -107,6 +109,18 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
 .scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);background:var(--ivory);color:var(--lacquer);padding:10px 16px;border-radius:14px;font-weight:600;z-index:50;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.45);text-align:center}
+/* Tabs */
+.tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.tab{flex:1;min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:15px}
+.tab[aria-selected="true"]{background:var(--ivory);color:var(--lacquer)}
+.tabpanel{display:flex;flex-direction:column;gap:22px}
+.setcard h2{font:500 21px/1.2 var(--f-display);margin:0}
+/* Pop-up header with its own buttons, so you don't have to scroll to the bottom */
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:-20px -20px 0;padding:14px 20px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.topbar h2{margin:0;flex:1 1 auto;min-width:0}
+.topbar .row{gap:8px}
+.topbar .btn{min-height:38px;padding:0 14px;font-size:14px}
 /* Playlists */
 .plorder{display:flex;flex-direction:column;gap:6px}
 .plrow{display:flex;align-items:center;gap:6px}
@@ -217,17 +231,25 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <button class="pill" id="connPill" type="button"><i></i><span id="connText">Connect piano</span></button>
   </div>
 
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" id="tabBtnSongs" role="tab" type="button" aria-selected="true" aria-controls="tabSongs">Songs</button>
+    <button class="tab" id="tabBtnSettings" role="tab" type="button" aria-selected="false" aria-controls="tabSettings">Settings</button>
+  </nav>
+
   <div class="warn" id="secureWarn" hidden>This page is opened from a local file, so Chrome won't allow Bluetooth, MIDI or the microphone. Open it from its https:// web address instead.</div>
 
+  <div id="tabSongs" class="tabpanel" role="tabpanel" aria-labelledby="tabBtnSongs">
   <section class="add">
     <h2>Add a song</h2>
-    <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files, or a song file someone shared with you. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
+    <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files. Got a song file from someone with Song Coach? Tap Add a shared song file: it's ready to play straight away, no scanning or API key needed. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
     <div class="row">
       <label class="btn primary" for="fileIn">Choose a file</label>
       <input id="fileIn" type="file" hidden>
       <label class="btn" for="camIn">Photograph sheet music</label>
       <input id="camIn" type="file" accept="image/*" capture="environment" hidden>
       <label class="btn ghost" for="picIn">Choose photos</label>
+      <label class="btn" for="songIn">Add a shared song file</label>
+      <input id="songIn" type="file" hidden>
       <input id="picIn" type="file" accept="image/*" multiple hidden>
       <button class="btn ghost" id="tunerOpen" type="button">Guitar tuner</button>
     </div>
@@ -246,25 +268,30 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div id="songs"></div>
   </section>
 
-  <section class="add" id="settings">
-    <h2>Settings</h2>
+  </div>
+
+  <div id="tabSettings" class="tabpanel" role="tabpanel" aria-labelledby="tabBtnSettings" hidden>
+  <section class="add setcard" id="settings">
+    <h2>Piano</h2>
+    <div class="row" style="justify-content:space-between">
+      <div class="field" style="gap:2px"><span class="label">Connection</span><span id="setConnName">Not connected</span></div>
+      <button class="btn" id="setConnBtn" type="button">Connect piano</button>
+    </div>
     <div class="row" style="justify-content:space-between">
       <div class="field" style="gap:2px"><span class="label">Piano sound</span><span id="setSoundName"></span></div>
       <button class="btn" id="setSoundBtn" type="button">Sound and volume</button>
     </div>
     <label class="row" style="gap:8px;font-size:14px"><input id="autoFs" type="checkbox"> Go full screen when practice starts (Chrome shows a short notice each time)</label>
+  </section>
+
+  <section class="add setcard">
+    <h2>Reading sheet music</h2>
     <div class="field">
       <label class="label" for="setKey">Anthropic API key (for reading sheet music)</label>
       <input id="setKey" type="password" autocomplete="off" placeholder="sk-ant-…" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
       <small style="color:var(--muted)">Create one at console.anthropic.com → API keys, then paste it here. It's saved only on this phone and sent only to Anthropic. Each page usually costs a few cents.</small>
     </div>
-    <label class="row" style="gap:8px;font-size:14px;align-items:flex-start"><input id="bgAudioChk" type="checkbox" style="margin-top:4px"> <span>Keep converting when I switch to other apps. Android pauses hidden apps unless they're playing sound, so the app plays a silent sound and shows its progress in your notifications. Music playing in another app may pause while it runs.</span></label>
-    <div class="field">
-      <span class="label">Your songs on other devices</span>
-      <small style="color:var(--muted)">Back up saves all your songs and playlists in one file (not your API key). Save it to Google Drive, then open the app on your other device and tap Restore.</small>
-      <div class="row"><button class="btn" id="backupBtn" type="button">Back up my songs</button><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
-      <span class="status" id="backupStatus"></span>
-    </div>
+    <div class="row"><button class="btn" id="setKeySave" type="button">Save key</button><button class="btn ghost" id="setKeyClear" type="button">Remove key</button><span class="status" id="setKeyStatus"></span></div>
     <div class="field">
       <label class="label" for="setModel">Sheet music reader</label>
       <select id="setModel">
@@ -272,11 +299,22 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
         <option value="claude-sonnet-5-5">Faster and cheaper (Claude Sonnet 5.5)</option>
       </select>
     </div>
-    <div class="row"><button class="btn" id="setKeySave" type="button">Save key</button><button class="btn ghost" id="setKeyClear" type="button">Remove key</button><span class="status" id="setKeyStatus"></span></div>
+  </section>
+
+  <section class="add setcard">
+    <h2>Backup and other devices</h2>
+    <small style="color:var(--muted)">A backup is one file with all your songs and playlists (not your API key). Keep it on your phone or in Google Drive, then open the app on your other device and tap Restore.</small>
+    <div class="row">
+      <button class="btn primary" id="backupSave" type="button">Save backup to my phone</button>
+      <button class="btn" id="backupShare" type="button">Save to Google Drive or send</button>
+    </div>
+    <div class="row"><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
+    <span class="status" id="backupStatus"></span>
+    <label class="row" style="gap:8px;font-size:14px;align-items:flex-start"><input id="bgAudioChk" type="checkbox" style="margin-top:4px"> <span>Keep converting when I switch to other apps. Android pauses hidden apps unless they're playing sound, so the app plays a silent sound and shows its progress in your notifications. Music playing in another app may pause while it runs.</span></label>
   </section>
 
   <section class="tips">
-    <div class="label">How practice works</div>
+    <h2 style="margin:0;font:500 21px/1.2 var(--f-display)">How it works</h2>
     <div><b>Wait</b> stops the notes until you press the right keys on the piano.</div>
     <div><b>Play</b> keeps time and scores each note you hit within a quarter second.</div>
     <div><b>Listen</b> plays the song on your piano so you can hear it first.</div>
@@ -286,6 +324,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div>Turn your phone sideways for the widest keyboard.</div>
     <div class="label" style="margin-top:10px" id="verLabel"></div>
   </section>
+  </div>
 </main>
 
 <!-- ================= SHEET MUSIC VIEW ================= -->
@@ -351,6 +390,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <dialog id="connDlg">
   <div class="sheet">
     <h2>Connect your piano</h2>
+    <div class="status connmsg" id="connStatus" aria-live="polite"></div>
     <p>Use one option. Bluetooth MIDI is the most accurate: the piano tells the app exactly which keys you press, including chords.</p>
     <div class="opt">
       <strong>Bluetooth MIDI (recommended)</strong>
@@ -376,7 +416,6 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
         <option value="off">Silent</option>
       </select>
     </div>
-    <div class="status" id="connStatus"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="connClose" type="button">Done</button></div>
   </div>
 </dialog>
@@ -434,6 +473,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <dialog id="soundDlg">
   <div class="sheet">
     <h2>Sound and volume</h2>
+    <div class="status connmsg" id="soundStatus" aria-live="polite"></div>
     <div class="field">
       <label class="label" for="volPiano">Piano volume <output id="volPianoOut" class="volout">100%</output></label>
       <input id="volPiano" type="range" min="0" max="100" step="5" value="100">
@@ -453,7 +493,6 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <input id="soundSearch" type="text" autocomplete="off" placeholder="Search sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
     <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
     <div id="soundList"></div>
-    <div class="status" id="soundStatus"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
   </div>
 </dialog>
@@ -531,7 +570,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.19";
+const APP_VERSION = "1.20";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -776,6 +815,7 @@ function setConnected(kind, name){
   $("connPill").classList.toggle("on", !!kind);
   $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano";
   $("connStatus").textContent = kind ? "Connected: " + (name || kind) : "";
+  if ($("setConnName")) { $("setConnName").textContent = kind ? (kind === "mic" ? "Listening with the mic" : (name || "Piano") + " connected") : "Not connected"; $("setConnBtn").textContent = kind ? "Change" : "Connect piano"; }
 }
 
 // BLE-MIDI packet parser (Bluetooth LE MIDI spec)
@@ -1920,7 +1960,8 @@ $("tunerOpen").onclick = openTuner;
 $("tunerClose").onclick = closeTuner;
 $("tunerDlg").addEventListener("close", () => { cancelAnimationFrame(TUNER.raf); if (TUNER.stream){ TUNER.stream.getTracks().forEach(t => t.stop()); TUNER.stream = null; } });
 $("tunerA4").addEventListener("change", e => { const v = +e.target.value; if (v >= 415 && v <= 466){ TUNER.a4 = v; store.set("dg30.a4", v); } });
-$("backupBtn").onclick = backupNow;
+$("backupSave").onclick = backupToPhone;
+$("backupShare").onclick = backupShare;
 $("bgAudioChk").checked = store.get("dg30.bgAudio", true);
 $("bgAudioChk").onchange = e => { store.set("dg30.bgAudio", e.target.checked); if (!e.target.checked) bgKeepAlive(false); else if (jobsRunning) bgKeepAlive(true); };
 $("restoreIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) restoreFrom(f); });
@@ -1931,7 +1972,7 @@ $("expScan").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").cl
 $("sheetBack").onclick = closeSheet;
 $("sheetPdf").onclick = () => { try { window.print(); } catch(e){ toast("Printing isn't available here. Use your browser's Share or Print menu."); } };
 $("sheetScanBtn").onclick = () => { const id = $("sheetView").dataset.id; saveTextFile(scanFileName(id), scanDetailsText(id)); };
-$("scanToSettings").onclick = () => { $("scanDlg").close(); $("settings").scrollIntoView({behavior:"smooth", block:"start"}); setTimeout(() => $("setKey").focus(), 400); };
+$("scanToSettings").onclick = () => { $("scanDlg").close(); showTab("settings"); window.scrollTo({top:0}); setTimeout(() => $("setKey").focus(), 300); };
 
 const SCAN_PROMPT = `You are an expert music engraver. This image is ONE page of sheet music for piano. It may be a piano-vocal score with a vocal staff above the two piano staves. Transcribe it so a practice app can play it and show the words.
 
@@ -2511,11 +2552,29 @@ function backupData(){
   for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith("dg30.") && !BACKUP_SKIP.test(k)) data[k] = localStorage.getItem(k); }
   return {app:"DG30 Song Coach", version: APP_VERSION, saved: new Date().toISOString(), data};
 }
-function backupNow(){
-  const b = backupData(), n = (store.get("dg30.songs", []) || []).length;
-  const day = new Date().toISOString().slice(0, 10);
-  saveTextFile(`DG30 Song Coach backup ${day}.json`, JSON.stringify(b));
-  $("backupStatus").textContent = `Backed up ${n} song${n === 1 ? "" : "s"}${PL.lists.length ? " and " + PL.lists.length + " playlist" + (PL.lists.length === 1 ? "" : "s") : ""}.`;
+function backupFile(){
+  const day = new Date().toISOString().slice(0, 10), n = (store.get("dg30.songs", []) || []).length;
+  const what = `${n} song${n === 1 ? "" : "s"}${PL.lists.length ? " and " + PL.lists.length + " playlist" + (PL.lists.length === 1 ? "" : "s") : ""}`;
+  return {name: `DG30 Song Coach backup ${day}.txt`, text: JSON.stringify(backupData()), what};
+}
+async function backupToPhone(){
+  const b = backupFile(), st = $("backupStatus");
+  if (window.showSaveFilePicker){                     // lets you pick the folder
+    try {
+      const h = await showSaveFilePicker({suggestedName: b.name, types:[{description:"Song Coach backup", accept:{"text/plain":[".txt"]}}]});
+      const w = await h.createWritable(); await w.write(b.text); await w.close();
+      st.textContent = `Saved ${b.what} to “${h.name}”.`; toast("Backup saved"); return;
+    } catch(e){ if (e && e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([b.text], {type:"text/plain"})); a.download = b.name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  st.textContent = `Saved ${b.what} to your phone's Downloads folder as “${b.name}”. Open the Files app → Downloads to find it, move it, or send it.`;
+  toast("Backup saved to Downloads");
+}
+function backupShare(){
+  const b = backupFile();
+  shareFile(b.name, b.text, "Song Coach backup", "", "Saved to your Downloads.");
+  $("backupStatus").textContent = `Choose Drive in the share menu to save ${b.what} to Google Drive.`;
 }
 async function restoreFrom(file){
   const st = $("backupStatus");
@@ -2866,6 +2925,15 @@ function saveTextFile(name, text){ shareFile(name.replace(/\.json$/i, ".txt"), t
 let pending = null, impLevel = "easy";
 const LVL_HELP = { melody:"Just the tune, right hand only. Best place to start.", easy:"Up to two notes in the right hand and one bass note in the left.", full:"Everything the converter heard. Can be busy for full songs." };
 function setSeg(segId, v){ $(segId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v))); }
+$("songIn").addEventListener("change", e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  f.text().then(t => {
+    let obj; try { obj = JSON.parse(t); } catch(_){ throw new Error("That isn't a Song Coach song file. Song files are named like “Song name (DG30 song).txt”."); }
+    if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
+    const r = importSongPackage(obj); renderLibrary(); showTab("songs");
+    toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”. Tap Play to start.`);
+  }).catch(err => toast(err.message || "Couldn't add that file."));
+});
 $("fileIn").addEventListener("change", e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   if (/\.(json|txt)$/i.test(f.name) || f.type === "application/json" || f.type === "text/plain"){
@@ -3036,11 +3104,45 @@ $("outSel").value = conn.outMode;
 $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
 
 /* small toast via the banner on library */
-function toast(msg){
-  const t = document.createElement("div"); t.textContent = msg; t.setAttribute("role", "status");
-  Object.assign(t.style, {position:"fixed", left:"50%", bottom:"calc(env(safe-area-inset-bottom,0px) + 20px)", transform:"translateX(-50%)", background:"var(--ivory)", color:"var(--lacquer)", padding:"10px 16px", borderRadius:"999px", fontWeight:"600", zIndex:50, maxWidth:"calc(100% - 32px)"});
-  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+function toast(msg, ms){
+  const t = document.createElement("div"); t.textContent = msg; t.setAttribute("role", "status"); t.className = "toast";
+  const open = [...document.querySelectorAll("dialog[open]")].pop();      // a pop-up sits above the page, so show it there
+  (open || document.body).appendChild(t); setTimeout(() => t.remove(), ms || Math.max(2600, msg.length * 60));
 }
+
+/* ---------------- tabs ---------------- */
+function showTab(name){
+  for (const [n, btn, panel] of [["songs", "tabBtnSongs", "tabSongs"], ["settings", "tabBtnSettings", "tabSettings"]]){
+    $(btn).setAttribute("aria-selected", String(n === name)); $(panel).hidden = n !== name;
+  }
+  try { sessionStorage.setItem("dg30.tab", name); } catch(e){}
+}
+$("tabBtnSongs").onclick = () => showTab("songs");
+$("tabBtnSettings").onclick = () => showTab("settings");
+$("setConnBtn").onclick = () => $("connDlg").showModal();
+try { const t = sessionStorage.getItem("dg30.tab"); if (t) showTab(t); } catch(e){}
+
+/* every pop-up gets its title and buttons (Done, Save, Cancel…) pinned at the top as well as at the bottom */
+function addTopBars(){
+  document.querySelectorAll("dialog").forEach(d => {
+    const sheet = d.querySelector(".sheet"); if (!sheet || sheet.querySelector(".topbar")) return;
+    const rows = [...sheet.children].filter(el => el.classList.contains("row"));
+    const footer = rows[rows.length - 1];
+    const btns = footer ? [...footer.querySelectorAll("button")].filter(b => b.id !== "plDelete") : [];
+    const bar = document.createElement("div"); bar.className = "topbar";
+    const h = sheet.querySelector(":scope > h2"); if (h) bar.appendChild(h);
+    const acts = document.createElement("div"); acts.className = "row";
+    for (const b of btns){
+      const c = document.createElement("button"); c.type = "button"; c.className = b.className;
+      c.onclick = () => b.click();
+      const sync = () => { c.disabled = b.disabled; c.hidden = b.hidden; c.textContent = b.textContent; };
+      new MutationObserver(sync).observe(b, {attributes:true, childList:true, characterData:true, subtree:true}); sync();
+      acts.appendChild(c);
+    }
+    bar.appendChild(acts); sheet.prepend(bar);
+  });
+}
+addTopBars();
 
 /* ---------------- boot ---------------- */
 (function boot(){

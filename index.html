@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.28">
+<meta name="version" content="1.29">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -62,6 +62,16 @@ button{cursor:pointer}
 .song{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:14px 16px;border-radius:12px;border-bottom:1px solid var(--line);background:transparent}
 .song:hover{background:var(--panel)}
 .song h3{margin:0;font:600 16px/1.3 var(--f-body);min-width:0;overflow-wrap:anywhere}
+.song.hasart{grid-template-columns:52px 1fr auto}
+.song .art{grid-row:1/3;width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:22px;overflow:hidden;padding:0;cursor:pointer}
+.song .art img{width:100%;height:100%;object-fit:cover;display:block}
+.song.hasart .meta{grid-column:2}.song.hasart .acts{grid-column:2;grid-row:3;justify-self:start;margin-top:4px}.song.hasart .art{grid-row:1/4;align-self:start}
+.artbig{width:120px;height:120px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;font-size:44px;color:var(--muted);overflow:hidden;flex:none}
+.artbig img{width:100%;height:100%;object-fit:cover}
+.artpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.artpick button{padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:var(--panel);display:flex;flex-direction:column;text-align:left}
+.artpick button img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.artpick button small{font-size:10px;line-height:1.25;padding:4px;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .song .meta{grid-column:1;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .song .acts{grid-column:2;grid-row:1/3;display:flex;gap:6px}
 .song .acts button{min-height:40px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:600}
@@ -412,6 +422,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="opt">
       <strong>Bluetooth MIDI (recommended)</strong>
       <small>On the DG30, make sure Bluetooth MIDI is on. Close the Kawai PianoRemote app first, since only one app can connect at a time.</small>
+      <label class="label" for="bleFilter" style="margin-top:4px">Lots of devices around you? Type the start of the piano's name</label>
+      <input id="bleFilter" type="search" placeholder="e.g. DG30 or KAWAI" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <div class="row"><button class="btn primary" id="bleBtn" type="button">Find my piano</button><button class="btn" id="bleAllBtn" type="button">Show all Bluetooth devices</button></div>
       <small>Don't pair the piano in your phone's Bluetooth settings for this. That pairing is for music audio. The app connects to the piano's MIDI itself when you tap Find my piano.</small>
     </div>
@@ -582,6 +594,38 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </dialog>
 
+<!-- ================= EDIT SONG ================= -->
+<dialog id="editDlg">
+  <form class="sheet" id="editForm" method="dialog">
+    <h2>Edit song</h2>
+    <div class="status connmsg" id="editStatus" aria-live="polite"></div>
+    <div class="row" style="align-items:flex-start;gap:14px;flex-wrap:nowrap">
+      <div class="artbig" id="editArt">&#9835;</div>
+      <div style="display:flex;flex-direction:column;gap:8px;min-width:0;flex:1">
+        <button class="btn" id="artFind" type="button">Find album art</button>
+        <label class="btn ghost" for="artIn">Choose a picture</label>
+        <input id="artIn" type="file" accept="image/*" hidden>
+        <button class="btn ghost" id="artRemove" type="button">Remove picture</button>
+      </div>
+    </div>
+    <div class="artpick" id="artResults" hidden></div>
+    <div class="field"><label class="label" for="editTitle">Title</label><input id="editTitle" type="text" maxlength="120" required></div>
+    <div class="field"><label class="label" for="editArtist">Artist</label><input id="editArtist" type="text" maxlength="120" placeholder="Who sings or wrote it"></div>
+    <div class="row" style="gap:10px;flex-wrap:nowrap">
+      <div class="field" style="flex:1;min-width:0"><label class="label" for="editKey">Key</label><input id="editKey" type="text" maxlength="4" placeholder="e.g. G, Bb, Am" list="keyList" autocapitalize="characters"></div>
+      <div class="field" style="flex:1;min-width:0"><label class="label" for="editBpm">Tempo (BPM)</label><input id="editBpm" type="number" min="20" max="400" step="1" inputmode="numeric"></div>
+      <div class="field" style="flex:1;min-width:0"><label class="label" for="editBeats">Beats in a bar</label>
+        <select id="editBeats"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option></select></div>
+    </div>
+    <datalist id="keyList"><option value="C"><option value="G"><option value="D"><option value="A"><option value="E"><option value="F"><option value="Bb"><option value="Eb"><option value="Ab"><option value="Am"><option value="Em"><option value="Dm"><option value="Gm"><option value="Cm"></datalist>
+    <small style="color:var(--muted)">Tempo is the song's own speed: the starting point for the tempo − / + buttons, guitar strums and sheet music. Beats in a bar sets the strum rhythm and bar lines.</small>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn ghost" id="editDelete" type="button">Delete song</button>
+      <div class="row"><button class="btn ghost" id="editCancel" type="button">Cancel</button><button class="btn primary" id="editSave" type="submit">Save</button></div>
+    </div>
+  </form>
+</dialog>
+
 <!-- ================= RESULT SHEET ================= -->
 <dialog id="resDlg">
   <div class="sheet">
@@ -604,7 +648,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.28";
+const APP_VERSION = "1.29";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -621,7 +665,7 @@ const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + String(Ma
 /* ---------------- storage (per-device) ---------------- */
 /* Small settings live in localStorage (about 5 MB in total). Song data (notes, words, chords, reader results)
    lives in IndexedDB, which can hold hundreds of MB, with an in-memory copy so reads stay instant. */
-const BIG = /^dg30\.(song|lyrics|chords|scan|pedal)\./;
+const BIG = /^dg30\.(song|lyrics|chords|scan|pedal|art)\./;
 const big = { cache: new Map(), ok: false, warned: false };
 const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
@@ -668,7 +712,7 @@ function loadNotes(id){
 }
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
-  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id);
+  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id);
 }
 
 /* ---------------- demo songs (public domain) ---------------- */
@@ -1044,16 +1088,23 @@ async function connectBle(showAll){
   if (!navigator.bluetooth){ st.textContent = "This browser can't use Bluetooth. Open the page in Chrome on Android from its https:// address."; return; }
   try {
     st.textContent = "Choose your piano in the list…";
-    const dev = await navigator.bluetooth.requestDevice(showAll === true
+    // Chrome's device list can only be narrowed by how a name starts, so try the text as typed and in upper / lower / Title case
+    const typed = ($("bleFilter").value || "").trim(); store.set("dg30.bleFilter", typed);
+    const prefixes = typed ? [...new Set([typed, typed.toUpperCase(), typed.toLowerCase(), typed[0].toUpperCase() + typed.slice(1).toLowerCase()])] : null;
+    const dev = await navigator.bluetooth.requestDevice(prefixes
+      ? { filters: prefixes.map(namePrefix => ({namePrefix})), optionalServices:[BLE_MIDI_SERVICE] }
+      : showAll === true
       ? { acceptAllDevices:true, optionalServices:[BLE_MIDI_SERVICE] }
       : { filters:[{services:[BLE_MIDI_SERVICE]}, {namePrefix:"DG"}, {namePrefix:"Kawai"}, {namePrefix:"KAWAI"}], optionalServices:[BLE_MIDI_SERVICE] });
     st.textContent = "Connecting to " + (dev.name || "piano") + "…";
     await attachBle(dev);
   } catch(e){
     if (/service|GATT/i.test(e.message || "")){ st.textContent = "That device doesn't offer Bluetooth MIDI. Pick the entry for your piano's MIDI, often named DG30 or KAWAI."; return; }
+    if (e.name === "NotFoundError" && $("bleFilter").value.trim()){ st.textContent = "Nothing chosen. The list only shows devices whose name starts with “" + $("bleFilter").value.trim() + "”. Try fewer letters, or clear the box to see everything."; return; }
     st.textContent = e.name === "NotFoundError" ? "No piano chosen. If the list was empty: turn Bluetooth MIDI on at the piano, close PianoRemote, allow Chrome the Nearby devices permission, then try “Show all Bluetooth devices”." : "Couldn't connect: " + e.message;
   }
 }
+$("bleFilter").value = store.get("dg30.bleFilter", "");
 async function attachBle(dev){
   const server = await dev.gatt.connect();
   const svc = await server.getPrimaryService(BLE_MIDI_SERVICE);
@@ -2062,21 +2113,27 @@ function renderLibrary(){
     const notes = s.demo ? loadNotes(s.id) : null;
     const count = s.count ?? notes.length, len = s.len ?? (notes.length ? notes[notes.length-1].t + notes[notes.length-1].d : 0);
     const best = store.get("dg30.best." + s.id, null);
-    const el = document.createElement("div"); el.className = "song";
+    const el = document.createElement("div"); el.className = "song" + (s.demo ? "" : " hasart");
+    if (!s.demo){
+      const art = document.createElement("button"); art.type = "button"; art.className = "art"; art.setAttribute("aria-label", "Edit " + s.title);
+      const src = store.get("dg30.art." + s.id, null);
+      if (src){ const im = document.createElement("img"); im.alt = ""; im.loading = "lazy"; im.src = src; art.appendChild(im); } else art.textContent = "♫";
+      art.onclick = () => openEdit(s.id); el.appendChild(art);
+    }
     const h = document.createElement("h3"); h.textContent = s.title;
     if (s.demo && s.by){ const t = document.createElement("span"); t.className = "tag"; t.textContent = s.by; h.appendChild(t); }
     const meta = document.createElement("div"); meta.className = "meta";
-    meta.textContent = `${fmt(len)} · ${count} notes` + (s.words ? " · words" : "") + (s.guitar ? " · guitar" : "") + (s.src === "sheet" ? " · sheet music" : s.level ? ` · ${({melody:"melody", easy:"easy", full:"every note"})[s.level]}` : "") + (best != null ? ` · best ${best}%` : "");
+    meta.textContent = (s.artist ? s.artist + " · " : "") + `${fmt(len)} · ${count} notes` + (s.words ? " · words" : "") + (s.guitar ? " · guitar" : "") + (s.src === "sheet" ? " · sheet music" : s.level ? ` · ${({melody:"melody", easy:"easy", full:"every note"})[s.level]}` : "") + (best != null ? ` · best ${best}%` : "");
     const acts = document.createElement("div"); acts.className = "acts";
     const go = document.createElement("button"); go.className = "go"; go.type = "button"; go.textContent = "Play"; go.onclick = () => openPractice(s.id);
     acts.appendChild(go);
     if (s.demo){ const sh = document.createElement("button"); sh.type = "button"; sh.textContent = "Sheet"; sh.onclick = () => openSheet(s.id); acts.appendChild(sh); }
     if (!s.demo){
+      const ed = document.createElement("button"); ed.type = "button"; ed.textContent = "Edit"; ed.title = "Name, artist, picture, key and tempo";
+      ed.onclick = () => openEdit(s.id);
       const dl = document.createElement("button"); dl.type = "button"; dl.textContent = "Export"; dl.title = "Sheet music, MIDI file or reader details";
       dl.onclick = () => openExport(s.id);
-      const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
-      del.onclick = () => { if (del.dataset.arm){ deleteSong(s.id); renderLibrary(); } else { del.dataset.arm = 1; del.textContent = "Sure?"; setTimeout(() => { if (del.isConnected){ delete del.dataset.arm; del.textContent = "Delete"; } }, 3000); } };
-      acts.append(dl, del);
+      acts.append(ed, dl);
     }
     el.append(h, meta, acts); box.appendChild(el);
   }
@@ -2598,7 +2655,14 @@ async function runAudioJob(job){
   jobStatus(job.id, {status: "Getting ready…", progress: 0});
   const raw = await transcribe(file, job.sens, p => jobStatus(job.id, {progress: p, status: `Listening for notes · ${Math.round(p * 100)}%`}), m => jobStatus(job.id, {status: m}));
   if (jobCancel.has(job.id)) throw new Error("cancelled");
-  return finishAudioSong(raw, job.level, job.name);
+  const meta = finishAudioSong(raw, job.level, job.name);
+  if (job.artist || job.art) await applySongTags(meta.id, job.artist, job.art);
+  return meta;
+}
+// artist and cover picture found inside the audio file
+async function applySongTags(id, artist, art){
+  if (art) await store.setAsync("dg30.art." + id, art);
+  if (artist){ const list = store.get("dg30.songs", []), m = list.find(s => s.id === id); if (m){ m.artist = artist; store.set("dg30.songs", list); } }
 }
 function finishAudioSong(raw, level, name){
   const notes = simplify(raw, level);
@@ -2887,7 +2951,7 @@ async function restoreFrom(file){
 
 /* ---------------- share one song as a file ----------------
    Everything the app knows about the song, so the person you send it to can add it without scanning or an API key. */
-const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal"];
+const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal", "art"];
 function songPackage(id){
   const meta = allSongs().find(s => s.id === id);
   const pkg = {app:"DG30 Song Coach", kind:"song", version: APP_VERSION, meta: {...meta}};
@@ -2926,9 +2990,9 @@ async function importSongPackage(pkg){
   if (songs.some(s => s.id === pkg.meta.id && s.title === pkg.meta.title)) return {meta: pkg.meta, dup: true};
   const meta = {...pkg.meta, id: songs.some(s => s.id === pkg.meta.id) ? "s" + Date.now().toString(36) : pkg.meta.id, added: Date.now(), shared: true};
   let trimmed = false;
-  for (const k of ["song", "lyrics", "chords", "pedal", "scan"]) if (pkg[k] != null){
+  for (const k of ["song", "lyrics", "chords", "pedal", "art", "scan"]) if (pkg[k] != null){
     if (await store.setAsync(`dg30.${k}.${meta.id}`, pkg[k])) continue;
-    if (k === "scan"){ trimmed = true; continue; }          // the page-by-page reader record is optional
+    if (k === "scan" || k === "art"){ trimmed = true; continue; }          // the page-by-page reader record is optional
     for (const j of SONG_KEYS) store.del(`dg30.${j}.${meta.id}`);
     throw new Error(storageProblem());
   }
@@ -3283,6 +3347,8 @@ $("fileIn").addEventListener("change", e => {
   if (!isMidi && !isAudio){ toast("That file type can't be added. Use an audio file (MP3, M4A, WAV), a MIDI file or a MusicXML file."); return; }
   pending = {file:f, isMidi};
   $("impName").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  if (isAudio){ const mine = pending, typed = $("impName").value;
+    audioTags(f).then(t => { if (!t || pending !== mine) return; mine.tags = t; if (t.title && $("impName").value === typed) $("impName").value = t.title; }); }
   impLevel = isMidi ? "full" : "easy"; setSeg("lvlSeg", impLevel); $("lvlHelp").textContent = LVL_HELP[impLevel];
   $("sensField").hidden = isMidi; $("impBar").hidden = true; $("impStatus").textContent = "";
   $("impGo").disabled = false; $("impGo").textContent = isMidi ? "Add song" : "Convert to notes";
@@ -3300,11 +3366,166 @@ $("impForm").addEventListener("submit", async e => {
       const meta = finishAudioSong(raw, impLevel, $("impName").value.trim());
       $("impDlg").close(); renderLibrary(); toast(`Added “${meta.title}”`); return;
     }
-    await addJob({kind:"audio", name: $("impName").value.trim(), blob: pending.file, fileName: pending.file.name, level: impLevel, sens: +$("sens").value});
+    const tags = pending.tags || {};
+    await addJob({kind:"audio", name: $("impName").value.trim(), blob: pending.file, fileName: pending.file.name, level: impLevel, sens: +$("sens").value, artist: tags.artist || "", art: tags.art || ""});
     $("impDlg").close();
     toast("Converting in the background. You can keep using the app; it'll appear in your songs when it's done.");
   } catch(err){ st.textContent = err.message || String(err); go.disabled = false; }
 });
+
+/* ---------------- edit a song: name, artist, picture, key, tempo ---------------- */
+const ED = { id:null, art:undefined };
+function showEditArt(src){
+  const box = $("editArt"); box.textContent = "";
+  if (src){ const im = document.createElement("img"); im.alt = "Album art"; im.src = src; box.appendChild(im); } else box.textContent = "♫";
+  $("artRemove").hidden = !src;
+}
+function openEdit(id){
+  const meta = store.get("dg30.songs", []).find(s => s.id === id); if (!meta) return;
+  ED.id = id; ED.art = undefined;
+  $("editTitle").value = meta.title || ""; $("editArtist").value = meta.artist || ""; $("editKey").value = meta.key || "";
+  $("editBpm").value = Math.round(meta.bpm || 100); $("editBeats").value = String(meta.beats || 4);
+  $("editStatus").textContent = ""; $("artResults").hidden = true; $("artResults").textContent = "";
+  const del = $("editDelete"); delete del.dataset.arm; del.textContent = "Delete song";
+  showEditArt(store.get("dg30.art." + id, null));
+  $("editDlg").showModal();
+}
+$("editCancel").onclick = () => $("editDlg").close();
+$("editDelete").onclick = () => {
+  const b = $("editDelete");
+  if (!b.dataset.arm){ b.dataset.arm = 1; b.textContent = "Tap again to delete"; return; }
+  deleteSong(ED.id); $("editDlg").close(); renderLibrary(); toast("Song deleted.");
+};
+$("editForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const list = store.get("dg30.songs", []), meta = list.find(s => s.id === ED.id); if (!meta) return;
+  const title = $("editTitle").value.trim(); if (!title){ $("editStatus").textContent = "Give the song a name."; return; }
+  const key = $("editKey").value.trim().replace(/^([a-g])/, c => c.toUpperCase()).replace("♭", "b").replace("♯", "#");
+  if (key && !parseKeyName(key)){ $("editStatus").textContent = "That key isn't one I know. Use a letter like G, Bb or F#, with m for minor (Am)."; return; }
+  const bpm = Math.round(+$("editBpm").value);
+  if (!(bpm >= 20 && bpm <= 400)){ $("editStatus").textContent = "Tempo should be between 20 and 400 BPM."; return; }
+  if (Math.round(meta.bpm || 0) !== bpm) store.del("dg30.tempo." + meta.id);       // your faster/slower setting was based on the old tempo
+  meta.title = title; meta.artist = $("editArtist").value.trim() || undefined; meta.key = key; meta.bpm = bpm; meta.beats = +$("editBeats").value;
+  if (ED.art !== undefined){
+    if (ED.art) { if (!(await store.setAsync("dg30.art." + meta.id, ED.art))){ $("editStatus").textContent = "The picture couldn't be saved: the phone's storage is full."; return; } }
+    else store.del("dg30.art." + meta.id);
+  }
+  store.set("dg30.songs", list);
+  $("editDlg").close(); renderLibrary(); try { renderPlaylists(); } catch(e){}
+  toast(`Saved “${title}”.`);
+});
+// any picture → a small square thumbnail, so it takes little room on the phone
+async function artThumb(src, size = 240){
+  const img = new Image(); img.crossOrigin = "anonymous";
+  await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error("That picture couldn't be opened.")); img.src = src; });
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const k = Math.min(img.naturalWidth, img.naturalHeight), sx = (img.naturalWidth - k) / 2, sy = (img.naturalHeight - k) / 2;
+  c.getContext("2d").drawImage(img, sx, sy, k, k, 0, 0, size, size);
+  return c.toDataURL("image/jpeg", 0.82);
+}
+$("artIn").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const url = URL.createObjectURL(f);
+  try { ED.art = await artThumb(url); showEditArt(ED.art); $("artResults").hidden = true; }
+  catch(err){ $("editStatus").textContent = err.message; }
+  finally { URL.revokeObjectURL(url); }
+});
+$("artRemove").onclick = () => { ED.art = null; showEditArt(null); };
+// look the song up in Apple's music catalogue, then MusicBrainz, and show covers to pick from
+function jsonp(url){
+  return new Promise((ok, bad) => {
+    const cb = "dg30cb" + Math.random().toString(36).slice(2), sc = document.createElement("script");
+    const done = () => { delete window[cb]; sc.remove(); };
+    window[cb] = d => { done(); ok(d); };
+    sc.onerror = () => { done(); bad(new Error("network")); };
+    sc.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb; document.head.appendChild(sc);
+    setTimeout(() => { if (window[cb]){ done(); bad(new Error("timeout")); } }, 9000);
+  });
+}
+async function findArt(title, artist){
+  const term = encodeURIComponent([title, artist].filter(Boolean).join(" ").replace(/\(.*?\)/g, "").trim());
+  const out = [];
+  try {
+    const url = `https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=12`;
+    let data; try { data = await (await fetch(url)).json(); } catch(e){ data = await jsonp(url); }
+    for (const r of data.results || []) if (r.artworkUrl100) out.push({src: r.artworkUrl100.replace(/100x100bb/, "600x600bb"), thumb: r.artworkUrl100, label: `${r.trackName} · ${r.artistName}`});
+  } catch(e){}
+  if (!out.length){
+    try {
+      const q = encodeURIComponent(`recording:"${title}"` + (artist ? ` AND artist:"${artist}"` : ""));
+      const data = await (await fetch(`https://musicbrainz.org/ws/2/recording?query=${q}&limit=10&fmt=json`)).json();
+      const seen = new Set();
+      for (const r of data.recordings || []) for (const rel of r.releases || []){
+        if (seen.has(rel.id) || out.length >= 8) continue; seen.add(rel.id);
+        out.push({src: `https://coverartarchive.org/release/${rel.id}/front-500`, thumb: `https://coverartarchive.org/release/${rel.id}/front-250`, label: `${r.title} · ${(r["artist-credit"] || []).map(a => a.name).join(", ")}`, maybe: true});
+      }
+    } catch(e){}
+  }
+  const seen = new Set(); return out.filter(x => !seen.has(x.thumb) && seen.add(x.thumb)).slice(0, 9);
+}
+$("artFind").onclick = async () => {
+  const title = $("editTitle").value.trim(), artist = $("editArtist").value.trim(), st = $("editStatus"), box = $("artResults");
+  if (!title){ st.textContent = "Type the song's name first."; return; }
+  st.textContent = "Looking for album covers…"; box.hidden = true; box.textContent = "";
+  const found = await findArt(title, artist);
+  if (!found.length){ st.textContent = navigator.onLine === false ? "You're offline. Connect to the internet to look up album art." : "No covers found. Add the artist's name and try again, or choose your own picture."; return; }
+  st.textContent = "Tap the right cover." + (artist ? "" : " Adding the artist's name gives better matches.");
+  for (const f of found){
+    const b = document.createElement("button"); b.type = "button";
+    const im = document.createElement("img"); im.alt = ""; im.loading = "lazy"; im.src = f.thumb;
+    if (f.maybe) im.onerror = () => b.remove();                // not every MusicBrainz release has a cover
+    const lb = document.createElement("small"); lb.textContent = f.label;
+    b.append(im, lb);
+    b.onclick = async () => {
+      st.textContent = "Saving the cover…";
+      try { ED.art = await artThumb(f.src); }
+      catch(e){ try { ED.art = await artThumb(f.thumb); } catch(e2){ ED.art = f.thumb; } }   // keep the link if the picture can't be copied
+      showEditArt(ED.art); box.hidden = true; st.textContent = "Tap Save to keep it.";
+    };
+    box.appendChild(b);
+  }
+  box.hidden = false;
+};
+
+/* ---------------- tags inside MP3 files: title, artist and cover picture ---------------- */
+function readId3(buf){
+  const b = new Uint8Array(buf);
+  if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return null;
+  const ver = b[3], ss = i => (b[i] << 21) | (b[i + 1] << 14) | (b[i + 2] << 7) | b[i + 3];
+  const end = Math.min(b.length, 10 + ss(6)); let i = 10;
+  if (ver < 3) return null;
+  if (b[5] & 0x40) i += ver === 4 ? ss(10) : ((b[10] << 24 | b[11] << 16 | b[12] << 8 | b[13]) >>> 0) + 4;
+  const text = body => {
+    const enc = body[0], d = body.subarray(1);
+    const dec = enc === 1 ? "utf-16" : enc === 2 ? "utf-16be" : enc === 3 ? "utf-8" : "latin1";
+    try { return new TextDecoder(dec).decode(d).replace(/\u0000+$/g, "").replace(/\u0000/g, " / ").trim(); } catch(e){ return ""; }
+  };
+  const out = {};
+  while (i + 10 <= end){
+    const id = String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    if (!/^[A-Z0-9]{4}$/.test(id)) break;
+    const size = ver === 4 ? ss(i + 4) : ((b[i + 4] << 24 | b[i + 5] << 16 | b[i + 6] << 8 | b[i + 7]) >>> 0);
+    const body = b.subarray(i + 10, Math.min(end, i + 10 + size));
+    if (id === "TIT2") out.title = text(body);
+    else if (id === "TPE1") out.artist = text(body);
+    else if (id === "APIC" && !out.pic){
+      const enc = body[0]; let j = 1; while (j < body.length && body[j]) j++;
+      const mime = new TextDecoder("latin1").decode(body.subarray(1, j)) || "image/jpeg"; j++;
+      j++;                                                                       // picture type
+      if (enc === 1 || enc === 2){ while (j + 1 < body.length && (body[j] || body[j + 1])) j += 2; j += 2; } else { while (j < body.length && body[j]) j++; j++; }
+      out.pic = new Blob([body.subarray(j)], {type: /^image\//.test(mime) ? mime : "image/jpeg"});
+    }
+    i += 10 + size;
+  }
+  return out;
+}
+async function audioTags(file){
+  try {
+    const t = readId3(await file.slice(0, 4 * 1024 * 1024).arrayBuffer()); if (!t) return null;
+    if (t.pic){ const u = URL.createObjectURL(t.pic); try { t.art = await artThumb(u); } catch(e){} URL.revokeObjectURL(u); delete t.pic; }
+    return t;
+  } catch(e){ return null; }
+}
 
 /* ---------------- practice UI ---------------- */
 function openPractice(id){

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.24">
+<meta name="version" content="1.25">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -580,7 +580,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.24";
+const APP_VERSION = "1.25";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2024,7 +2024,7 @@ NOTES
 TEMPO (always as quarter notes per minute)
 - Metronome marks: quarter = 120 → 120; half note = 60 → 120; dotted quarter = 80 → 120.
 - Words: Largo 50, Adagio 66, Andante 84, Moderato or "Moderately" 108, "Moderately, not too fast" 100, "Moderately, lightly rhythmical" 116, Allegretto 116, "Moderately bright" 126, Allegro 132, "Bright" 144, Presto 176; for other words use your best musical judgment. "ad lib." or rubato sections still get a number.
-- Write a TEMPO line at every measure where a tempo marking appears.
+- Write a TEMPO line only at a measure where a tempo word or metronome mark is actually printed on THIS page (usually only at the start of the song). If this page has none, write no TEMPO line; the app keeps the tempo from the earlier pages. Don't guess a tempo from how the music looks.
 
 REPEATS
 - PEDAL: if the page shows sustain pedal marks ("Ped." and "*", or a bracket line under the bass staff), write PEDAL DOWN where the pedal goes down and PEDAL UP where it lifts. A notch in the bracket line is an UP and a DOWN at the same beat. If there are no pedal marks, write no PEDAL lines.
@@ -2089,6 +2089,8 @@ function parsePageText(text){
   return out;
 }
 // Join pages, play repeats and endings, apply tempo changes → {bpm, notes, lyrics}
+// A later page that "changes" the tempo by only a few beats per minute is almost always a misreading, not a printed change
+function smallTempoNudge(cur, next){ return !!cur && Math.abs(next - cur) / cur < 0.15; }
 function buildSongFromPages(pages){
   const M = [];
   let beats = 4, bpm = null, firstBpm = null;
@@ -2096,7 +2098,7 @@ function buildSongFromPages(pages){
     const maxM = Math.max(pg.measures || 0, ...pg.notes.map(n => n.m), ...pg.words.map(w => w.m), ...pg.chords.map(c => c.m), 0);
     for (let m = 1; m <= maxM; m++){
       if (pg.times[m]) beats = pg.times[m];
-      if (pg.tempos[m]){ bpm = pg.tempos[m]; if (!firstBpm) firstBpm = bpm; }
+      if (pg.tempos[m] && !smallTempoNudge(bpm, pg.tempos[m])){ bpm = pg.tempos[m]; if (!firstBpm) firstBpm = bpm; }
       M.push({beats, bpm, repStart: pg.repStart.has(m), repEnd: pg.repEnd.has(m), ending: pg.endings[m] || 0,
               notes: pg.notes.filter(n => n.m === m), words: pg.words.filter(w => w.m === m), chords: pg.chords.filter(c => c.m === m), pedal: (pg.pedal || []).filter(x => x.m === m)});
     }
@@ -2754,7 +2756,7 @@ const NOTE_LENS = [48, 36, 24, 18, 12, 9, 6, 3];
 function splitLen(len){ const out = []; let r = len; while (r > 0.5){ const v = NOTE_LENS.find(x => x <= r + 0.01) || 3; out.push(v); r -= v; } return out; }
 
 // one voice in one measure → ABC text. events: [{s, e, ps:[pitches], chord?, word?}] (units), nothing overlaps
-function voiceMeasureAbc(events, mlen, ki, accState, invisibleRest, marks){
+function voiceMeasureAbc(events, mlen, ki, accState, invisibleRest, marks, chordsAt){
   // which beats need triplets: any boundary near 1/3 or 2/3 of a beat
   const beats = Math.ceil(mlen / U), trip = new Array(beats).fill(false);
   for (const ev of events) for (const x of [ev.s, ev.e]){ const b = Math.floor(x / U), r = x - b * U; if (b < beats && (Math.abs(r - 4) < 0.7 || Math.abs(r - 8) < 0.7)) trip[b] = true; }
@@ -2769,20 +2771,31 @@ function voiceMeasureAbc(events, mlen, ki, accState, invisibleRest, marks){
   };
   for (const ev of evs){ if (ev.s > t) push(t, ev.s, null); if (ev.s < t) ev.s = t; if (ev.e > ev.s) push(ev.s, ev.e, ev); t = Math.max(t, ev.e); }
   if (t < mlen) push(t, mlen, null);
+  // chord symbols sit at their own beat: split a rest there if needed, otherwise ride on the note sounding at that beat
+  for (const c of chordsAt || []){
+    const cs = Math.min(mlen - 1, Math.round(c.s / 3) * 3);
+    let k = pieces.findIndex(p => p.s <= cs + 0.01 && cs < p.e - 0.01); if (k < 0) k = pieces.length - 1; if (k < 0) continue;
+    const pc = pieces[k];
+    if (!pc.ev && cs > pc.s + 0.01 && !trip[Math.floor(cs / U)]){ pieces.splice(k, 1, {s:pc.s, e:cs, ev:null, first:true}, {s:cs, e:pc.e, ev:null, first:true}); k++; }
+    pieces[k].chords = (pieces[k].chords || []).concat(c.c);
+  }
   let out = "", i = 0;
-  const pitchesAbc = (ps, nm) => {
+  const pitchesAbc = (ps, nm, tieSome) => {
     const parts = ps.map(p => { const sp = (nm && nm[p] && spellName(nm[p])) || spell(p, ki), key = sp.L + sp.oct; const cur = key in accState ? accState[key] : (ki.sig[sp.L] || 0);
-      const acc = sp.a === cur ? null : sp.a; accState[key] = sp.a; return abcPitch(sp, acc); });
+      const acc = sp.a === cur ? null : sp.a; accState[key] = sp.a; return abcPitch(sp, acc) + (tieSome && tieSome.includes(p) ? "-" : ""); });
     return parts.length > 1 ? "[" + parts.join("") + "]" : parts[0];
   };
   const emit = (pc, writtenLen, tieNext) => {
     let pre = "";
-    if (pc.first && pc.ev){ if (pc.ev.mark) pre += `"^${pc.ev.mark}"`; if (pc.ev.chord) pre += `"${pc.ev.chord}"`; }
+    if (pc.first && pc.ev && pc.ev.mark) pre += `"^${pc.ev.mark}"`;
+    if (pc.chords) pre += `"${pc.chords.join(" ")}"`;
     const lens = splitLen(writtenLen);
     lens.forEach((L, k) => {
-      if (!pc.ev) out += (invisibleRest ? "x" : "z") + L + " ";
-      else { out += (k === 0 ? pre : "") + pitchesAbc(pc.ev.ps, pc.ev.nm) + L + ((k < lens.length - 1 || tieNext) ? "-" : "") + " ";
-             if (k === 0 && pc.first && marks) marks.push(pc.ev); }
+      if (!pc.ev){ out += (k === 0 ? pre : "") + (invisibleRest ? "x" : "z") + L + " "; if (marks) marks.push("rest"); }
+      else { const last = k === lens.length - 1, all = !last || tieNext === true || (Array.isArray(tieNext) && tieNext.length === pc.ev.ps.length);
+             const some = last && Array.isArray(tieNext) && !all ? tieNext : null;   // only some notes of the chord carry over the barline
+             out += (k === 0 ? pre : "") + pitchesAbc(pc.ev.ps, pc.ev.nm, some) + L + (all && (!last || tieNext) ? "-" : "") + " ";
+             if (marks) marks.push(k === 0 && pc.first ? pc.ev : null); }   // one entry per printed note, for lining up the words
     });
   };
   while (i < pieces.length){
@@ -2791,57 +2804,70 @@ function voiceMeasureAbc(events, mlen, ki, accState, invisibleRest, marks){
       const grp = []; while (i < pieces.length && Math.floor(pieces[i].s / U) === b){ grp.push(pieces[i]); i++; }
       out += `(3:2:${grp.reduce((n, g) => n + splitLen((g.e - g.s) * 1.5).length, 0)}`;
       grp.forEach((g, k) => { const nxt = grp[k + 1] || pieces[i]; emit(g, (g.e - g.s) * 1.5, g.ev && nxt && nxt.ev === g.ev); });
-    } else { const nxt = pieces[i + 1]; emit(pc, pc.e - pc.s, pc.ev && nxt && nxt.ev === pc.ev); i++; }
+    } else { const nxt = pieces[i + 1]; emit(pc, pc.e - pc.s, pc.ev && ((nxt && nxt.ev === pc.ev) || (!nxt && pc.ev.tie && pc.ev.tie.length ? pc.ev.tie : false))); i++; }
   }
   return out.trim();
 }
-// split one staff's notes in a measure into up to 3 non-overlapping voices
+// split one staff's notes in a measure into up to 3 non-overlapping voices; the top line (the tune) goes in voice 1
 function staffVoices(notes, mlen){
   const groups = new Map();
-  let over = false;
   for (const n of notes){
-    const s = Math.max(0, n.b * U); let e = s + n.d * U;
-    if (e > mlen + 1.5) over = true; e = Math.min(e, mlen);
+    const s = Math.max(0, n.b * U); let e = Math.min(s + n.d * U, mlen);
     if (e - s < 0.6) continue;
     const k = Math.round(s * 4) + ":" + Math.round(e * 4);
     if (!groups.has(k)) groups.set(k, {s, e, ps:[], nm:{}}); const g0 = groups.get(k);
     if (!g0.ps.includes(n.p)) g0.ps.push(n.p); if (n.nm) g0.nm[n.p] = n.nm;
+    if (n.tie) g0.tie = true; if (n.cont) g0.cont = true;
   }
-  const gl = [...groups.values()].sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
-  gl.forEach(g => g.ps.sort((a, b) => a - b));
-  const voices = [];
-  for (const g of gl){
-    let v = voices.find(v => v.end <= g.s + 0.3);
-    if (!v){ if (voices.length < 3){ v = {end:0, evs:[]}; voices.push(v); } else { v = voices.reduce((a, b) => a.end < b.end ? a : b); const last = v.evs[v.evs.length - 1]; if (last) last.e = Math.max(last.s + 1, g.s); } }
-    v.evs.push(g); v.end = g.e;
+  const gl = [...groups.values()]; gl.forEach(g => g.ps.sort((a, b) => a - b));
+  gl.sort((a, b) => b.ps[b.ps.length - 1] - a.ps[a.ps.length - 1] || a.s - b.s);
+  const voices = [[], [], []], left = [];
+  const fits = (v, g) => v.every(x => g.s >= x.e - 0.3 || x.s >= g.e - 0.3);
+  for (const g of gl){ const v = voices.find(v => fits(v, g)); if (v) v.push(g); else left.push(g); }
+  for (const g of left){            // a 4th layer: fold it into a chord that starts at the same time
+    let host = null; for (const v of voices){ host = v.find(x => Math.abs(x.s - g.s) < 0.5); if (host) break; }
+    if (host){ for (const p of g.ps) if (!host.ps.includes(p)) host.ps.push(p); host.ps.sort((a, b) => a - b); Object.assign(host.nm, g.nm); }
   }
-  // highest voice first so stems go up on top
-  voices.sort((a, b) => avgPitch(b) - avgPitch(a));
-  return {voices: voices.map(v => v.evs), over};
+  return {voices: voices.filter(v => v.length).map(v => v.sort((a, b) => a.s - b.s)), over:false};
 }
 const avgPitch = v => v.evs.reduce((s, g) => s + g.ps.reduce((a, b) => a + b, 0) / g.ps.length, 0) / (v.evs.length || 1);
 
 // measures: [{beats, timeLabel, bpm, notes:[{b,d,p,h}], words:[{b,w}], chords:[{b,c}]}]
-function measuresToAbc(title, keyStr, measures, opts = {}){
+function measuresToAbc(title, keyStr, measuresIn, opts = {}){
   const ki = keyInfo(keyStr);
+  // a note held over the barline is printed as a tie into the next bar (the reader merges ties into one long note)
+  const measures = measuresIn.map(m => ({...m, notes: m.notes.map(n => ({...n}))}));
+  measures.forEach((m, i) => {
+    for (const n of [...m.notes]){
+      if (n.b >= m.beats - 0.02){ m.notes.splice(m.notes.indexOf(n), 1); if (measures[i + 1]) measures[i + 1].notes.push({...n, b: n.b - m.beats}); continue; }
+      const over = n.b + n.d - m.beats;
+      if (over > 0.05){ n.d = m.beats - n.b; n.tie = true; if (measures[i + 1]) measures[i + 1].notes.push({...n, b:0, d:over, tie:false, cont:true}); }
+    }
+  });
   const R = [], Lh = [];
   let maxR = 1, maxL = 1;
   const per = measures.map((m, idx) => {
     const mlen = Math.round(m.beats * U);
     const r = staffVoices(m.notes.filter(n => n.h !== "L"), mlen), l = staffVoices(m.notes.filter(n => n.h === "L"), mlen);
     maxR = Math.max(maxR, r.voices.length); maxL = Math.max(maxL, l.voices.length);
-    // chord symbols and a warning marker ride on the top voice
-    const top = r.voices[0] || (r.voices[0] = []);
-    for (const c of m.chords || []){
-      const s = c.b * U, cands = top.filter(e => e.s <= s + 1.5);
-      const ev = cands.length ? cands[cands.length - 1] : top[0];
-      if (ev) ev.chord = ev.chord ? ev.chord + " " + c.c : c.c;
+    if (!r.voices[0]) r.voices[0] = [];
+    // each word goes on the tune note that starts at its beat
+    const top = r.voices[0], used = new Set();
+    for (const w of m.words || []){
+      const s = w.b * U; let best = null, bd = 6.5;
+      for (const e of top){ if (e.cont || used.has(e)) continue; const d = Math.abs(e.s - s); if (d < bd){ bd = d; best = e; } }
+      if (best){ used.add(best); best.word = w.w; }
     }
-    const empty = !m.notes.length;
-    const warn = empty ? "no notes read" : (r.over || l.over) ? "too long for the bar" : "";
+    const warn = !m.notes.some(n => !n.cont) && !(m.words || []).length ? "no notes read" : "";
     const prevChord = idx > 0 ? [...measures.slice(0, idx)].reverse().map(x => (x.chords || []).slice(-1)[0]).find(Boolean)?.c : null;
     return {m, mlen, r, l, warn, idx, prevChord: (m.chords || []).some(x => x.b < 0.01) ? null : prevChord};
   });
+  // tie over the barline only to the same notes in the same voice of the next bar
+  per.forEach((c, i) => { const nx = per[i + 1];
+    for (const st of ["r", "l"]) c[st].voices.forEach((v, vi) => { const last = v[v.length - 1]; if (!last || !last.tie) return;
+      const first = nx && (nx[st].voices[vi] || [])[0];
+      const tp = first && first.cont && first.s < 0.5 ? last.ps.filter(p => first.ps.includes(p)) : [];
+      last.tie = tp.length ? tp : null; }); });
   const nV = {R: Math.min(3, maxR), L: Math.min(3, maxL)};
   let head = `X:1\nT:${title.replace(/\n/g, " ")}\n`;
   const first = measures[0] || {timeLabel:"4/4", bpm:100};
@@ -2868,17 +2894,17 @@ function measuresToAbc(title, keyStr, measures, opts = {}){
           const marks = st === "R" && v === 0 ? [] : null;
           const chordNames = [...(c.prevChord ? [c.prevChord] : []), ...(c.m.chords || []).map(x => x.c)];
           const kiM = chordNames.length ? {...ki, chordSp: Object.assign({}, ...chordNames.map(chordSpellings))} : ki;
-          const txt = voiceMeasureAbc(evs.filter(e => e.ps), c.mlen, kiM, {}, v > 0, marks);
+          const chordsAt = st === "R" && v === 0 ? (c.m.chords || []).map(x => ({s: x.b * U, c: x.c})) : null;
+          const txt = voiceMeasureAbc(evs.filter(e => e.ps), c.mlen, kiM, {}, v > 0, marks, chordsAt);
           if (st === "R" && v === 0 && !evs.length && c.warn) line += `"^⚠ ${c.warn}"`;
           line += pre + txt + " | ";
           if (marks){
-            for (const ev of marks){
-              const w = (c.m.words || []).find(x => Math.abs(x.b * U - ev.s) < 1.6);
-              lyricTokens.push(w ? w.w.replace(/[*_~|\\]/g, "").replace(/\s+/g, "~") : "*");
-            }
+            for (const ev of marks) lyricTokens.push(ev === "rest" ? "rest" : ev && ev.word ? ev.word.replace(/[*_~|\\]/g, "").replace(/\s+/g, "~") : "*");
           }
         }
         body += line.replace(/\|\s*$/, a + perLine >= per.length ? "|]" : "|") + "\n";
+        // abcjs lets a rest use up a "*" skip (but never a word), so a rest right before a skipped note needs a "*" of its own
+        lyricTokens = lyricTokens.filter((t, k) => t !== "rest" || lyricTokens.slice(k + 1).find(x => x !== "rest") === "*").map(t => t === "rest" ? "*" : t);
         if (lyricTokens.some(t => t !== "*")) body += "w: " + lyricTokens.map(t => /-$/.test(t) ? t : t + " ").join("").trim() + "\n";
       }
     }
@@ -2892,7 +2918,8 @@ function pageToMeasures(pg, carry){
   for (let m = 1; m <= maxM; m++){
     if (pg.times[m]) carry.beats = pg.times[m];
     if (pg.timeLabels && pg.timeLabels[m]) carry.label = pg.timeLabels[m];
-    if (pg.tempos[m]) carry.bpm = pg.tempos[m];
+    if (pg.tempos[m] && !smallTempoNudge(carry.started ? carry.bpm : null, pg.tempos[m])) carry.bpm = pg.tempos[m];
+    carry.started = true;
     out.push({beats:carry.beats, timeLabel:carry.label, bpm:carry.bpm,
       notes: pg.notes.filter(n => n.m === m), words: pg.words.filter(w => w.m === m && (w.v || 1) === 1).map(w => ({b:w.b, w:w.w})),
       chords: pg.chords.filter(c => c.m === m).map(c => ({b:c.b, c:c.c}))});

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.38">
+<meta name="version" content="1.39">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -308,6 +308,26 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .snd{text-align:left;min-height:42px;padding:0 12px;border-radius:9px;border:1px solid transparent;background:transparent;font-weight:500}
 .snd:hover{background:var(--lacquer)}
 .snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
+
+/* practice toolbar: slim bar, everything else in a drawer */
+#practice{position:fixed}
+.tkchip{flex:none;height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ivory);white-space:nowrap}
+.tkchip.changed{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--accent)}
+.tkchip[aria-expanded="true"],#moreBtn[aria-expanded="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.pdrawer{position:absolute;left:0;right:0;z-index:30;display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end;padding:12px 14px 14px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:0 14px 30px rgba(0,0,0,.45);animation:drawerIn .18s ease-out}
+@keyframes drawerIn{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pdrawer{animation:none}}
+.dgrp{display:flex;flex-direction:column;gap:5px}
+.dgrp.dicons{flex-direction:row;gap:10px;align-items:flex-start}
+.dcap{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--muted);min-width:52px;text-align:center}
+.dcap:has(> button[hidden]){display:none}
+.dlbl{font-size:12px;font-weight:600;color:var(--muted)}
+.pdrawer .stepper button{width:44px;min-height:42px}
+.pdrawer .stepper span{min-width:70px}
+.pdrawer .stepper small{display:none}
+.pdrawer .seg button{min-height:42px;padding:0 14px}
+.pdrawer .icon{width:46px;height:46px}
+@media (max-height:520px){ .tkchip{height:36px;padding:0 10px} .pdrawer{gap:10px 18px;padding:10px 12px} }
 /* Sideways on a phone: one slim strip so the notes get the room */
 @media (max-height:520px){
   #bars{flex-wrap:nowrap;padding:4px 10px;gap:6px;overflow-x:auto;scrollbar-width:none}
@@ -497,26 +517,30 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" data-v="B" aria-pressed="true" aria-label="Both hands">Both</button>
       <button type="button" data-v="R" aria-pressed="false" aria-label="Right hand">R</button>
     </div>
-    <div class="stepper" role="group" aria-label="Tempo">
+    <button class="btn instr" id="plNext" type="button" hidden aria-label="Next song in the playlist">⏭</button>
+    <button class="tkchip" id="tkChip" type="button" aria-expanded="false" aria-controls="pDrawer" aria-label="Tempo and key: tap for more settings"><span id="tkText">100 bpm · C</span></button>
+    <button class="icon" id="moreBtn" type="button" aria-expanded="false" aria-controls="pDrawer" aria-label="More settings" title="More settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></svg></button>
+    <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
+  </div>
+  <div id="pDrawer" class="pdrawer" hidden>
+    <div class="dgrp"><span class="dlbl">Tempo</span><div class="stepper" role="group" aria-label="Tempo">
       <button type="button" id="tempoDown" aria-label="Slower">&#8722;</button>
       <span id="tempoReset" title="Tap to go back to the song's own tempo"><small id="tempoLbl">Tempo</small><output id="tempoOut">100</output></span>
       <button type="button" id="tempoUp" aria-label="Faster">+</button>
-    </div>
-    <div class="stepper" role="group" aria-label="Key">
+    </div></div>
+    <div class="dgrp"><span class="dlbl">Key</span><div class="stepper" role="group" aria-label="Key">
       <button type="button" id="keyDown" aria-label="Lower one half step">&#8722;</button>
       <span id="keyReset" title="Tap to go back to the original key"><small id="keyLbl">Key</small><output id="keyOut">C</output></span>
       <button type="button" id="keyUp" aria-label="Raise one half step">+</button>
-    </div>
-    <button class="btn instr" id="plNext" type="button" hidden aria-label="Next song in the playlist">⏭</button>
-    <div class="seg" id="viewSeg" role="group" aria-label="Show falling bars or sheet music">
+    </div></div>
+    <div class="dgrp"><span class="dlbl">Show</span><div class="seg" id="viewSeg" role="group" aria-label="Show falling bars or sheet music">
       <button type="button" data-v="bars" aria-pressed="true">Bars</button>
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
-    </div>
-    <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
-    <button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button>
-    <button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button>
-    <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
-    <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
+    </div></div>
+    <div class="dgrp dicons"><div class="dcap"><button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button><span>Lyrics</span></div>
+    <div class="dcap"><button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button><span>Strum along</span></div>
+    <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
+    <div class="dcap"><button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button><span>Full screen</span></div></div>
   </div>
   <video id="keepAwake" muted playsinline loop hidden aria-hidden="true">
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
@@ -798,7 +822,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.38";
+const APP_VERSION = "1.39";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1919,11 +1943,12 @@ function drawLyrics(){
     let widths = parts.map(p => cx.measureText(p).width), total = widths.reduce((a, b) => a + b, 0);
     if (total > maxW){ fs = Math.max(14, Math.floor(fs * maxW / total)); cx.font = `600 ${fs}px ${css("--f-body")}`; widths = parts.map(p => cx.measureText(p).width); total = widths.reduce((a, b) => a + b, 0); }
     let x = guitar ? (W - total) / 2 : Math.max(16, (W - total) / 2);
+    let chEnd = -1e9;
     ln.items.forEach((it, k) => {
       const nextT = ln.items[k + 1] ? ln.items[k + 1].t : it.t + 1.5;
       if (withChords){
         const ch = P.chords.find(c => c.t >= it.t - 0.06 && c.t < nextT - 0.06);
-        if (ch){ cx.font = `700 ${Math.round(fs * 0.62)}px ${css("--f-display")}`; cx.fillStyle = ch === P.chords[G.idx] && P.instr === "guitar" ? C.R : C.chrome; cx.globalAlpha = it.t <= t + 1 ? 1 : 0.7; cx.fillText(ch.name, x, yy - fs * 1.05); cx.globalAlpha = 1; cx.font = `600 ${fs}px ${css("--f-body")}`; }
+        if (ch){ cx.font = `700 ${Math.round(fs * 0.62)}px ${css("--f-display")}`; cx.fillStyle = ch === P.chords[G.idx] && P.instr === "guitar" ? C.R : C.chrome; cx.globalAlpha = it.t <= t + 1 ? 1 : 0.7; const chX = Math.max(x, chEnd + fs * 0.35); if (chX < W - 8){ cx.fillText(ch.name, chX, yy - fs * 1.05); chEnd = chX + cx.measureText(ch.name).width; } cx.globalAlpha = 1; cx.font = `600 ${fs}px ${css("--f-body")}`; }
       }
       cx.fillStyle = `rgba(255,255,255,${it.t <= t ? litAlpha : baseAlpha})`;
       cx.fillText(parts[k], x, yy); x += widths[k];
@@ -4455,6 +4480,7 @@ function openPractice(id, inst){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
+  setDrawer(false);
   stopGuitarMic();
   PL.playing = null; updatePlaylistBar();
   setPlaying(false);
@@ -4463,7 +4489,25 @@ function closePractice(){
   exitFullscreen();
 }
 $("backBtn").onclick = closePractice;
-$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); };
+$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); if (P.playing) setDrawer(false); };
+/* ---------- practice drawer: tempo, key, view, words, strum, sound, full screen ---------- */
+function placeDrawer(){ const bar = $("bars"); $("pDrawer").style.top = (bar.offsetTop + bar.offsetHeight) + "px"; }
+function setDrawer(open){
+  $("pDrawer").hidden = !open; $("tkChip").setAttribute("aria-expanded", String(open)); $("moreBtn").setAttribute("aria-expanded", String(open));
+  if (open) placeDrawer();
+}
+$("tkChip").onclick = $("moreBtn").onclick = () => setDrawer($("pDrawer").hidden);
+$("stage") && $("stage").addEventListener("pointerdown", () => { if (!$("pDrawer").hidden) setDrawer(false); });
+function syncTkChip(){
+  const tempo = $("tempoOut").textContent.trim(), key = $("keyOut").textContent.trim();
+  $("tkText").textContent = `${tempo}${/%$/.test(tempo) ? "" : " bpm"} · ${key}`;
+  const changed = (P.transpose || 0) !== 0 || (P.baseBpm && Math.abs(parseFloat(tempo) - P.baseBpm) > 0.5 && !/%$/.test(tempo));
+  $("tkChip").classList.toggle("changed", !!changed);
+}
+new MutationObserver(syncTkChip).observe($("tempoOut"), {childList:true, characterData:true, subtree:true});
+new MutationObserver(syncTkChip).observe($("keyOut"), {childList:true, characterData:true, subtree:true});
+window.addEventListener("resize", () => { if (!$("pDrawer").hidden) placeDrawer(); });
+
 $("restartBtn").onclick = () => { const was = P.playing; setPlaying(false); resetRun(); if (was) setPlaying(true); };
 const MODE_HELP = {
   wait: "Wait: the notes stop at the line until you press the right keys. Best for learning.",

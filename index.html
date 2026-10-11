@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.21">
+<meta name="version" content="1.20">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -570,7 +570,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.21";
+const APP_VERSION = "1.20";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -585,27 +585,10 @@ const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + String(Math.floor(s%60)).padStart(2,"0"); };
 
 /* ---------------- storage (per-device) ---------------- */
-/* Small settings live in localStorage (about 5 MB in total). Song data (notes, words, chords, reader results)
-   lives in IndexedDB, which can hold hundreds of MB, with an in-memory copy so reads stay instant. */
-const BIG = /^dg30\.(song|lyrics|chords|scan|pedal)\./;
-const big = { cache: new Map(), ok: false, warned: false };
-const ls = {
+const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
-};
-const store = {
-  get(k, d){ if (BIG.test(k) && big.ok) return big.cache.has(k) ? big.cache.get(k) : ls.get(k, d); return ls.get(k, d); },
-  set(k, v){
-    if (BIG.test(k) && big.ok){
-      big.cache.set(k, v); ls.del(k);
-      idb.kvPut(k, v).catch(() => { if (!big.warned){ big.warned = true; toast("Your phone is very low on storage, so a song couldn't be saved. Free up some space and add it again."); } });
-      return true;
-    }
-    return ls.set(k, v);
-  },
-  del(k){ if (BIG.test(k)){ big.cache.delete(k); if (big.ok) idb.kvDel(k).catch(() => {}); } ls.del(k); },
-  keys(){ const out = new Set(big.cache.keys()); try { for (let i = 0; i < localStorage.length; i++) out.add(localStorage.key(i)); } catch(e){} return [...out]; }
 };
 
 /* ---------------- song model ----------------
@@ -2210,23 +2193,11 @@ $("scanForm").addEventListener("submit", async e => {
 const idb = {
   db: null,
   open(){ return this.db || (this.db = new Promise((ok, bad) => {
-    const r = indexedDB.open("dg30", 2);
-    r.onupgradeneeded = () => {
-      const db = r.result;
-      if (!db.objectStoreNames.contains("jobs")) db.createObjectStore("jobs", {keyPath:"id"});
-      if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
-    };
-    r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); r.onblocked = () => bad(new Error("blocked"));
+    const r = indexedDB.open("dg30", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("jobs", {keyPath:"id"});
+    r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error);
   })); },
-  async tx(mode, fn, name = "jobs"){ const db = await this.open(); return new Promise((ok, bad) => { const t = db.transaction(name, mode), s = t.objectStore(name); const r = fn(s); t.oncomplete = () => ok(r && r.result); t.onerror = () => bad(t.error); t.onabort = () => bad(t.error); }); },
-  kvPut(k, v){ return this.tx("readwrite", s => s.put(v, k), "kv"); },
-  kvDel(k){ return this.tx("readwrite", s => s.delete(k), "kv"); },
-  async kvAll(){
-    const db = await this.open();
-    return new Promise((ok, bad) => { const out = []; const t = db.transaction("kv", "readonly"); const c = t.objectStore("kv").openCursor();
-      c.onsuccess = () => { const cur = c.result; if (cur){ out.push([cur.key, cur.value]); cur.continue(); } };
-      t.oncomplete = () => ok(out); t.onerror = () => bad(t.error); });
-  },
+  async tx(mode, fn){ const db = await this.open(); return new Promise((ok, bad) => { const t = db.transaction("jobs", mode), s = t.objectStore("jobs"); const r = fn(s); t.oncomplete = () => ok(r && r.result); t.onerror = () => bad(t.error); }); },
   put(job){ return this.tx("readwrite", s => s.put(job)); },
   del(id){ return this.tx("readwrite", s => s.delete(id)); },
   all(){ return this.tx("readonly", s => s.getAll()); }
@@ -2331,7 +2302,7 @@ function finishSheetSong(pages, nameIn){
   const last = notes[notes.length - 1];
   const title = nameIn || pages.map(p => p.title).find(Boolean) || "Scanned music";
   const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", shift:+shift.toFixed(3), bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
-  if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("This phone's storage is full. Free up some space and try again.");
+  if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
   store.set("dg30.scan." + meta.id, pages.map(p => ({page: p.page, text: p.raw || ""})));
   if (joined.pedal.length) store.set("dg30.pedal." + meta.id, joined.pedal.map(x => [+x.t.toFixed(3), x.down ? 1 : 0]));
   return meta;
@@ -2349,7 +2320,7 @@ function finishAudioSong(raw, level, name){
   const t0 = notes[0].t, cutIntro = t0 > 1.5 ? t0 - 1 : 0; if (cutIntro) notes.forEach(n => n.t -= cutIntro);
   const last = notes[notes.length - 1];
   const meta = { id: "s" + Date.now().toString(36), title: name || "Untitled song", level, bpm: raw.bpm || estimateTempo(raw), key: raw.key || "", count: notes.length, len: last.t + last.d, added: Date.now() };
-  if (!saveSong(meta, notes)) throw new Error("This phone's storage is full. Free up some space and try again.");
+  if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
   return meta;
 }
 async function renderJobs(){
@@ -2578,7 +2549,7 @@ function renderTunerStrings(){
 const BACKUP_SKIP = /^dg30\.(apikey|bleId|out|vol|songVol|mode|hands|tempo$|words|pedalMode|gbacking|scanModel|autoFs|a4|sound$|bgAudio|headstock)/;
 function backupData(){
   const data = {};
-  for (const k of store.keys()){ if (k && k.startsWith("dg30.") && !BACKUP_SKIP.test(k)){ const v = store.get(k, null); if (v != null) data[k] = JSON.stringify(v); } }
+  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith("dg30.") && !BACKUP_SKIP.test(k)) data[k] = localStorage.getItem(k); }
   return {app:"DG30 Song Coach", version: APP_VERSION, saved: new Date().toISOString(), data};
 }
 function backupFile(){
@@ -2615,8 +2586,7 @@ async function restoreFrom(file){
     for (const [k, v] of Object.entries(b.data)){
       if (k === "dg30.songs" || k === "dg30.playlists") continue;
       const m = k.match(/^dg30\.[a-z]+\.(.+)$/); if (m && have.has(m[1])) continue;   // keep this device's copy of songs it already has
-      let val; try { val = JSON.parse(v); } catch(e){ continue; }
-      if (!store.set(k, val)) throw new Error("This phone's storage is full. Free up some space and try again.");
+      try { localStorage.setItem(k, v); } catch(e){ throw new Error("This device's storage is full. Delete some songs and try again."); }
     }
     for (const s of theirs) if (!have.has(s.id)){ mine.push(s); added++; }
     store.set("dg30.songs", mine.sort((a, b) => (b.added || 0) - (a.added || 0)));
@@ -2635,7 +2605,7 @@ function songPackage(id){
   const meta = allSongs().find(s => s.id === id);
   const pkg = {app:"DG30 Song Coach", kind:"song", version: APP_VERSION, meta: {...meta}};
   delete pkg.meta.demo;
-  for (const k of SONG_KEYS){ const v = store.get(`dg30.${k}.${id}`, null); if (v != null) pkg[k] = v; }
+  for (const k of SONG_KEYS){ const v = localStorage.getItem(`dg30.${k}.${id}`); if (v != null) pkg[k] = JSON.parse(v); }
   return pkg;
 }
 function shareSong(id){
@@ -2664,7 +2634,7 @@ function importSongPackage(pkg){
   const songs = store.get("dg30.songs", []);
   if (songs.some(s => s.id === pkg.meta.id && s.title === pkg.meta.title)) return {meta: pkg.meta, dup: true};
   const meta = {...pkg.meta, id: songs.some(s => s.id === pkg.meta.id) ? "s" + Date.now().toString(36) : pkg.meta.id, added: Date.now(), shared: true};
-  for (const k of SONG_KEYS) if (pkg[k] != null){ if (!store.set(`dg30.${k}.${meta.id}`, pkg[k])) throw new Error("This phone's storage is full. Free up some space and try again."); }
+  for (const k of SONG_KEYS) if (pkg[k] != null){ if (!store.set(`dg30.${k}.${meta.id}`, pkg[k])) throw new Error("This device's storage is full. Delete a song and try again."); }
   songs.unshift(meta); store.set("dg30.songs", songs);
   return {meta, dup: false};
 }
@@ -2981,7 +2951,7 @@ $("fileIn").addEventListener("change", e => {
       const notes = simplify(sc.notes, "full", {minDur:0.03});
       const last = notes[notes.length - 1];
       const meta = { id:"s" + Date.now().toString(36), title: sc.title || f.name.replace(/\.[^.]+$/, ""), level:"full", src:"sheet", bpm:Math.round(sc.bpm), key:sc.key, words:sc.lyrics.length > 0, guitar:sc.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
-      if (!saveSong(meta, notes, sc.lyrics, sc.chords)) throw new Error("This phone's storage is full. Free up some space and try again.");
+      if (!saveSong(meta, notes, sc.lyrics, sc.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
       renderLibrary(); toast(`Added “${meta.title}”`);
     }).catch(err => toast(err.message));
     return;
@@ -3175,15 +3145,6 @@ function addTopBars(){
 addTopBars();
 
 /* ---------------- boot ---------------- */
-async function loadSongStore(){
-  try {
-    for (const [k, v] of await idb.kvAll()) big.cache.set(k, v);
-    const old = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && BIG.test(k)) old.push(k); }
-    for (const k of old){ const v = ls.get(k, null); if (v != null){ await idb.kvPut(k, v); big.cache.set(k, v); } ls.del(k); }
-    big.ok = true;
-    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  } catch(e){ big.ok = false; }            // no IndexedDB: everything stays in localStorage as before
-}
 (function boot(){
   if (!window.isSecureContext) $("secureWarn").hidden = false;
   P.mode = store.get("dg30.mode", "wait"); setSeg("modeSeg", P.mode);
@@ -3200,11 +3161,11 @@ async function loadSongStore(){
   };
   $("setKeyClear").onclick = () => { store.del("dg30.apikey"); $("setKey").value = ""; $("setKeyStatus").textContent = "Key removed"; };
   renderLibrary();
-  loadSongStore().then(() => { renderLibrary(); runJobs(); });
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });
   autoReconnect(true);
+  runJobs();
   $("fsBtn").onclick = async () => { if (isFullscreen()) exitFullscreen(); else { enterFullscreen.manual = true; await enterFullscreen(); enterFullscreen.manual = false; } };
   if (installedApp() && matchMedia("(display-mode: fullscreen)").matches) $("fsBtn").hidden = true;
   $("autoFs").checked = store.get("dg30.autoFs", true);

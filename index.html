@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.11">
+<meta name="version" content="1.13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -103,6 +103,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 #stage{position:relative;flex:1;min-height:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,17,15,.85);border:1px solid var(--line);font-size:13px;font-weight:500;white-space:nowrap;pointer-events:none}
+#banner.tap{pointer-events:auto;cursor:pointer;border-color:var(--chrome)}
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
 .scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
@@ -113,6 +114,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .thumbs button{position:absolute;right:3px;top:3px;width:24px;height:24px;border-radius:50%;border:0;background:var(--lacquer);color:var(--ivory);font-size:13px;line-height:1}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 .instr{min-height:38px;padding:0 12px;font-size:13px;flex:none}
+#wordsBtn{font:700 15px var(--f-display)}
+#wordsBtn[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
 /* Tempo stepper */
 .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
 .stepper button{width:38px;min-height:38px;border:0;background:var(--lacquer);font-size:20px;line-height:1;font-weight:600}
@@ -200,6 +203,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div><b>Wait</b> stops the notes until you press the right keys on the piano.</div>
     <div><b>Play</b> keeps time and scores each note you hit within a quarter second.</div>
     <div><b>Listen</b> plays the song on your piano so you can hear it first.</div>
+    <div><b>Aa</b> switches a song with words between falling notes and big words with the chords above them. The keyboard still lights the keys to play.</div>
     <div><b>Key</b> − and + move the whole song down or up a half step, for an easier key or a singer's range.</div>
     <div>Songs with chord symbols get a <b>Guitar</b> button: chords scroll down with finger positions on the neck, and Listen strums them.</div>
     <div>Turn your phone sideways for the widest keyboard.</div>
@@ -235,6 +239,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <span id="keyReset" title="Tap to go back to the original key"><small id="keyLbl">Key</small><output id="keyOut">C</output></span>
       <button type="button" id="keyUp" aria-label="Raise one half step">+</button>
     </div>
+    <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
     <button class="icon" id="soundBtn" type="button" aria-label="Piano sound" title="Piano sound">&#9835;</button>
     <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
     <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
@@ -269,10 +274,10 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <div class="row"><button class="btn" id="micBtn" type="button">Listen with mic</button></div>
     </div>
     <div class="field">
-      <span class="label">Song sound in Listen mode and for the other hand</span>
+      <span class="label">Where the app's notes play (Listen, guitar strums, the other hand)</span>
       <select id="outSel">
-        <option value="piano">Play on the piano</option>
-        <option value="phone">Play on the phone</option>
+        <option value="piano">On the piano, using its selected sound</option>
+        <option value="phone">On the phone speaker (simple tone)</option>
         <option value="off">Silent</option>
       </select>
     </div>
@@ -364,7 +369,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.13";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -645,21 +650,59 @@ async function connectBle(showAll){
       ? { acceptAllDevices:true, optionalServices:[BLE_MIDI_SERVICE] }
       : { filters:[{services:[BLE_MIDI_SERVICE]}, {namePrefix:"DG"}, {namePrefix:"Kawai"}, {namePrefix:"KAWAI"}], optionalServices:[BLE_MIDI_SERVICE] });
     st.textContent = "Connecting to " + (dev.name || "piano") + "…";
-    const server = await dev.gatt.connect();
-    const svc = await server.getPrimaryService(BLE_MIDI_SERVICE);
-    const ch = await svc.getCharacteristic(BLE_MIDI_CHAR);
-    await ch.startNotifications();
-    ch.addEventListener("characteristicvaluechanged", e => {
-      const v = e.target.value; parseBleMidi(new Uint8Array(v.buffer, v.byteOffset, v.byteLength), handleMidi);
-    });
-    dev.addEventListener("gattserverdisconnected", () => { if (conn.bleDev === dev){ conn.bleChar = null; setConnected(null); toast("Piano disconnected"); } });
-    stopMic(); conn.bleDev = dev; conn.bleChar = ch; conn.midiOut = null;
-    setConnected("ble", dev.name || "DG30");
+    await attachBle(dev);
   } catch(e){
     if (/service|GATT/i.test(e.message || "")){ st.textContent = "That device doesn't offer Bluetooth MIDI. Pick the entry for your piano's MIDI, often named DG30 or KAWAI."; return; }
     st.textContent = e.name === "NotFoundError" ? "No piano chosen. If the list was empty: turn Bluetooth MIDI on at the piano, close PianoRemote, allow Chrome the Nearby devices permission, then try “Show all Bluetooth devices”." : "Couldn't connect: " + e.message;
   }
 }
+async function attachBle(dev){
+  const server = await dev.gatt.connect();
+  const svc = await server.getPrimaryService(BLE_MIDI_SERVICE);
+  const ch = await svc.getCharacteristic(BLE_MIDI_CHAR);
+  await ch.startNotifications();
+  if (!dev._dg30Wired){
+    dev._dg30Wired = true;
+    dev.addEventListener("gattserverdisconnected", () => {
+      if (conn.bleDev !== dev) return;
+      conn.bleChar = null; setConnected(null); toast("Piano disconnected. Reconnecting…");
+      setTimeout(() => autoReconnect(true), 1500);
+    });
+  }
+  ch.addEventListener("characteristicvaluechanged", e => {
+    const v = e.target.value; parseBleMidi(new Uint8Array(v.buffer, v.byteOffset, v.byteLength), handleMidi);
+  });
+  stopMic(); conn.bleDev = dev; conn.bleChar = ch; conn.midiOut = null;
+  store.set("dg30.bleId", dev.id);
+  setConnected("ble", dev.name || "DG30");
+}
+// Reconnect to the piano chosen before, without the device list (Chrome on Android/desktop)
+let reconnecting = false;
+async function autoReconnect(announce){
+  if (reconnecting || conn.bleChar || conn.midiOut || conn.kind === "mic" || !navigator.bluetooth?.getDevices) return;
+  reconnecting = true;
+  try {
+    const devs = await navigator.bluetooth.getDevices();
+    const want = store.get("dg30.bleId", null);
+    const dev = devs.find(d => d.id === want) || (devs.length === 1 ? devs[0] : null);
+    if (!dev) return;
+    for (let i = 0; i < 3 && !conn.bleChar; i++){
+      try {
+        if (!dev.gatt.connected && dev.watchAdvertisements){
+          const ac = new AbortController();
+          await new Promise((res, rej) => {
+            const t = setTimeout(() => { ac.abort(); res(); }, 6000);
+            dev.addEventListener("advertisementreceived", () => { clearTimeout(t); ac.abort(); res(); }, {once:true});
+            dev.watchAdvertisements({signal: ac.signal}).catch(() => { clearTimeout(t); res(); });
+          });
+        }
+        await attachBle(dev);
+        if (announce) toast("Piano reconnected");
+      } catch(e){ await new Promise(r => setTimeout(r, 1500)); }
+    }
+  } catch(e){} finally { reconnecting = false; }
+}
+function pianoReady(){ return !!(conn.midiOut || conn.bleChar); }
 function bleSend(bytes){
   if (!conn.bleChar) return;
   bleQueue.pending.push(bytes); pumpBle();
@@ -1005,14 +1048,14 @@ function drawGuitar(now){
   // beat lines
   const beat = 60 / (P.baseBpm || 100);
   cx.strokeStyle = C.line; cx.lineWidth = 1;
-  for (let k = Math.floor((P.t - 1) / beat); k * beat < P.t + strumY / pps; k++){
+  if (!P.words) for (let k = Math.floor((P.t - 1) / beat); k * beat < P.t + strumY / pps; k++){
     const y = strumY - (k * beat - P.t) * pps; if (y < 0 || y > strumY) continue;
     cx.globalAlpha = k % 4 === 0 ? 0.9 : 0.4; cx.beginPath(); cx.moveTo(laneX0, y); cx.lineTo(laneX1, y); cx.stroke();
   }
   cx.globalAlpha = 1;
   // falling chords
   const cur = P.chords[G.idx], next = P.chords[G.idx + 1];
-  for (let i = 0; i < P.chords.length; i++){
+  if (!P.words) for (let i = 0; i < P.chords.length; i++){
     const c = P.chords[i]; if (c.t > P.t + strumY / pps) break; if (c.end < P.t - 0.5) continue;
     const y1 = strumY - (c.t - P.t) * pps, y0 = Math.max(-20, strumY - (c.end - P.t) * pps);
     const isCur = i === G.idx;
@@ -1023,7 +1066,7 @@ function drawGuitar(now){
     cx.font = `700 ${Math.min(30, Math.max(16, (laneX1 - laneX0) / 8))}px ${css("--f-display")}`;
     if (y1 > 18) cx.fillText(c.name, (laneX0 + laneX1) / 2, Math.min(y1, strumY) - 8);
   }
-  cx.fillStyle = C.chrome; cx.fillRect(laneX0, strumY - 1, laneX1 - laneX0, 3);
+  if (!P.words) { cx.fillStyle = C.chrome; cx.fillRect(laneX0, strumY - 1, laneX1 - laneX0, 3); }
   // chord charts: current (left, large) and next (right, smaller)
   const boxW = Math.min(W * 0.17, 150), boxH = Math.min(strumY * 0.62, boxW * 1.25);
   cx.textAlign = "center"; cx.textBaseline = "top";
@@ -1074,29 +1117,40 @@ function drawGuitar(now){
 
 /* lyrics overlay: current line in translucent white, the sung part brighter, next line faint */
 function drawLyrics(){
-  const lines = P.lyricLines; if (!lines || !lines.length) return;
-  const W = L.W, H = L.H, area = P.instr === "guitar" ? H * 0.55 : L.hitY;
+  const lines = P.lyricLines; if (!P.words || !lines || !lines.length) return;
+  const W = L.W, guitar = P.instr === "guitar";
+  const top = guitar ? 40 : 30, bottom = guitar ? (L.gStrumY || L.H * 0.6) : L.hitY - 10;
   const t = P.t + 0.15;
   let i = -1; for (let k = 0; k < lines.length; k++){ if (lines[k].t0 <= t + 0.6) i = k; else break; }
-  if (i < 0){ if (lines[0].t0 - t > 3) return; i = 0; }
-  const lastOf = ln => ln.items[ln.items.length - 1].t;
-  if (i === lines.length - 1 && t > lastOf(lines[i]) + 4) return;
-  const size = Math.round(Math.max(20, Math.min(40, W / 24)));
-  const y = P.instr === "guitar" ? Math.max(size + 30, (L.gStrumY || area) - size * 2.6) : area * 0.30;
-  cx.save(); cx.textBaseline = "middle"; cx.textAlign = "left";
-  cx.shadowColor = "rgba(0,0,0,0.75)"; cx.shadowBlur = 10;
-  const drawLine = (ln, yy, fs, baseAlpha, litAlpha) => {
+  if (i < 0) i = 0;
+  const maxW = guitar ? W * 0.40 : W - 32;
+  const size = Math.round(Math.max(22, Math.min(guitar ? 34 : 46, W / (guitar ? 30 : 19))));
+  const showChords = P.chords.length > 0;
+  const lineH = size * (showChords ? 1.9 : 1.4);
+  cx.save(); cx.textBaseline = "alphabetic"; cx.textAlign = "left";
+  const drawLine = (ln, yy, fs, baseAlpha, litAlpha, withChords) => {
+    if (!ln) return;
     cx.font = `600 ${fs}px ${css("--f-body")}`;
     const parts = ln.items.map((it, k) => it.text + (it.joins || k === ln.items.length - 1 ? "" : " "));
-    const widths = parts.map(p => cx.measureText(p).width), total = widths.reduce((a, b) => a + b, 0);
-    let x = Math.max(16, (W - total) / 2);
+    let widths = parts.map(p => cx.measureText(p).width), total = widths.reduce((a, b) => a + b, 0);
+    if (total > maxW){ fs = Math.max(14, Math.floor(fs * maxW / total)); cx.font = `600 ${fs}px ${css("--f-body")}`; widths = parts.map(p => cx.measureText(p).width); total = widths.reduce((a, b) => a + b, 0); }
+    let x = guitar ? (W - total) / 2 : Math.max(16, (W - total) / 2);
     ln.items.forEach((it, k) => {
+      const nextT = ln.items[k + 1] ? ln.items[k + 1].t : it.t + 1.5;
+      if (withChords){
+        const ch = P.chords.find(c => c.t >= it.t - 0.06 && c.t < nextT - 0.06);
+        if (ch){ cx.font = `700 ${Math.round(fs * 0.62)}px ${css("--f-display")}`; cx.fillStyle = ch === P.chords[G.idx] && P.instr === "guitar" ? C.R : C.chrome; cx.globalAlpha = it.t <= t + 1 ? 1 : 0.7; cx.fillText(ch.name, x, yy - fs * 1.05); cx.globalAlpha = 1; cx.font = `600 ${fs}px ${css("--f-body")}`; }
+      }
       cx.fillStyle = `rgba(255,255,255,${it.t <= t ? litAlpha : baseAlpha})`;
       cx.fillText(parts[k], x, yy); x += widths[k];
     });
   };
-  drawLine(lines[i], y, size, 0.42, 0.88);
-  if (lines[i + 1]) drawLine(lines[i + 1], y + size * 1.35, Math.round(size * 0.72), 0.24, 0.24);
+  // first line sits below the status message; following lines only if they fit above the keyboard or neck
+  const y0 = 52 + size * (showChords ? 1.6 : 1.0);
+  const fits = y => y < bottom - 4;
+  drawLine(lines[i], y0, size, 0.5, 1, showChords);
+  if (fits(y0 + lineH)) drawLine(lines[i + 1], y0 + lineH, Math.round(size * 0.8), 0.38, 0.38, showChords);
+  if (fits(y0 + lineH * 1.85)) drawLine(lines[i + 2], y0 + lineH * 1.85, Math.round(size * 0.68), 0.25, 0.25, false);
   cx.restore();
 }
 
@@ -1156,7 +1210,7 @@ function setTranspose(k){ P.transpose = Math.max(-12, Math.min(12, k)); applyTra
 
 /* ---------------- practice engine ---------------- */
 const P = {
-  song:null, notes:[], steps:[], chords:[], origNotes:[], origChords:[], transpose:0, origKey:{root:0, minor:false}, key:{root:0, minor:false}, lyricLines:[], instr:"piano", baseBpm:100, len:0, t:0, playing:false, waiting:false,
+  words:false, song:null, notes:[], steps:[], chords:[], origNotes:[], origChords:[], transpose:0, origKey:{root:0, minor:false}, key:{root:0, minor:false}, lyricLines:[], instr:"piano", baseBpm:100, len:0, t:0, playing:false, waiting:false,
   mode:"wait", hands:"B", tempo:0.75, stepIdx:0, noteIdx:0, sounding:[],
   correct:0, total:0, wrong:0, streak:0, best:0,
   pressed:new Map(), flashes:[], lastFrame:0, wake:null
@@ -1262,6 +1316,8 @@ function syncScrub(){
   $("timeOut").textContent = fmt(P.t) + " / " + fmt(P.len);
 }
 function setPlaying(on){
+  if (on && !P.playing && conn.outMode === "piano" && !pianoReady() && (P.mode === "listen" || P.instr === "guitar" || P.hands !== "B"))
+    toast("The piano isn't connected, so the song plays on the phone speaker. Tap the message at the top to connect.");
   P.playing = on; $("playBtn").innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
   if (!on) allNotesOff(); else audioCtx();
   keepAwake();
@@ -1354,11 +1410,11 @@ function drawPiano(now){
   cx.fillStyle = C.bg; cx.fillRect(0, 0, W, H);
   // octave guide lines at each C
   cx.strokeStyle = C.line; cx.lineWidth = 1;
-  for (const [p, k] of keys) if (p % 12 === 0){ cx.beginPath(); cx.moveTo(k.x + .5, 0); cx.lineTo(k.x + .5, hitY); cx.stroke(); }
-  // falling notes
+  if (!P.words) for (const [p, k] of keys) if (p % 12 === 0){ cx.beginPath(); cx.moveTo(k.x + .5, 0); cx.lineTo(k.x + .5, hitY); cx.stroke(); }
+  // falling notes (hidden while the words are shown)
   const cur = P.steps[P.stepIdx], horizon = P.t + hitY / pps;
   cx.font = "600 11px " + css("--f-body"); cx.textAlign = "center"; cx.textBaseline = "bottom";
-  for (const n of P.notes){
+  if (!P.words) for (const n of P.notes){
     if (n.t > horizon) break;
     if (n.t + n.d < P.t - 0.3) continue;
     const k = keys.get(n.p); if (!k) continue;
@@ -1400,6 +1456,9 @@ function drawPiano(now){
 function drawBanner(){
   const b = $("banner"), cur = P.steps[P.stepIdx];
   let msg = "";
+  const needPiano = conn.outMode === "piano" && !pianoReady() && conn.kind !== "mic";
+  b.classList.toggle("tap", needPiano);
+  if (needPiano && (P.playing || !conn.kind)){ b.hidden = false; b.textContent = reconnecting ? "Reconnecting to the piano…" : "Piano not connected · tap to connect"; return; }
   if (P.instr === "guitar"){
     if (!P.playing) msg = P.mode === "wait" && !micHearsGuitar() ? "Wait mode for guitar listens with the mic: Connect → Listen with mic" : "Press play";
     else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name;
@@ -1407,6 +1466,7 @@ function drawBanner(){
     b.hidden = !msg; b.textContent = msg; return;
   }
   if (!P.playing) msg = conn.kind ? "Press play" : "Connect your piano to start";
+  if (!P.playing && conn.kind === "mic" && conn.outMode === "piano") msg = "Using the mic: the song plays on the phone speaker";
   else if (P.mode === "wait" && P.waiting && cur) msg = "Play " + [...cur.req].filter(q => !cur.hit.has(q)).sort((a,b)=>a-b).map(noteName).join(" + ");
   else if (P.t < (P.notes[0]?.t ?? 0)) msg = "Get ready…";
   b.hidden = !msg; b.textContent = msg;
@@ -1843,7 +1903,9 @@ function openPractice(id){
   applyTranspose(false);
   P.baseBpm = meta.bpm || (meta.demo ? DEMOS[id].bpm : 0) || estimateTempo(P.notes);
   setBpm(store.get("dg30.tempo." + id, P.baseBpm));
-  $("instrBtn").hidden = !P.chords.length;
+  $("instrBtn").hidden = !P.origChords.length;
+  $("wordsBtn").hidden = !P.lyricLines.length;
+  setWords(P.lyricLines.length > 0 && store.get("dg30.words", false));
   setInstrument(P.chords.length && store.get("dg30.instr." + id, "piano") === "guitar" ? "guitar" : "piano", true);
   $("pTitle").textContent = meta.title;
   $("library").hidden = true; $("practice").hidden = false;
@@ -1875,6 +1937,12 @@ const bpmStep = () => Math.max(2, Math.round((P.baseBpm || 100) * 0.05));
 $("tempoDown").onclick = () => setBpm(Math.round(P.tempo * P.baseBpm) - bpmStep());
 $("tempoUp").onclick = () => setBpm(Math.round(P.tempo * P.baseBpm) + bpmStep());
 $("tempoReset").onclick = () => setBpm(P.baseBpm);
+function setWords(on){
+  P.words = !!on;
+  $("wordsBtn").setAttribute("aria-pressed", String(P.words));
+  $("wordsBtn").setAttribute("aria-label", P.words ? "Hide words and show falling notes" : "Show words instead of falling notes");
+}
+$("wordsBtn").onclick = () => { setWords(!P.words); store.set("dg30.words", P.words); };
 $("keyDown").onclick = () => setTranspose(P.transpose - 1);
 $("keyUp").onclick = () => setTranspose(P.transpose + 1);
 $("keyReset").onclick = () => setTranspose(0);
@@ -1941,7 +2009,9 @@ function toast(msg){
   $("setKeyClear").onclick = () => { store.del("dg30.apikey"); $("setKey").value = ""; $("setKeyStatus").textContent = "Key removed"; };
   renderLibrary();
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
-  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else keepAwake(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); } });
+  $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });
+  autoReconnect(true);
   $("fsBtn").onclick = async () => { if (isFullscreen()) exitFullscreen(); else { enterFullscreen.manual = true; await enterFullscreen(); enterFullscreen.manual = false; } };
   if (installedApp() && matchMedia("(display-mode: fullscreen)").matches) $("fsBtn").hidden = true;
   $("autoFs").checked = store.get("dg30.autoFs", true);

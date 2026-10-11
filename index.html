@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.14">
+<meta name="version" content="1.16">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -140,6 +140,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .stepper small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .stepper output{font:500 13px var(--f-mono);font-variant-numeric:tabular-nums}
 .stepper span{cursor:pointer}
+.volout{float:right;font:500 12px var(--f-mono);color:var(--ivory);letter-spacing:0}
 /* Sound picker */
 #soundList{display:flex;flex-direction:column;gap:4px;max-height:52vh;overflow-y:auto}
 @media (max-height:520px){#soundDlg .sheet{gap:10px;padding:14px}#soundDlg h2{font-size:18px}#soundList{max-height:44vh}}
@@ -197,7 +198,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <h2>Settings</h2>
     <div class="row" style="justify-content:space-between">
       <div class="field" style="gap:2px"><span class="label">Piano sound</span><span id="setSoundName"></span></div>
-      <button class="btn" id="setSoundBtn" type="button">Change sound</button>
+      <button class="btn" id="setSoundBtn" type="button">Sound and volume</button>
     </div>
     <label class="row" style="gap:8px;font-size:14px"><input id="autoFs" type="checkbox"> Go full screen when practice starts (Chrome shows a short notice each time)</label>
     <div class="field">
@@ -269,7 +270,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" id="keyUp" aria-label="Raise one half step">+</button>
     </div>
     <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
-    <button class="icon" id="soundBtn" type="button" aria-label="Piano sound" title="Piano sound">&#9835;</button>
+    <button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button>
     <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
     <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
   </div>
@@ -367,12 +368,28 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <!-- ================= SOUND SHEET ================= -->
 <dialog id="soundDlg">
   <div class="sheet">
-    <h2>Piano sound</h2>
+    <h2>Sound and volume</h2>
+    <div class="field">
+      <label class="label" for="volPiano">Piano volume <output id="volPianoOut" class="volout">100%</output></label>
+      <input id="volPiano" type="range" min="0" max="100" step="5" value="100">
+      <label class="label" for="volSong">Song playback, compared with your playing <output id="volSongOut" class="volout">100%</output></label>
+      <input id="volSong" type="range" min="10" max="100" step="5" value="100">
+      <small style="color:var(--muted)">Turn the song down to hear your own playing over it in Listen mode or while practicing one hand.</small>
+    </div>
+    <div class="field">
+      <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
+      <select id="pedalSel">
+        <option value="auto">Automatic: as marked in the music, or at each chord change</option>
+        <option value="marked">Only where the music marks Ped.</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <span class="label">Piano sound</span>
     <input id="soundSearch" type="text" autocomplete="off" placeholder="Search sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
     <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
     <div id="soundList"></div>
     <div class="status" id="soundStatus"></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button" autofocus>Done</button></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
   </div>
 </dialog>
 
@@ -409,7 +426,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.14";
+const APP_VERSION = "1.16";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -450,7 +467,7 @@ function loadNotes(id){
 }
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
-  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.transpose." + id);
+  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id);
 }
 
 /* ---------------- demo songs (public domain) ---------------- */
@@ -631,11 +648,13 @@ function synthOn(p, v){
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.008);
   g.gain.exponentialRampToValueAtTime(peak * 0.35, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0008, t + 3.5);
   const g2 = a.createGain(); g2.gain.value = 0.3;
-  o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(a.destination);
+  if (!vol.master){ vol.master = a.createGain(); vol.master.gain.value = vol.piano / 100; vol.master.connect(a.destination); }
+  o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(vol.master);
   o1.start(t); o2.start(t); o1.stop(t + 3.6); o2.stop(t + 3.6);
   synthOff(p); synthVoices.set(p, {g, o1, o2});
 }
-function synthOff(p){
+function synthOff(p, fromPedal){
+  if (!fromPedal && typeof pedal !== "undefined" && pedal.down && synthVoices.has(p)){ pedal.held.add(p); return; }
   const s = synthVoices.get(p); if (!s || !actx) return;
   const t = actx.currentTime; s.g.gain.cancelScheduledValues(t); s.g.gain.setTargetAtTime(0, t, 0.06);
   try { s.o1.stop(t + 0.4); s.o2.stop(t + 0.4); } catch(e){}
@@ -648,6 +667,7 @@ const bleQueue = { pending:[], busy:false };
 
 function setConnected(kind, name){
   conn.kind = kind; conn.name = name;
+  if (kind === "ble" || kind === "midi") setTimeout(applyVolume, 300);
   $("connPill").classList.toggle("on", !!kind);
   $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano";
   $("connStatus").textContent = kind ? "Connected: " + (name || kind) : "";
@@ -831,8 +851,15 @@ function stopMic(){
 }
 
 /* sound out: piano speakers, phone, or silent */
+/* volume: the piano's own level (MIDI CC7) and how loud the app's notes are */
+const vol = { piano: store.get("dg30.vol", 100), song: store.get("dg30.songVol", 100), master: null };
+function applyVolume(){
+  if (pianoReady()) sendMidi([0xB0, 7, Math.round(vol.piano * 1.27)]);
+  if (actx){ if (!vol.master){ vol.master = actx.createGain(); vol.master.connect(actx.destination); } vol.master.gain.value = vol.piano / 100; }
+}
 function noteOut(p, v, on){
   if (conn.outMode === "off") return;
+  if (on) v = Math.max(1, Math.round(v * vol.song / 100));
   if (conn.outMode === "piano" && (conn.midiOut || conn.bleChar)){
     const msg = on ? [0x90, p, v] : [0x80, p, 0];
     if (conn.midiOut) conn.midiOut.send(msg); else bleSend(msg);
@@ -907,7 +934,7 @@ function renderSoundList(){
   }
   if (!box.children.length){ const p = document.createElement("p"); p.textContent = "No sounds match."; box.appendChild(p); }
 }
-function openSounds(){ $("soundStatus").textContent = conn.midiOut || conn.bleChar ? "" : "Connect the piano first to change its sound."; renderSoundList(); $("soundDlg").showModal(); }
+function openSounds(){ $("soundStatus").textContent = conn.midiOut || conn.bleChar ? "" : "Connect the piano first to change its sound and volume."; renderSoundList(); $("soundDlg").showModal(); $("soundDlg").scrollTop = 0; $("soundSearch").blur(); }
 
 /* ---------------- guitar: chord symbols → shapes ---------------- */
 const STRINGS = [40, 45, 50, 55, 59, 64];   // E2 A2 D3 G3 B3 E4, low to high
@@ -1248,6 +1275,62 @@ function applyTranspose(keepTime){
 }
 function setTranspose(k){ P.transpose = Math.max(-12, Math.min(12, k)); applyTranspose(true); }
 
+/* ---------------- sustain pedal ----------------
+   The app presses the DG30's damper pedal (MIDI CC64) while it plays: re-pedalling at each harmony change,
+   the way a pianist does ("legato pedal": lift right at the change, press again just after the new notes sound). */
+const pedal = { down:false, held:new Set(), events:[], idx:0 };
+function pedalOut(down){
+  if (pedal.down === down) return;
+  pedal.down = down;
+  if (conn.outMode === "piano" && pianoReady()){ sendMidi([0xB0, 64, down ? 127 : 0]); return; }
+  if (!down){ for (const p of pedal.held) synthOff(p, true); pedal.held.clear(); }
+}
+function loadPedalMarks(id){ return id.startsWith("demo-") ? [] : store.get("dg30.pedal." + id, []).map(x => ({t:x[0], down:!!x[1]})); }
+// change points where the pedal is lifted and pressed again
+function pedalChangePoints(){
+  const mode = store.get("dg30.pedalMode", "auto");
+  if (mode === "off" || !P.notes.length) return [];
+  const marks = P.pedalMarks || [];
+  if (mode === "marked" || (mode === "auto" && marks.length)) return {marks};
+  const pts = [];
+  if (P.origChords.length){                                   // follow the chord symbols
+    let prev = null;
+    for (const c of P.origChords){ if (c.name !== prev) pts.push(c.t); prev = c.name; }
+  } else {                                                    // follow the bass line
+    let prevPc = null, last = -9;
+    const minGap = 0.6 * 60 / (P.baseBpm || 100);
+    for (const n of P.origNotes){
+      const isBass = n.h === "L" || n.p < 55; if (!isBass) continue;
+      const lowest = P.origNotes.filter(m => Math.abs(m.t - n.t) < 0.03 && (m.h === "L" || m.p < 55)).reduce((a, m) => Math.min(a, m.p), 127);
+      if (lowest !== n.p) continue;
+      if (lowest % 12 !== prevPc && n.t - last >= minGap){ pts.push(n.t); last = n.t; prevPc = lowest % 12; }
+    }
+  }
+  return {points: pts};
+}
+function buildPedalEvents(){
+  const cp = pedalChangePoints(), ev = [];
+  if (cp.marks){ for (const m of cp.marks) ev.push({t: m.down ? m.t + 0.05 : m.t - 0.01, down: m.down}); }
+  else if (cp.points){
+    for (const t of cp.points){ ev.push({t: t - 0.01, down:false}); ev.push({t: t + 0.07, down:true}); }
+    if (ev.length) ev.push({t: P.len + 0.5, down:false});
+  }
+  pedal.events = ev.sort((a, b) => a.t - b.t);
+  pedal.idx = 0;
+}
+function pedalActive(){ return P.instr !== "guitar" && (P.mode === "listen" || P.hands !== "B"); }
+function pedalSeek(t){
+  pedal.idx = pedal.events.findIndex(e => e.t > t); if (pedal.idx < 0) pedal.idx = pedal.events.length;
+  const prev = pedal.events[pedal.idx - 1];
+  pedalOut(!!(prev && prev.down && pedalActive() && P.playing));
+}
+function pedalStep(){
+  while (pedal.idx < pedal.events.length && pedal.events[pedal.idx].t <= P.t){
+    const e = pedal.events[pedal.idx++];
+    if (pedalActive()) pedalOut(e.down);
+  }
+}
+
 /* ---------------- practice engine ---------------- */
 const P = {
   words:false, song:null, notes:[], steps:[], chords:[], origNotes:[], origChords:[], transpose:0, origKey:{root:0, minor:false}, key:{root:0, minor:false}, lyricLines:[], instr:"piano", baseBpm:100, len:0, t:0, playing:false, waiting:false,
@@ -1279,9 +1362,10 @@ function resetRun(fromT){
   P.stepIdx = P.steps.findIndex(s => s.t >= P.t - 0.01); if (P.stepIdx < 0) P.stepIdx = P.steps.length;
   for (let i = 0; i < P.stepIdx; i++) P.steps[i].done = true;
   P.noteIdx = P.notes.findIndex(n => n.t >= P.t); if (P.noteIdx < 0) P.noteIdx = P.notes.length;
+  buildPedalEvents(); pedalSeek(P.t);
   updateStats();
 }
-function allNotesOff(){ for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; }
+function allNotesOff(){ pedalOut(false); for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; }
 
 function resolveStep(s, ok){
   s.done = true; s.ok = ok; P.stepIdx++;
@@ -1328,6 +1412,7 @@ function step(now){
       if (s && nt >= s.t){ nt = s.t; if (!P.waiting){ P.waiting = true; } }
     }
     P.t = nt;
+    pedalStep();
     // play notes the app should voice (Listen mode, or the hand you're not practicing)
     while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
       const n = P.notes[P.noteIdx++];
@@ -1356,6 +1441,7 @@ function syncScrub(){
   $("timeOut").textContent = fmt(P.t) + " / " + fmt(P.len);
 }
 function setPlaying(on){
+  if (on && !P.playing) setTimeout(() => pedalSeek(P.t), 0);
   if (on && !P.playing && conn.outMode === "piano" && !pianoReady() && (P.mode === "listen" || P.instr === "guitar" || P.hands !== "B"))
     toast("The piano isn't connected, so the song plays on the phone speaker. Tap the message at the top to connect.");
   P.playing = on; $("playBtn").innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
@@ -1704,6 +1790,7 @@ TEMPO (always as quarter notes per minute)
 - Write a TEMPO line at every measure where a tempo marking appears.
 
 REPEATS
+- PEDAL: if the page shows sustain pedal marks ("Ped." and "*", or a bracket line under the bass staff), write PEDAL DOWN where the pedal goes down and PEDAL UP where it lifts. A notch in the bracket line is an UP and a DOWN at the same beat. If there are no pedal marks, write no PEDAL lines.
 - REPEAT_START m: a forward repeat sign at the start of measure m. REPEAT_END m: a backward repeat sign at the end of measure m. ENDING n m: measure m is inside the bracket of numbered ending n (one line per measure).
 
 GUITAR CHORDS
@@ -1722,6 +1809,7 @@ TEMPO <measure> <quarter notes per minute>
 REPEAT_START <measure>
 REPEAT_END <measure>
 ENDING <number> <measure>
+PEDAL <measure> <beat> <DOWN or UP>
 N <measure> <beat> <length> <pitch> <R or L>
 C <measure> <beat> <chord symbol>
 W <measure> <beat> <verse> <syllable>
@@ -1736,7 +1824,7 @@ function pitchToMidi(name){
 }
 const PITCH_RE = "([A-Ga-g](?:##|bb|#|b|♯|♭|x)?-?\\d)";
 function parsePageText(text){
-  const out = {page:null, title:"", key:"", measures:0, times:{}, timeLabels:{}, tempos:{}, repStart:new Set(), repEnd:new Set(), endings:{}, notes:[], words:[], chords:[]};
+  const out = {page:null, title:"", key:"", measures:0, times:{}, timeLabels:{}, tempos:{}, repStart:new Set(), repEnd:new Set(), endings:{}, notes:[], words:[], chords:[], pedal:[]};
   const timeToBeats = s => { const t = s.trim(); if (/^C\|$/i.test(t)) return 4; if (/^C$/i.test(t)) return 4; const m = t.match(/^(\d+)\s*\/\s*(\d+)$/); return m ? parseInt(m[1]) * 4 / parseInt(m[2]) : null; };
   for (const raw of text.split(/\r?\n/)){
     const line = raw.trim(); if (!line) continue;
@@ -1757,6 +1845,7 @@ function parsePageText(text){
       if (p != null && d > 0) out.notes.push({m:+m[1], b:parseFloat(m[2]), d, p, h:m[5].toUpperCase(), nm:m[4]});
       continue;
     }
+    if ((m = line.match(/^PEDAL\s+(\d+)\s+([\d.]+)\s+(DOWN|UP)/i))){ out.pedal.push({m:+m[1], b:parseFloat(m[2]), down:/down/i.test(m[3])}); continue; }
     if ((m = line.match(/^C\s+(\d+)\s+([\d.]+)\s+(\S+)/))){ out.chords.push({m:+m[1], b:parseFloat(m[2]), c:m[3]}); continue; }
     if ((m = line.match(/^W\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/i))){ out.words.push({m:+m[1], b:parseFloat(m[2]), v:+m[3], w:m[4].trim()}); continue; }
   }
@@ -1772,7 +1861,7 @@ function buildSongFromPages(pages){
       if (pg.times[m]) beats = pg.times[m];
       if (pg.tempos[m]){ bpm = pg.tempos[m]; if (!firstBpm) firstBpm = bpm; }
       M.push({beats, bpm, repStart: pg.repStart.has(m), repEnd: pg.repEnd.has(m), ending: pg.endings[m] || 0,
-              notes: pg.notes.filter(n => n.m === m), words: pg.words.filter(w => w.m === m), chords: pg.chords.filter(c => c.m === m)});
+              notes: pg.notes.filter(n => n.m === m), words: pg.words.filter(w => w.m === m), chords: pg.chords.filter(c => c.m === m), pedal: (pg.pedal || []).filter(x => x.m === m)});
     }
   }
   firstBpm = firstBpm || 100;
@@ -1791,7 +1880,7 @@ function buildSongFromPages(pages){
     }
     i++;
   }
-  const notes = [], lyrics = [], chords = [], weight = new Map();
+  const notes = [], lyrics = [], chords = [], pedalT = [], weight = new Map();
   let sec = 0;
   for (const {ms, pass} of order){
     const spq = 60 / ms.bpm;
@@ -1799,11 +1888,12 @@ function buildSongFromPages(pages){
     const verse = ms.words.some(w => w.v === pass) ? pass : 1;
     for (const w of ms.words) if (w.v === verse) lyrics.push({t: sec + w.b * spq, w: w.w});
     for (const c of ms.chords) chords.push({t: sec + c.b * spq, name: c.c});
+    for (const x of ms.pedal || []) pedalT.push({t: sec + x.b * spq, down: x.down});
     weight.set(ms.bpm, (weight.get(ms.bpm) || 0) + ms.beats * spq);
     sec += ms.beats * spq;
   }
   const mainBpm = [...weight.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || firstBpm;
-  return {bpm: mainBpm, key: (pages.find(p => p.key) || {}).key || "", notes: notes.sort((a, b) => a.t - b.t), lyrics: lyrics.sort((a, b) => a.t - b.t), chords: chords.sort((a, b) => a.t - b.t)};
+  return {bpm: mainBpm, key: (pages.find(p => p.key) || {}).key || "", notes: notes.sort((a, b) => a.t - b.t), lyrics: lyrics.sort((a, b) => a.t - b.t), chords: chords.sort((a, b) => a.t - b.t), pedal: pedalT.sort((a, b) => a.t - b.t || (a.down ? 1 : -1))};
 }
 // One page → Claude, streamed so long answers don't time out
 async function readOnePage(page, model, key, onNotes){
@@ -1891,12 +1981,13 @@ $("scanForm").addEventListener("submit", async e => {
     const notes = simplify(joined.notes, "full", {minDur:0.03});
     if (!notes.length) throw new Error("No notes were found. Try a sharper, brighter photo.");
     const t0 = notes[0].t, shift = t0 > 1 ? t0 - 1 : 0;
-    if (shift){ notes.forEach(n => n.t -= shift); joined.lyrics.forEach(l => l.t -= shift); joined.chords.forEach(c => c.t -= shift); }
+    if (shift){ notes.forEach(n => n.t -= shift); joined.lyrics.forEach(l => l.t -= shift); joined.chords.forEach(c => c.t -= shift); joined.pedal.forEach(x => x.t -= shift); }
     const last = notes[notes.length - 1];
     const title = $("scanName").value.trim() || pages.map(p => p.title).find(Boolean) || "Scanned music";
-    const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
+    const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", shift:+shift.toFixed(3), bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
     if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
     store.set("dg30.scan." + meta.id, pages.map(p => ({page: p.page, text: p.raw || ""})));
+    if (joined.pedal.length) store.set("dg30.pedal." + meta.id, joined.pedal.map(x => [+x.t.toFixed(3), x.down ? 1 : 0]));
     const cut = pages.findIndex(p => p.cutOff);
     const orderNote = pages.length < 2 ? "" : pages.orderedBy === "page"
       ? (pages.reordered ? ` Put in page order ${pages.map(p => p.page).join(", ")}.` : "")
@@ -1925,14 +2016,28 @@ function keyInfo(keyStr){
   const label = PC_NAME[k.root].replace("#", "#") + (k.minor ? "m" : "");
   return {fifths, sig, abc: (fifths < 0 ? FLAT_NAMES : SHARP_NAMES)[k.root].replace("♯","#").replace("♭","b") + (k.minor ? "m" : ""), label};
 }
+// spell the tones of a chord symbol with the right letters (Fm7 = F Ab C Eb, E = E G# B)
+function chordSpellings(name){
+  const c = parseChord(name); if (!c) return {};
+  const m = String(name).match(/^([A-G])/); const LET = ["C","D","E","F","G","A","B"], NAT = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+  const r = LET.indexOf(m[1]), q = c.q, out = {};
+  for (const iv of (QUAL[q] || QUAL.maj).iv){
+    const deg = iv === 0 ? 0 : iv <= 2 ? 1 : iv <= 4 ? 2 : iv === 5 ? 3 : iv <= 8 ? 4 : (iv === 9 && q !== "dim7") ? 5 : 6;
+    const L = LET[(r + deg) % 7], pc = (c.root + iv) % 12, a = ((pc - NAT[L] + 18) % 12) - 6;
+    if (Math.abs(a) <= 2) out[pc] = {L, a};
+  }
+  return out;
+}
 // spell a MIDI pitch for this key: letter, alteration, octave
 function spell(p, ki){
   const pc = p % 12, oct = Math.floor(p / 12) - 1;
+  const cs = ki.chordSp && ki.chordSp[pc];
+  if (cs){ const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[cs.L]; return {L: cs.L, a: cs.a, oct: oct + (base + cs.a < 0 ? 1 : base + cs.a > 11 ? -1 : 0)}; }
   const inKey = Object.entries(ki.sig).find(([L, a]) => ({C:0,D:2,E:4,F:5,G:7,A:9,B:11}[L] + a + 12) % 12 === pc);
   if (inKey) { const L = inKey[0], a = inKey[1]; const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[L]; return {L, a, oct: oct + (base + a < 0 ? 1 : base + a > 11 ? -1 : 0)}; }
   const natural = {0:"C",2:"D",4:"E",5:"F",7:"G",9:"A",11:"B"}[pc];
   if (natural) return {L:natural, a:0, oct};
-  const useFlat = ki.fifths < 0;
+  const useFlat = ki.fifths < 0 || (ki.fifths === 0 && [3, 8, 10].includes(pc));   // in C: C#, Eb, F#, Ab, Bb
   const L = useFlat ? {1:"D",3:"E",6:"G",8:"A",10:"B"}[pc] : {1:"C",3:"D",6:"F",8:"G",10:"A"}[pc];
   return {L, a: useFlat ? -1 : 1, oct};
 }
@@ -2036,7 +2141,8 @@ function measuresToAbc(title, keyStr, measures, opts = {}){
     }
     const empty = !m.notes.length;
     const warn = empty ? "no notes read" : (r.over || l.over) ? "too long for the bar" : "";
-    return {m, mlen, r, l, warn, idx};
+    const prevChord = idx > 0 ? [...measures.slice(0, idx)].reverse().map(x => (x.chords || []).slice(-1)[0]).find(Boolean)?.c : null;
+    return {m, mlen, r, l, warn, idx, prevChord: (m.chords || []).some(x => x.b < 0.01) ? null : prevChord};
   });
   const nV = {R: Math.min(3, maxR), L: Math.min(3, maxL)};
   let head = `X:1\nT:${title.replace(/\n/g, " ")}\n`;
@@ -2062,7 +2168,9 @@ function measuresToAbc(title, keyStr, measures, opts = {}){
           if (c.m.timeLabel && c.m.timeLabel !== prevLabel) pre += `[M:${c.m.timeLabel}]`;
           prevLabel = c.m.timeLabel || prevLabel;
           const marks = st === "R" && v === 0 ? [] : null;
-          const txt = voiceMeasureAbc(evs.filter(e => e.ps), c.mlen, ki, {}, v > 0, marks);
+          const chordNames = [...(c.prevChord ? [c.prevChord] : []), ...(c.m.chords || []).map(x => x.c)];
+          const kiM = chordNames.length ? {...ki, chordSp: Object.assign({}, ...chordNames.map(chordSpellings))} : ki;
+          const txt = voiceMeasureAbc(evs.filter(e => e.ps), c.mlen, kiM, {}, v > 0, marks);
           if (st === "R" && v === 0 && !evs.length && c.warn) line += `"^⚠ ${c.warn}"`;
           line += pre + txt + " | ";
           if (marks){
@@ -2098,7 +2206,8 @@ function timedToMeasures(notes, lyrics, chords, bpm){
   const spq = 60 / (bpm || 100), mq = 4, end = Math.max(0, ...notes.map(n => (n.t + n.d) / spq));
   const count = Math.max(1, Math.ceil(end / mq)), ms = [];
   for (let i = 0; i < count; i++) ms.push({beats:mq, timeLabel:"4/4", bpm, notes:[], words:[], chords:[]});
-  const at = t => { const q = t / spq, i = Math.min(count - 1, Math.max(0, Math.floor(q / mq))); return {i, b: q - i * mq}; };
+  // snap to a 1/12-beat grid first, so a note stored a hair before a barline isn't pushed into the previous bar
+  const at = t => { const q = Math.round(t / spq * 12) / 12, i = Math.min(count - 1, Math.max(0, Math.floor(q / mq + 1e-6))); return {i, b: Math.max(0, q - i * mq)}; };
   for (const n of notes){
     const {i, b} = at(n.t); let d = Math.min(n.d / spq / 0.95, mq * 2);
     const end = b + d, beatEnd = Math.round(end);            // notes played slightly short still fill their beat
@@ -2128,8 +2237,9 @@ function songSheets(id){
       return {heading: head, abc: measuresToAbc(head, pg.key || key, ms), measures: ms.length, notes: pg.notes.length};
     });
   }
-  const notes = loadNotes(id), bpm = meta.bpm || (meta.demo ? DEMOS[id].bpm : 0) || estimateTempo(notes);
-  const ms = timedToMeasures(notes, loadLyrics(id), loadChords(id), bpm);
+  const sh = meta.shift || 0, back = x => ({...x, t: x.t + sh});
+  const notes = loadNotes(id).map(back), bpm = meta.bpm || (meta.demo ? DEMOS[id].bpm : 0) || estimateTempo(notes);
+  const ms = timedToMeasures(notes, loadLyrics(id).map(back), loadChords(id).map(back), bpm);
   const pages = []; const PER = 16;
   for (let i = 0; i < ms.length; i += PER){
     const head = `${meta.title}${ms.length > PER ? ": part " + (i / PER + 1) : ""}`;
@@ -2216,7 +2326,7 @@ $("impForm").addEventListener("submit", async e => {
     }
     const notes = simplify(raw, impLevel);
     if (!notes.length) throw new Error("No notes were found. Try “More notes” or a cleaner piano or melody track.");
-    const t0 = notes[0].t; if (t0 > 1.5) notes.forEach(n => n.t -= t0 - 1);  // trim long silent intros
+    const t0 = notes[0].t, cutIntro = t0 > 1.5 ? t0 - 1 : 0; if (cutIntro) notes.forEach(n => n.t -= cutIntro);  // trim long silent intros
     const last = notes[notes.length - 1];
     const meta = { id: "s" + Date.now().toString(36), title: $("impName").value.trim() || "Untitled song", level: impLevel, bpm: raw.bpm || estimateTempo(raw), key: raw.key || "", count: notes.length, len: last.t + last.d, added: Date.now() };
     if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
@@ -2238,6 +2348,7 @@ function openPractice(id){
   const lyr = loadLyrics(id); P.lyricLines = buildLyricLines(lyr);
   if (lyr.length) P.len = Math.max(P.len, lyr[lyr.length - 1].t + 1);
   P.origChords = loadChords(id);
+  P.pedalMarks = loadPedalMarks(id);
   if (P.origChords.length) P.len = Math.max(P.len, P.origChords[P.origChords.length - 1].t + 2);
   P.origKey = parseKeyName(meta.key || (meta.demo ? DEMOS[id].key : "")) || estimateKey(P.origNotes);
   P.transpose = store.get("dg30.transpose." + id, 0);
@@ -2311,6 +2422,12 @@ $("setSoundBtn").onclick = openSounds;
 $("soundClose").onclick = () => $("soundDlg").close();
 $("soundSearch").addEventListener("input", renderSoundList);
 $("soundAll").addEventListener("change", renderSoundList);
+const showVol = () => { $("volPiano").value = vol.piano; $("volPianoOut").textContent = vol.piano + "%"; $("volSong").value = vol.song; $("volSongOut").textContent = vol.song + "%"; };
+showVol();
+$("volPiano").addEventListener("input", e => { vol.piano = +e.target.value; store.set("dg30.vol", vol.piano); showVol(); applyVolume(); });
+$("volSong").addEventListener("input", e => { vol.song = +e.target.value; store.set("dg30.songVol", vol.song); showVol(); });
+$("pedalSel").value = store.get("dg30.pedalMode", "auto");
+$("pedalSel").addEventListener("change", e => { store.set("dg30.pedalMode", e.target.value); if (P.song){ buildPedalEvents(); pedalSeek(P.t); } });
 $("seek").addEventListener("input", e => { const was = P.playing; setPlaying(false); resetRun(P.len * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
 $("resAgain").onclick = () => { $("resDlg").close(); resetRun(); setPlaying(true); };
 $("resLib").onclick = () => { $("resDlg").close(); closePractice(); };
@@ -2362,7 +2479,7 @@ function toast(msg){
 })();
 
 /* exported for testing */
-window.__coach = { measuresToAbc, pageToMeasures, timedToMeasures, songSheets, openSheet, estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
+window.__coach = { chordSpellings, pedal, buildPedalEvents, measuresToAbc, pageToMeasures, timedToMeasures, songSheets, openSheet, estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
 </script>
 </body>
 </html>

@@ -8,8 +8,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>DG30 Song Coach</title>
-<meta name="version" content="1.34">
+<title>Song Coach</title>
+<meta name="version" content="1.35">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -248,7 +248,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <!-- ================= LIBRARY ================= -->
 <main id="library">
   <div class="top">
-    <div class="brand"><span>Kawai DG30</span><h1>Song Coach</h1></div>
+    <div class="brand"><span>Learn any song</span><h1>Song Coach</h1></div>
     <button class="pill" id="connPill" type="button"><i></i><span id="connText">Connect piano</span></button>
   </div>
 
@@ -446,9 +446,9 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <p>Use one option. Bluetooth MIDI is the most accurate: the piano tells the app exactly which keys you press, including chords.</p>
     <div class="opt">
       <strong>Bluetooth MIDI (recommended)</strong>
-      <small>On the DG30, make sure Bluetooth MIDI is on. Close the Kawai PianoRemote app first, since only one app can connect at a time.</small>
+      <small>On your piano, make sure Bluetooth MIDI is on. Close any other piano app first (like Kawai PianoRemote), since only one app can connect at a time.</small>
       <label class="label" for="bleFilter" style="margin-top:4px">Lots of devices around you? Type the start of the piano's name</label>
-      <input id="bleFilter" type="search" placeholder="e.g. DG30 or KAWAI" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <input id="bleFilter" type="search" placeholder="Part of your piano's name, e.g. KAWAI" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <div class="row"><button class="btn primary" id="bleBtn" type="button">Find my piano</button><button class="btn" id="bleAllBtn" type="button">Show all Bluetooth devices</button></div>
       <small>Don't pair the piano in your phone's Bluetooth settings for this. That pairing is for music audio. The app connects to the piano's MIDI itself when you tap Find my piano.</small>
     </div>
@@ -619,7 +619,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   <div class="sheet">
     <h2 id="expTitle">Export</h2>
     <button class="opt optbtn" id="expSheet" type="button"><strong>Sheet music</strong><small>See the notes as printed music, page by page, and save it as a PDF.</small></button>
-    <button class="opt optbtn" id="expShare" type="button"><strong>Share song</strong><small>A song file anyone with DG30 Song Coach can add, with the notes, words, chords and tempo. No scanning or API key needed.</small></button>
+    <button class="opt optbtn" id="expShare" type="button"><strong>Share song</strong><small>A song file anyone with Song Coach can add, with the notes, words, chords and tempo. No scanning or API key needed.</small></button>
     <button class="opt optbtn" id="expMidi" type="button"><strong>MIDI file</strong><small>For other piano apps or a computer.</small></button>
     <button class="opt optbtn" id="expScan" type="button"><strong>Reader details</strong><small>A text file of exactly what Claude read on each page. Attach it in your chat with Claude to find out why notes were missed.</small></button>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="expClose" type="button">Close</button></div>
@@ -674,13 +674,14 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <script>
 "use strict";
 /* ============================================================
-   DG30 Song Coach
+   Song Coach
    - Bluetooth MIDI via Web Bluetooth (direct BLE-MIDI), or Web MIDI
    - Audio -> notes on device with Spotify Basic Pitch
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.34";
+const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
+const APP_VERSION = "1.35";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1159,7 +1160,7 @@ async function connectBle(showAll){
     st.textContent = "Connecting to " + (dev.name || "piano") + "…";
     await attachBle(dev);
   } catch(e){
-    if (/service|GATT/i.test(e.message || "")){ st.textContent = "That device doesn't offer Bluetooth MIDI. Pick the entry for your piano's MIDI, often named DG30 or KAWAI."; return; }
+    if (/service|GATT/i.test(e.message || "")){ st.textContent = "That device doesn't offer Bluetooth MIDI. Pick the entry for your piano's MIDI, usually named after the piano or its brand."; return; }
     if (e.name === "NotFoundError" && $("bleFilter").value.trim()){ st.textContent = "Nothing chosen. The list only shows devices whose name starts with “" + $("bleFilter").value.trim() + "”. Try fewer letters, or clear the box to see everything."; return; }
     st.textContent = e.name === "NotFoundError" ? "No piano chosen. If the list was empty: turn Bluetooth MIDI on at the piano, close PianoRemote, allow Chrome the Nearby devices permission, then try “Show all Bluetooth devices”." : "Couldn't connect: " + e.message;
   }
@@ -1183,7 +1184,7 @@ async function attachBle(dev){
   });
   stopMic(); conn.bleDev = dev; conn.bleChar = ch; conn.midiOut = null;
   store.set("dg30.bleId", dev.id);
-  setConnected("ble", dev.name || "DG30");
+  setConnected("ble", dev.name || "Piano");
 }
 // Reconnect to the piano chosen before, without the device list (Chrome on Android/desktop)
 let reconnecting = false;
@@ -3037,7 +3038,7 @@ const idb = {
   all(){ return this.tx("readonly", s => s.getAll()); }
 };
 /* keep converting while you use other apps: Android pauses web apps that are hidden, but not ones playing sound.
-   While a job runs, the app plays an almost silent loop and shows a "DG30 Song Coach" media notification with the progress. */
+   While a job runs, the app plays an almost silent loop and shows a "Song Coach" media notification with the progress. */
 const BG = { audio:null, url:null };
 function bgSoundUrl(){
   if (BG.url) return BG.url;
@@ -3055,7 +3056,7 @@ function bgKeepAlive(on, title){
     if (BG.audio.paused) BG.audio.play().catch(() => {});
     if ("mediaSession" in navigator){
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({title: title || "Converting a song", artist: "DG30 Song Coach", artwork: [{src:"icon-512.png", sizes:"512x512", type:"image/png"}]});
+        navigator.mediaSession.metadata = new MediaMetadata({title: title || "Converting a song", artist: "Song Coach", artwork: [{src:"icon-512.png", sizes:"512x512", type:"image/png"}]});
         navigator.mediaSession.setActionHandler("pause", () => {});
       } catch(e){}
     }
@@ -3067,7 +3068,7 @@ function jobStatus(id, patch){
   jobsUI.set(id, {...(jobsUI.get(id) || {}), ...patch}); renderJobs();
   const j = jobsUI.get(id);
   if (jobsRunning && !j.failed && "mediaSession" in navigator && BG.audio && !BG.audio.paused){
-    try { navigator.mediaSession.metadata = new MediaMetadata({title: `${j.name || "New song"}: ${Math.round((j.progress || 0) * 100)}%`, artist: j.status || "DG30 Song Coach", artwork:[{src:"icon-512.png", sizes:"512x512", type:"image/png"}]}); } catch(e){}
+    try { navigator.mediaSession.metadata = new MediaMetadata({title: `${j.name || "New song"}: ${Math.round((j.progress || 0) * 100)}%`, artist: j.status || "Song Coach", artwork:[{src:"icon-512.png", sizes:"512x512", type:"image/png"}]}); } catch(e){}
   }
 }
 async function addJob(job){
@@ -3414,7 +3415,7 @@ function backupData(){
 function backupFile(){
   const day = new Date().toISOString().slice(0, 10), n = (store.get("dg30.songs", []) || []).length;
   const what = `${n} song${n === 1 ? "" : "s"}${PL.lists.length ? " and " + PL.lists.length + " playlist" + (PL.lists.length === 1 ? "" : "s") : ""}`;
-  return {name: `DG30 Song Coach backup ${day}.txt`, text: JSON.stringify(backupData()), what};
+  return {name: `Song Coach backup ${day}.txt`, text: JSON.stringify(backupData()), what};
 }
 async function backupToPhone(){
   const b = backupFile(), st = $("backupStatus");
@@ -3439,7 +3440,7 @@ async function restoreFrom(file){
   const st = $("backupStatus");
   try {
     const b = JSON.parse(await file.text());
-    if (!b || b.app !== "DG30 Song Coach" || !b.data) throw new Error("That file isn't a DG30 Song Coach backup.");
+    if (!b || !APP_IDS.includes(b.app) || !b.data) throw new Error("That file isn't a Song Coach backup.");
     const mine = store.get("dg30.songs", []), theirs = JSON.parse(b.data["dg30.songs"] || "[]");
     const have = new Set(mine.map(s => s.id)); let added = 0;
     for (const [k, v] of Object.entries(b.data)){
@@ -3473,8 +3474,8 @@ function shareSong(id){
   let pkg;
   try { pkg = songPackage(id); } catch(e){ toast("Couldn't package that song: " + e.message); return; }
   const name = (pkg.meta.title || "song").replace(/[^\w\- ]+/g, "").trim() || "song";
-  shareFile(`${name} (DG30 song).txt`, JSON.stringify(pkg), pkg.meta.title,
-    `“${pkg.meta.title}” for DG30 Song Coach. To add it: open the app, tap Choose a file and pick this file.`,
+  shareFile(`${name} (Song Coach song).txt`, JSON.stringify(pkg), pkg.meta.title,
+    `“${pkg.meta.title}” for Song Coach. To add it: open the app, tap Choose a file and pick this file.`,
     "Saved the song file to your Downloads. Send it to anyone with the app.");
 }
 // share a text file through the phone's share sheet, or save it to Downloads where sharing isn't available
@@ -3495,7 +3496,7 @@ function storageProblem(){
   return ls.lastErr === "QuotaExceededError" ? "This phone is out of storage space. Free up some space and try again." : `The phone refused to save the song (${ls.lastErr || "unknown reason"}).`;
 }
 async function importSongPackage(pkg){
-  if (!pkg || pkg.app !== "DG30 Song Coach" || pkg.kind !== "song" || !pkg.meta || !pkg.song) throw new Error("That file isn't a DG30 Song Coach song.");
+  if (!pkg || !APP_IDS.includes(pkg.app) || pkg.kind !== "song" || !pkg.meta || !pkg.song) throw new Error("That file isn't a Song Coach song.");
   const songs = store.get("dg30.songs", []);
   if (songs.some(s => s.id === pkg.meta.id && s.title === pkg.meta.title)) return {meta: pkg.meta, dup: true};
   const meta = {...pkg.meta, id: songs.some(s => s.id === pkg.meta.id) ? "s" + Date.now().toString(36) : pkg.meta.id, added: Date.now(), shared: true};
@@ -3820,7 +3821,7 @@ async function openSheet(id){
 function closeSheet(){ $("sheetView").hidden = true; $("library").hidden = false; }
 function scanDetailsText(id){
   const meta = songById(id), scan = store.get("dg30.scan." + id, []) || [];
-  let t = `DG30 Song Coach ${APP_VERSION}: reader results for "${meta.title}"\nReader: ${store.get("dg30.scanModel", "claude-opus-5-5")}\nSaved: ${new Date(meta.added || Date.now()).toLocaleString()}\nTempo ${meta.bpm || "?"}, key ${meta.key || "?"}\n\n`;
+  let t = `Song Coach ${APP_VERSION}: reader results for "${meta.title}"\nReader: ${store.get("dg30.scanModel", "claude-opus-5-5")}\nSaved: ${new Date(meta.added || Date.now()).toLocaleString()}\nTempo ${meta.bpm || "?"}, key ${meta.key || "?"}\n\n`;
   scan.forEach((s, i) => { t += `===== Page ${s.page || i + 1} =====\n${s.text.trim()}\n\n`; });
   return t;
 }
@@ -3833,7 +3834,7 @@ function setSeg(segId, v){ $(segId).querySelectorAll("button").forEach(b => b.se
 $("songIn").addEventListener("change", e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   songStoreReady.then(() => f.text()).then(t => {
-    let obj; try { obj = JSON.parse(t); } catch(_){ throw new Error("That isn't a Song Coach song file. Song files are named like “Song name (DG30 song).txt”."); }
+    let obj; try { obj = JSON.parse(t); } catch(_){ throw new Error("That isn't a Song Coach song file. Song files are named like “Song name (Song Coach song).txt”."); }
     if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
     return importSongPackage(obj).then(r => { renderLibrary(); showTab("songs");
       toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”. Tap Play to start.` + (r.trimmed ? " (Saved without its sheet-music record to save space.)" : "")); });
@@ -3845,9 +3846,9 @@ $("fileIn").addEventListener("change", e => {
     f.text().then(t => {
       const obj = JSON.parse(t);
       if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
-      if (!obj || obj.app !== "DG30 Song Coach") throw new Error("That file isn't a DG30 Song Coach song.");
+      if (!obj || !APP_IDS.includes(obj.app)) throw new Error("That file isn't a Song Coach song.");
       return importSongPackage(obj).then(r => { renderLibrary(); toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”`); });
-    }).catch(err => toast(err.message && !/JSON/.test(err.message) ? err.message : "That file isn't a DG30 Song Coach song."));
+    }).catch(err => toast(err.message && !/JSON/.test(err.message) ? err.message : "That file isn't a Song Coach song."));
     return;
   }
   if (/\.(musicxml|xml|mxl)$/i.test(f.name)){
@@ -4238,7 +4239,7 @@ function showPhoneSound(){
 function showStrumNote(){
   $("strumSel").value = SA.mode;
   $("strumNote").textContent = SA.mode === "piano"
-    ? "The piano plays the song with its concert grand and the chords on its nylon guitar, at the same time. Turn on Multi-timbre on the DG30 first: MIDI settings on the piano or in Kawai's PianoRemote app. Turn it off again to go back to one sound."
+    ? "The piano plays the song with its concert grand and the chords on its nylon guitar, at the same time. Turn on Multi-timbre on your piano first: MIDI settings on the piano or in Kawai's PianoRemote app. Turn it off again to go back to one sound."
     : SA.mode === "phone" ? "The guitar plays from the phone while the piano plays the song. Works without changing anything on the piano."
     : "Strums the song's chords in a down, down-up, up-down-up rhythm.";
 }
@@ -4392,7 +4393,7 @@ async function showStorageInfo(){
   renderSoundLabel();
   $("setModel").value = store.get("dg30.scanModel", "claude-opus-5-5");
   $("setModel").onchange = e => store.set("dg30.scanModel", e.target.value);
-  $("verLabel").textContent = "DG30 Song Coach · version " + APP_VERSION;
+  $("verLabel").textContent = "Song Coach · version " + APP_VERSION;
   $("verMini").textContent = "v" + APP_VERSION;
   const k = store.get("dg30.apikey", ""); $("setKey").value = k; $("setKeyStatus").textContent = k ? "Key saved" : "";
   $("setKeySave").onclick = () => {

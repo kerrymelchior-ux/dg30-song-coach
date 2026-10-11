@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.22">
+<meta name="version" content="1.23">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -310,6 +310,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
     <div class="row"><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
     <span class="status" id="backupStatus"></span>
+    <small style="color:var(--muted)" id="storageInfo"></small>
     <label class="row" style="gap:8px;font-size:14px;align-items:flex-start"><input id="bgAudioChk" type="checkbox" style="margin-top:4px"> <span>Keep converting when I switch to other apps. Android pauses hidden apps unless they're playing sound, so the app plays a silent sound and shows its progress in your notifications. Music playing in another app may pause while it runs.</span></label>
   </section>
 
@@ -570,7 +571,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.22";
+const APP_VERSION = "1.23";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -599,12 +600,12 @@ const store = {
   set(k, v){
     if (BIG.test(k) && big.ok){
       big.cache.set(k, v); ls.del(k);
-      idb.kvPut(k, v).catch(() => { if (!big.warned){ big.warned = true; toast("Your phone is very low on storage, so a song couldn't be saved. Free up some space and add it again."); } });
+      big.kv.put(k, v).catch(() => { if (!big.warned){ big.warned = true; toast("Your phone is very low on storage, so a song couldn't be saved. Free up some space and add it again."); } });
       return true;
     }
     return ls.set(k, v);
   },
-  del(k){ if (BIG.test(k)){ big.cache.delete(k); if (big.ok) idb.kvDel(k).catch(() => {}); } ls.del(k); },
+  del(k){ if (BIG.test(k)){ big.cache.delete(k); if (big.ok) big.kv.del(k).catch(() => {}); } ls.del(k); },
   keys(){ const out = new Set(big.cache.keys()); try { for (let i = 0; i < localStorage.length; i++) out.add(localStorage.key(i)); } catch(e){} return [...out]; }
 };
 
@@ -2660,7 +2661,7 @@ function shareFile(fileName, text, title, message, savedMsg){
   navigator.share({files:[file], title, text: message}).catch(err => { if (err && err.name !== "AbortError") download(); });
 }
 function storageProblem(){
-  if (!big.ok) return `This browser won't let the app use the phone's app storage (${big.err || "blocked"}). Open the app from its icon or in Chrome, not inside a messaging app or a private tab, and try again.`;
+  if (!big.ok) return `The phone wouldn't open the app's storage (${big.err || "blocked"}) and the small backup storage is full. Restart the phone and try again. If it still fails, check that the phone has at least 1 GB free in Settings → Storage.`;
   return ls.lastErr === "QuotaExceededError" ? "This phone is out of storage space. Free up some space and try again." : `The phone refused to save the song (${ls.lastErr || "unknown reason"}).`;
 }
 function importSongPackage(pkg){
@@ -3180,14 +3181,49 @@ addTopBars();
 
 /* ---------------- boot ---------------- */
 let songStoreReady = Promise.resolve();
+/* Song storage, in order of preference:
+   1. IndexedDB (the phone's app database)
+   2. Cache Storage, a separate part of the phone's app storage that still works when Chrome's database is damaged
+   3. localStorage (about 5 MB), only if neither of the others opens */
+async function openSongStorage(){
+  const errs = [];
+  for (let i = 0; i < 2; i++){
+    try {
+      await idb.open(); await idb.kvAll();
+      return {name: "app database", put: (k, v) => idb.kvPut(k, v), del: k => idb.kvDel(k), all: () => idb.kvAll()};
+    } catch(e){ errs.push("database: " + (e && (e.name || e.message))); idb.db = null; await new Promise(r => setTimeout(r, 500)); }
+  }
+  if ("caches" in window){
+    try {
+      const c = await caches.open("dg30-songdata");
+      const base = location.origin + location.pathname.replace(/[^/]*$/, "") + "__dg30data/";
+      await c.put(base + "__probe", new Response("1")); await c.delete(base + "__probe");
+      return {name: "app file storage",
+        put: (k, v) => c.put(base + encodeURIComponent(k), new Response(JSON.stringify(v), {headers:{"content-type":"application/json"}})),
+        del: k => c.delete(base + encodeURIComponent(k)),
+        all: async () => { const out = []; for (const r of await c.keys()){ if (!r.url.startsWith(base)) continue; const res = await c.match(r); try { out.push([decodeURIComponent(r.url.slice(base.length)), await res.json()]); } catch(e){} } return out; }};
+    } catch(e){ errs.push("file storage: " + (e && (e.name || e.message))); }
+  }
+  big.err = errs.join("; ") || "unavailable";
+  return null;
+}
 async function loadSongStore(){
   try {
-    for (const [k, v] of await idb.kvAll()) big.cache.set(k, v);
+    big.kv = await openSongStorage();
+    if (!big.kv) throw new Error(big.err);
+    for (const [k, v] of await big.kv.all()) big.cache.set(k, v);
     const old = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && BIG.test(k)) old.push(k); }
-    for (const k of old){ const v = ls.get(k, null); if (v != null){ await idb.kvPut(k, v); big.cache.set(k, v); } ls.del(k); }
+    for (const k of old){ const v = ls.get(k, null); if (v != null){ await big.kv.put(k, v); big.cache.set(k, v); } ls.del(k); }   // frees the small storage
     big.ok = true;
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  } catch(e){ big.ok = false; big.err = (e && (e.name || e.message)) || "unavailable"; }   // no IndexedDB: everything stays in localStorage as before
+  } catch(e){ big.ok = false; big.err = big.err || (e && (e.name || e.message)) || "unavailable"; }
+  showStorageInfo();
+}
+async function showStorageInfo(){
+  const el = $("storageInfo"); if (!el) return;
+  let line = big.ok ? `Songs are kept in the ${big.kv.name}.` : `Songs are kept in the small browser storage (about 5 MB), because the app storage wouldn't open (${big.err}).`;
+  try { const e = await navigator.storage.estimate(); line += ` Using ${(e.usage / 1048576).toFixed(1)} MB of ${(e.quota / 1048576).toFixed(0)} MB available.`; } catch(e){}
+  el.textContent = line;
 }
 (function boot(){
   if (!window.isSecureContext) $("secureWarn").hidden = false;

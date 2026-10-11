@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.32">
+<meta name="version" content="1.33">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -62,6 +62,10 @@ button{cursor:pointer}
 .song{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:14px 16px;border-radius:12px;border-bottom:1px solid var(--line);background:transparent}
 .song:hover{background:var(--panel)}
 .song h3{margin:0;font:600 16px/1.3 var(--f-body);min-width:0;overflow-wrap:anywhere}
+.libtabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.libtabs button{min-height:44px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--muted);font-weight:600;font-size:14px;padding:0 6px}
+.libtabs button[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+@media (max-width:520px){ .libtabs{grid-template-columns:repeat(2,1fr)} }
 .song.hasart{grid-template-columns:52px 1fr auto}
 .song .art{grid-row:1/3;width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:22px;overflow:hidden;padding:0;cursor:pointer}
 .song .art img{width:100%;height:100%;object-fit:cover;display:block}
@@ -114,9 +118,10 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .stats b{color:var(--ivory);font-weight:500}
 #stage{position:relative;flex:1;min-height:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#bgcv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 #follow{position:absolute;left:0;right:0;top:0;overflow-y:auto;background:#fbf7ee;color:#1a1714;-webkit-overflow-scrolling:touch}
 #followInner{position:relative;padding:6px 8px 40px}
-#followHi{position:absolute;background:rgba(255,196,64,0.28);border-radius:6px;pointer-events:none;transition:left .12s,top .25s,width .12s,height .25s}
+#followHi{display:none!important}
 #followCur{position:absolute;width:3px;background:#e0573f;border-radius:2px;box-shadow:0 0 8px rgba(224,87,63,.7);pointer-events:none}
 #followSvg svg{display:block}
 #follow .msg{padding:24px;color:#6b6157;text-align:center}
@@ -255,6 +260,16 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   <div class="warn" id="secureWarn" hidden>This page is opened from a local file, so Chrome won't allow Bluetooth, MIDI or the microphone. Open it from its https:// web address instead.</div>
 
   <div id="tabSongs" class="tabpanel" role="tabpanel" aria-labelledby="tabBtnSongs">
+  <div class="libtabs" id="libSeg" role="group" aria-label="Songs">
+    <button type="button" data-v="mine" aria-pressed="true">Your library</button>
+    <button type="button" data-v="samples" aria-pressed="false">Sample library</button>
+    <button type="button" data-v="add" aria-pressed="false">Add a song</button>
+    <button type="button" data-v="playlists" aria-pressed="false">Playlists</button>
+  </div>
+
+  <section id="jobs" class="jobs" hidden aria-live="polite"></section>
+
+  <div id="secAdd" hidden>
   <section class="add">
     <h2>Add a song</h2>
     <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files, several at once with Add several MIDI files. Got a song file from someone with Song Coach? Tap Add a shared song file: it's ready to play straight away, no scanning or API key needed. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
@@ -273,23 +288,17 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
   </section>
 
-  <section id="jobs" class="jobs" hidden aria-live="polite"></section>
+  </div>
 
-  <section style="display:flex;flex-direction:column;gap:8px">
-    <div class="row" style="justify-content:space-between"><div class="label">Playlists</div><button class="btn ghost" id="plNew" type="button" style="min-height:36px">New playlist</button></div>
+  <section id="secPlaylists" style="display:flex;flex-direction:column;gap:8px" hidden>
+    <div class="row" style="justify-content:space-between"><div class="label">Playlists</div><button class="btn primary" id="plNew" type="button" style="min-height:36px">New playlist</button></div>
     <div id="playlists" style="display:flex;flex-direction:column;gap:10px"></div>
     <p class="sheetnote" id="plEmpty">Make a playlist to play several songs one after another.</p>
   </section>
 
-  <section style="display:flex;flex-direction:column;gap:8px">
-    <div class="row" style="justify-content:space-between">
-      <div class="seg" id="libSeg" role="group" aria-label="Which songs">
-        <button type="button" data-v="mine" aria-pressed="true">Your library</button>
-        <button type="button" data-v="samples" aria-pressed="false">Sample library</button>
-      </div>
-      <div class="label" id="verMini"></div>
-    </div>
-    <p class="sheetnote" id="libEmpty" hidden>No songs of your own yet. Add one above, or try the Sample library.</p>
+  <section id="secSongs" style="display:flex;flex-direction:column;gap:8px">
+    <div class="row" style="justify-content:flex-end"><div class="label" id="verMini"></div></div>
+    <p class="sheetnote" id="libEmpty" hidden>No songs of your own yet. Tap Add a song, or try the Sample library.</p>
     <div id="songs"></div>
   </section>
 
@@ -417,7 +426,6 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
     <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
     <button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button>
-    <button class="icon" id="handsBtn" type="button" aria-pressed="true" aria-label="Show hands and finger numbers" title="Hands and fingering">&#9995;</button>
     <button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button>
     <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
     <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
@@ -426,7 +434,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
   <div class="scrub"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -548,7 +556,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <div class="field" style="flex:1;min-width:0"><label class="label" for="barSel">Falling note colors</label>
         <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand</option></select></div>
       <div class="field" style="flex:1;min-width:0"><label class="label" for="backSel">Background</label>
-        <select id="backSel"><option value="black">Black</option><option value="aurora">Shifting colors</option><option value="clouds">Clouds rolling by</option><option value="stars">Starry night</option></select></div>
+        <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option></select></div>
     </div>
     <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="glowChk"> Glowing notes and sparkles (turn off if the phone feels slow)</label>
     <div class="field">
@@ -672,7 +680,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.32";
+const APP_VERSION = "1.33";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1299,6 +1307,7 @@ function applyVolume(){
   if (actx){ if (!vol.master){ vol.master = actx.createGain(); vol.master.connect(actx.destination); } vol.master.gain.value = vol.piano / 100; }
 }
 function noteOut(p, v, on){
+  if (on) try { bgPulse(v); } catch(e){}
   if (conn.outMode === "off") return;
   if (on) v = Math.max(1, Math.round(v * vol.song / 100));
   if (conn.outMode === "piano" && (conn.midiOut || conn.bleChar)){
@@ -2077,6 +2086,7 @@ function readColors(){ C = {bg:css("--lacquer"), panel:css("--panel"), line:css(
 function draw(){
   if (!practiceVisible() || !L) return;
   const now = performance.now();
+  try { drawBg(now); } catch(e){ GFX.failed = true; }
   if (P.instr === "guitar") drawGuitar(now); else drawPiano(now);
   drawLyrics();
   drawBanner();
@@ -2177,7 +2187,7 @@ function drawSparks(now){
    Works out a simple fingering: each hand rests over five white keys (thumb to little finger) and moves only
    when a note falls outside them, leading with the thumb going up the keyboard (right hand) and the little
    finger going down. Then draws two see-through hands over the keys, with the fingers that play pressing down. */
-const showHands = () => store.get("dg30.showHands", true);
+const showHands = () => false;          // the hands overlay was removed
 const WHITE_OF = [0,0,1,1,2,3,3,4,4,5,5,6], WHITE_PC = [0,2,4,5,7,9,11];
 const whiteIdx = p => Math.floor(p / 12) * 7 + WHITE_OF[p % 12];
 const whitePitch = w => Math.floor(w / 7) * 12 + WHITE_PC[((w % 7) + 7) % 7];
@@ -2329,7 +2339,7 @@ function drawHand(hand, dir, st, press, dim, KB, palmH, ww, kbH){
 
 /* ---------------- colors and backdrops ---------------- */
 const barStyle = () => store.get("dg30.barColors", "rainbow");
-const backStyle = () => store.get("dg30.backdrop", "black");
+const backStyle = () => { const v = store.get("dg30.backdrop", "black"); return ["black", "mood", "aurora", "nebula", "silk"].includes(v) ? v : "mood"; };
 function noteColor(p, h){
   const st = barStyle();
   if (st === "hands") return h === "L" ? C.L : C.R;
@@ -2337,46 +2347,128 @@ function noteColor(p, h){
   const hue = (p % 12) * 30;                                    // rainbow: every note name has its own color
   return `hsl(${hue},${h === "L" ? 75 : 90}%,${h === "L" ? 55 : 62}%)`;
 }
-const BGFX = { clouds: null, stars: null };
-function cloudSprite(){
-  if (BGFX.clouds) return BGFX.clouds;
-  const c = document.createElement("canvas"); c.width = 320; c.height = 160; const g = c.getContext("2d");
-  for (let i = 0; i < 14; i++){
-    const x = 50 + Math.random() * 220, y = 60 + Math.random() * 50, r = 30 + Math.random() * 45;
-    const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(255,255,255,0.35)"); gr.addColorStop(1, "rgba(255,255,255,0)");
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  }
-  return BGFX.clouds = c;
-}
 function drawBackdrop(now, W, Hh){
-  const st = backStyle(), t = now / 1000;
-  if (st === "aurora"){                                         // slowly shifting colors
-    const h1 = (t * 6) % 360, h2 = (h1 + 70) % 360, h3 = (h1 + 160) % 360;
-    const g = cx.createLinearGradient(0, 0, W, Hh);
-    g.addColorStop(0, `hsl(${h1},55%,16%)`); g.addColorStop(0.5, `hsl(${h2},60%,12%)`); g.addColorStop(1, `hsl(${h3},55%,18%)`);
-    cx.fillStyle = g; cx.fillRect(0, 0, W, Hh);
-    for (let i = 0; i < 3; i++){
-      const x = W * (0.5 + 0.4 * Math.sin(t * 0.07 + i * 2.1)), y = Hh * (0.4 + 0.3 * Math.cos(t * 0.05 + i * 1.7)), r = Math.max(W, Hh) * 0.45;
-      const rg = cx.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `hsla(${(h1 + i * 110) % 360},80%,55%,0.18)`); rg.addColorStop(1, "rgba(0,0,0,0)");
-      cx.fillStyle = rg; cx.fillRect(0, 0, W, Hh);
+  if (bgActive() && GFX.gl){ cx.clearRect(0, 0, W, Hh); return; }        // the moving background shows through
+  cx.fillStyle = C.bg; cx.fillRect(0, 0, W, Hh);
+}
+/* ---------------- moving backgrounds, drawn by the phone's graphics chip ----------------
+   Smooth animated scenes behind the falling notes. "Follows the music" picks its colors from the song
+   (minor keys cool and deep, major keys warm and bright, faster songs livelier) and glows as notes play. */
+const BG_FRAG = `
+precision mediump float;
+uniform vec2 r; uniform float t; uniform vec3 c1; uniform vec3 c2; uniform vec3 c3; uniform float e; uniform float mode;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float n(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h(i), h(i + vec2(1.0, 0.0)), u.x), mix(h(i + vec2(0.0, 1.0)), h(i + vec2(1.0, 1.0)), u.x), u.y); }
+float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ v += a * n(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return v; }
+float stars(vec2 p, float d){ vec2 g = floor(p * d), f = fract(p * d) - 0.5; float s = h(g);
+  float tw = 0.6 + 0.4 * sin(t * (1.0 + s * 3.0) + s * 40.0);
+  return step(0.985, s) * smoothstep(0.08, 0.0, length(f)) * tw; }
+void main(){
+  vec2 uv = gl_FragCoord.xy / r;
+  vec2 p = (gl_FragCoord.xy - 0.5 * r) / min(r.x, r.y);
+  vec3 col;
+  if (mode < 0.5){
+    // aurora: curtains of light over a night sky
+    vec3 sky = mix(vec3(0.005, 0.01, 0.03), vec3(0.02, 0.05, 0.12), uv.y);
+    col = sky + vec3(stars(p + vec2(t * 0.002, 0.0), 60.0)) * 0.9;
+    for (int k = 0; k < 3; k++){
+      float fk = float(k);
+      float w = fbm(vec2(p.x * 0.9 + fk * 3.1 + t * 0.025, t * 0.04 + fk));
+      float y0 = 0.62 + 0.18 * (w - 0.5) + 0.06 * fk;
+      float curtain = exp(-pow((uv.y - y0) * (3.2 + fk), 2.0) * 1.0) * smoothstep(-0.2, 0.6, uv.y);
+      float rays = fbm(vec2(p.x * 7.0 + w * 4.0 + fk * 11.0, uv.y * 0.6 - t * 0.12));
+      float a = curtain * (0.25 + 0.95 * rays) * (0.55 + 0.45 * sin(t * 0.25 + fk * 2.0));
+      vec3 cc = mix(k == 0 ? c1 : (k == 1 ? c2 : c3), vec3(1.0), 0.08);
+      col += cc * a * (0.75 + e * 0.6);
     }
-  } else if (st === "clouds"){                                  // a dusk sky with clouds drifting by
-    const g = cx.createLinearGradient(0, 0, 0, Hh);
-    g.addColorStop(0, "#0e1a3a"); g.addColorStop(0.6, "#2a2453"); g.addColorStop(1, "#4a2f4f");
-    cx.fillStyle = g; cx.fillRect(0, 0, W, Hh);
-    const sp = cloudSprite();
-    for (let i = 0; i < 6; i++){
-      const speed = 8 + i * 3, w = W * (0.45 + (i % 3) * 0.15), h = w / 2;
-      const x = ((t * speed + i * W * 0.37) % (W + w)) - w, y = Hh * (0.08 + (i * 0.17) % 0.8);
-      cx.globalAlpha = 0.5 + (i % 2) * 0.3; cx.drawImage(sp, x, y, w, h);
+  } else if (mode < 1.5){
+    // nebula: slow, deep clouds of colored gas with stars
+    vec2 q = vec2(fbm(p * 1.4 + t * 0.02), fbm(p * 1.4 + vec2(5.2, 1.3) - t * 0.015));
+    vec2 rr = vec2(fbm(p * 1.4 + 3.0 * q + vec2(1.7, 9.2) + t * 0.03), fbm(p * 1.4 + 3.0 * q + vec2(8.3, 2.8) - t * 0.02));
+    float f = fbm(p * 1.4 + 3.2 * rr);
+    col = mix(c1 * 0.15, c2, clamp(f * f * 2.2, 0.0, 1.0));
+    col = mix(col, c3, clamp(length(q) * 0.55, 0.0, 1.0) * 0.6);
+    col *= 0.35 + 0.9 * f * f;
+    col += vec3(stars(p, 80.0)) * 0.8 + vec3(stars(p + 3.7, 140.0)) * 0.5;
+    col *= 1.0 + e * 0.35;
+  } else {
+    // silk: soft flowing color, like light through fabric
+    vec2 q = p * 1.3;
+    for (int i = 1; i < 6; i++){
+      float fi = float(i);
+      q += vec2(0.42 / fi * sin(fi * q.y * 1.3 + t * 0.18 + fi), 0.38 / fi * cos(fi * q.x * 1.1 - t * 0.14 + fi * 1.7));
     }
-    cx.globalAlpha = 1;
-  } else if (st === "stars"){                                   // a night sky with twinkling stars
-    cx.fillStyle = "#05070f"; cx.fillRect(0, 0, W, Hh);
-    if (!BGFX.stars) BGFX.stars = Array.from({length: 140}, () => ({x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, p: Math.random() * 6}));
-    for (const s of BGFX.stars){ cx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(t * 0.8 + s.p)); cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s.x * W, s.y * Hh, s.r, 0, Math.PI * 2); cx.fill(); }
-    cx.globalAlpha = 1;
-  } else { cx.fillStyle = C.bg; cx.fillRect(0, 0, W, Hh); }
+    float a = 0.5 + 0.5 * sin(q.x * 1.4 + t * 0.05), b = 0.5 + 0.5 * cos(q.y * 1.6 - t * 0.04);
+    col = mix(mix(c1, c2, a), c3, b * 0.65);
+    float sheen = pow(0.5 + 0.5 * sin((q.x + q.y) * 2.6 + t * 0.3), 6.0);
+    col = col * (0.5 + 0.35 * a) + sheen * 0.14 * (col + 0.25);
+    col *= 0.85 + e * 0.5;
+  }
+  // keep it dark enough for the notes to stand out; soft vignette
+  float vig = smoothstep(1.25, 0.25, length(p * vec2(0.9, 1.1)));
+  col *= 0.55 + 0.45 * vig;
+  if (mode > 0.5 && mode < 1.5) col *= 0.8;
+  gl_FragColor = vec4(min(col, vec3(0.85)), 1.0);
+}`;
+const GFX = { gl: null, prog: null, u: {}, last: 0, energy: 0, failed: false, pal: null, palFor: null };
+const BG_MODES = { aurora: 0, nebula: 1, silk: 2, mood: 2 };
+const BG_PALETTES = {
+  aurora: [[0.15, 0.95, 0.55], [0.25, 0.55, 1.0], [0.75, 0.3, 0.95]],
+  nebula: [[0.12, 0.05, 0.35], [0.95, 0.35, 0.55], [0.2, 0.6, 0.95]],
+  silk:   [[0.35, 0.1, 0.55], [0.05, 0.45, 0.6], [0.85, 0.35, 0.25]]
+};
+function hsl3(hh, s, l){ const a = s * Math.min(l, 1 - l), f = k => { const x = (k + hh / 30) % 12; return l - a * Math.max(-1, Math.min(x - 3, 9 - x, 1)); }; return [f(0), f(8), f(4)]; }
+// colors that suit the song: minor = cool and deep, major = warm; faster = more saturated
+function moodPalette(){
+  const key = P.key || {root: 0, minor: false}, bpm = (P.baseBpm || 100) * (P.tempo || 1);
+  const lively = Math.max(0, Math.min(1, (bpm - 60) / 100));
+  const sway = 18 * Math.sin(performance.now() / 1000 * (0.04 + lively * 0.08));       // colors drift slowly around the song's own
+  const sat = 0.6 + 0.35 * lively;
+  if (key.minor){                                   // minor: midnight blues, violets and teals
+    const base = 225 + (key.root * 7) % 40 + sway;
+    return [hsl3(base, sat, 0.32), hsl3(base + 40, sat, 0.42), hsl3(base - 45, sat * 0.9, 0.36)];
+  }
+  const base = 330 + (key.root * 9) % 50 + sway;      // major: roses, warm ambers and magentas
+  return [hsl3(base % 360, sat, 0.34), hsl3((base + 32) % 360, sat, 0.4), hsl3((base - 45 + 360) % 360, sat * 0.9, 0.32)];
+}
+function bgActive(){ return backStyle() !== "black" && P.instr !== "guitar" && !GFX.failed; }
+function bgInit(){
+  if (GFX.gl || GFX.failed) return !!GFX.gl;
+  const c = $("bgcv"); const gl = c.getContext("webgl", {antialias: false, alpha: false, preserveDrawingBuffer: false}) || c.getContext("experimental-webgl");
+  if (!gl){ GFX.failed = true; return false; }
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  try {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, "attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }"));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, BG_FRAG));
+    gl.linkProgram(prog); if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    for (const k of ["r", "t", "c1", "c2", "c3", "e", "mode"]) GFX.u[k] = gl.getUniformLocation(prog, k);
+    GFX.gl = gl; GFX.prog = prog; return true;
+  } catch(e){ console.warn("background", e); GFX.failed = true; return false; }
+}
+function bgPulse(v){ GFX.energy = Math.min(1.5, GFX.energy + (v || 80) / 127 * 0.12); }
+function drawBg(now){
+  const c = $("bgcv");
+  if (!bgActive()){ c.hidden = true; return; }
+  c.hidden = false;
+  if (now - GFX.last < 33) return;                       // about 30 frames a second is plenty for a background
+  const dt = Math.min(0.1, (now - (GFX.last || now)) / 1000); GFX.last = now;
+  if (!bgInit()) { c.hidden = true; return; }
+  const gl = GFX.gl, r = c.getBoundingClientRect(), scale = Math.min(1.25, window.devicePixelRatio || 1) * 0.6;
+  const w = Math.max(2, Math.round(r.width * scale)), h = Math.max(2, Math.round(r.height * scale));
+  if (c.width !== w || c.height !== h){ c.width = w; c.height = h; gl.viewport(0, 0, w, h); }
+  const st = backStyle(), pal = st === "mood" ? moodPalette() : BG_PALETTES[st] || BG_PALETTES.aurora;
+  GFX.energy *= Math.pow(0.25, dt);
+  gl.uniform2f(GFX.u.r, w, h); gl.uniform1f(GFX.u.t, now / 1000 * (st === "mood" ? 0.6 + 0.6 * Math.min(1.5, (P.baseBpm || 100) * (P.tempo || 1) / 100) : 1));
+  gl.uniform3fv(GFX.u.c1, pal[0]); gl.uniform3fv(GFX.u.c2, pal[1]); gl.uniform3fv(GFX.u.c3, pal[2]);
+  gl.uniform1f(GFX.u.e, st === "mood" || st === "aurora" ? GFX.energy : GFX.energy * 0.5);
+  gl.uniform1f(GFX.u.mode, st === "mood" ? ((P.key && P.key.minor) ? 1 : 2) : (BG_MODES[st] ?? 0));   // minor keys: deep space; major: flowing silk
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 /* ---------------- follow along on sheet music ----------------
@@ -2493,7 +2585,7 @@ function songById(id){
   const m = store.get("dg30.songs", []).find(s => s.id === id); if (m) return m;
   const d = DEMOS[id]; return d ? {id, title: d.title, by: d.by, demo: true, count: d.count, len: d.len} : undefined;
 }
-let libTab = store.get("dg30.libTab", null);
+let libTab = ["mine", "samples"].includes(store.get("dg30.libTab", null)) ? store.get("dg30.libTab", null) : null;
 function renderLibrary(){
   try { renderPlaylists(); } catch(e){}
   const box = $("songs"); box.textContent = "";
@@ -2502,6 +2594,8 @@ function renderLibrary(){
   renderLibrary.lastMine = mine.length;
   const tab = libTab || (mine.length ? "mine" : "samples");
   setSeg("libSeg", tab);
+  $("secAdd").hidden = tab !== "add"; $("secPlaylists").hidden = tab !== "playlists"; $("secSongs").hidden = tab !== "mine" && tab !== "samples";
+  if (tab === "add" || tab === "playlists"){ box.textContent = ""; return; }
   const list = allSongs().filter(s => tab === "samples" ? s.demo : !s.demo);
   $("libEmpty").hidden = !(tab === "mine" && !list.length);
   for (const s of list){
@@ -2534,7 +2628,7 @@ function renderLibrary(){
   }
 }
 
-$("libSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; libTab = b.dataset.v; store.set("dg30.libTab", libTab); renderLibrary(); });
+$("libSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; libTab = b.dataset.v; if (libTab === "mine" || libTab === "samples") store.set("dg30.libTab", libTab); renderLibrary(); });
 
 /* ---------------- MusicXML import ---------------- */
 function loadScript(src){
@@ -3578,7 +3672,7 @@ function measuresToAbc(title, keyStr, measuresIn, opts = {}){
       for (const e of top){ if (e.cont || used.has(e)) continue; const d = Math.abs(e.s - s); if (d < bd){ bd = d; best = e; } }
       if (best){ used.add(best); best.word = w.w; }
     }
-    const warn = !m.notes.some(n => !n.cont) && !(m.words || []).length ? "no notes read" : "";
+    const warn = "";
     const prevChord = idx > 0 ? [...measures.slice(0, idx)].reverse().map(x => (x.chords || []).slice(-1)[0]).find(Boolean)?.c : null;
     return {m, mlen, r, l, warn, idx, prevChord: (m.chords || []).some(x => x.b < 0.01) ? null : prevChord};
   });
@@ -4158,9 +4252,6 @@ showStrumNote();
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
 $("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
-$("handsBtn").setAttribute("aria-pressed", String(showHands()));
-$("handsBtn").onclick = () => { const on = !showHands(); store.set("dg30.showHands", on); $("handsBtn").setAttribute("aria-pressed", String(on)); layout();
-  toast(on ? "Hands on: see where each hand sits, which finger plays each key (1 = thumb … 5 = little finger), and the numbers on the falling notes." : "Hands hidden."); };
 $("gtrAlongBtn").onclick = () => {
   const on = SA.mode === "off", was = SA.mode;
   strumAlongOff(); SA.mode = on ? store.get("dg30.strumLast", "phone") : "off";

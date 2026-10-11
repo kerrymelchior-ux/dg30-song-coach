@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.16">
+<meta name="version" content="1.17">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -107,6 +107,33 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
 .scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+/* Playlists */
+.plorder{display:flex;flex-direction:column;gap:6px}
+.plrow{display:flex;align-items:center;gap:6px}
+.plrow span{flex:1;min-width:0;overflow-wrap:anywhere}
+.plrow button{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--lacquer)}
+.plpicklist{display:flex;flex-direction:column;gap:4px;max-height:34vh;overflow-y:auto}
+.plpick{display:flex;align-items:center;gap:8px;min-height:38px;font-size:15px}
+/* Tuner */
+.tuner{align-items:stretch}
+.tmeter{position:relative;height:120px;border-radius:12px;background:var(--lacquer);border:1px solid var(--line);overflow:hidden}
+.tmeter.ok{border-color:var(--good);box-shadow:0 0 0 2px color-mix(in srgb,var(--good) 40%,transparent) inset}
+.tscale{position:absolute;left:12px;right:12px;bottom:8px;display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted)}
+.tneedle{position:absolute;left:50%;bottom:-70px;width:3px;height:170px;margin-left:-1.5px;background:var(--right);transform-origin:50% 100%;transition:transform .12s linear;border-radius:2px}
+.tmeter.ok .tneedle{background:var(--good)}
+.tmeter::after{content:"";position:absolute;left:50%;top:10px;width:2px;height:24px;margin-left:-1px;background:var(--ivory)}
+.tnote{font:700 64px/1 var(--f-display);text-align:center}
+.tdir{text-align:center;font-weight:600;min-height:1.5em}
+.tstrings{align-self:center}
+.tstrings button.near{outline:2px solid var(--right)}
+@media (prefers-reduced-motion:reduce){.tneedle{transition:none}}
+/* Background jobs */
+.jobs{display:flex;flex-direction:column;gap:10px}
+.job{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;border:1px solid var(--chrome);background:var(--panel)}
+.job.failed{border-color:var(--bad)}
+.jobhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.jobhead strong{min-width:0;overflow-wrap:anywhere}
+.job .btn{min-height:36px;padding:0 12px;font-size:13px}
 /* Export + sheet music */
 .optbtn{text-align:left;cursor:pointer;color:inherit;font:inherit}
 .optbtn:hover{border-color:var(--chrome)}
@@ -178,7 +205,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 
   <section class="add">
     <h2>Add a song</h2>
-    <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
+    <p>Pick an audio file (MP3, WAV, M4A) and the app turns it into notes on your phone. You can also add MIDI or MusicXML files, or a song file someone shared with you. For Suno songs, download the piano or melody stem; full-band mixes convert poorly.</p>
     <div class="row">
       <label class="btn primary" for="fileIn">Choose a file</label>
       <input id="fileIn" type="file" hidden>
@@ -186,7 +213,16 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <input id="camIn" type="file" accept="image/*" capture="environment" hidden>
       <label class="btn ghost" for="picIn">Choose photos</label>
       <input id="picIn" type="file" accept="image/*" multiple hidden>
+      <button class="btn ghost" id="tunerOpen" type="button">Guitar tuner</button>
     </div>
+  </section>
+
+  <section id="jobs" class="jobs" hidden aria-live="polite"></section>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <div class="row" style="justify-content:space-between"><div class="label">Playlists</div><button class="btn ghost" id="plNew" type="button" style="min-height:36px">New playlist</button></div>
+    <div id="playlists" style="display:flex;flex-direction:column;gap:10px"></div>
+    <p class="sheetnote" id="plEmpty">Make a playlist to play several songs one after another.</p>
   </section>
 
   <section style="display:flex;flex-direction:column;gap:8px">
@@ -205,6 +241,12 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <label class="label" for="setKey">Anthropic API key (for reading sheet music)</label>
       <input id="setKey" type="password" autocomplete="off" placeholder="sk-ant-…" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
       <small style="color:var(--muted)">Create one at console.anthropic.com → API keys, then paste it here. It's saved only on this phone and sent only to Anthropic. Each page usually costs a few cents.</small>
+    </div>
+    <div class="field">
+      <span class="label">Your songs on other devices</span>
+      <small style="color:var(--muted)">Back up saves all your songs and playlists in one file (not your API key). Save it to Google Drive, then open the app on your other device and tap Restore.</small>
+      <div class="row"><button class="btn" id="backupBtn" type="button">Back up my songs</button><label class="btn ghost" for="restoreIn">Restore from a backup</label><input id="restoreIn" type="file" hidden></div>
+      <span class="status" id="backupStatus"></span>
     </div>
     <div class="field">
       <label class="label" for="setModel">Sheet music reader</label>
@@ -254,6 +296,11 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" data-v="play" aria-pressed="false">Play</button>
       <button type="button" data-v="listen" aria-pressed="false">Listen</button>
     </div>
+    <div class="seg" id="backSeg" role="group" aria-label="What plays along" hidden>
+      <button type="button" data-v="piano" aria-pressed="true" title="The piano plays the song while the chords show">Piano</button>
+      <button type="button" data-v="strum" aria-pressed="false" title="The piano strums the chords on its guitar sound">Strum</button>
+      <button type="button" data-v="off" aria-pressed="false" title="Nothing plays along">Off</button>
+    </div>
     <div class="seg" id="handSeg" role="group" aria-label="Hands">
       <button type="button" data-v="L" aria-pressed="false" aria-label="Left hand">L</button>
       <button type="button" data-v="B" aria-pressed="true" aria-label="Both hands">Both</button>
@@ -269,6 +316,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <span id="keyReset" title="Tap to go back to the original key"><small id="keyLbl">Key</small><output id="keyOut">C</output></span>
       <button type="button" id="keyUp" aria-label="Raise one half step">+</button>
     </div>
+    <button class="btn instr" id="plNext" type="button" hidden aria-label="Next song in the playlist">⏭</button>
     <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
     <button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button>
     <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
@@ -393,11 +441,46 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </dialog>
 
+<!-- ================= PLAYLIST EDITOR ================= -->
+<dialog id="plDlg">
+  <form class="sheet" id="plForm">
+    <h2>Playlist</h2>
+    <div class="field"><label class="label" for="plName">Name</label><input id="plName" type="text" autocomplete="off" placeholder="My practice set" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
+    <div class="field"><span class="label">Play order</span><div id="plOrder" class="plorder"></div><small id="plOrderEmpty" style="color:var(--muted)">Tick songs below to add them.</small></div>
+    <div class="field"><span class="label">Songs</span><div id="plPick" class="plpicklist"></div></div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn ghost" type="button" id="plDelete">Delete playlist</button>
+      <div class="row"><button class="btn ghost" type="button" id="plCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= GUITAR TUNER ================= -->
+<dialog id="tunerDlg">
+  <div class="sheet tuner">
+    <h2>Guitar tuner</h2>
+    <div class="tmeter" id="tunerMeter">
+      <div class="tscale"><span>−50</span><span>0</span><span>+50</span></div>
+      <div class="tneedle" id="tunerNeedle"></div>
+    </div>
+    <div class="tnote" id="tunerNote">–</div>
+    <div class="tdir" id="tunerDir"></div>
+    <div class="status" id="tunerHz" style="text-align:center"></div>
+    <div class="seg tstrings" id="tunerStrings" role="group" aria-label="String"></div>
+    <p id="tunerHint"></p>
+    <div class="row" style="justify-content:space-between">
+      <label class="row" style="gap:6px;font-size:13px;color:var(--muted)">A = <input id="tunerA4" type="number" min="415" max="466" step="1" style="width:64px;min-height:34px;border-radius:8px;border:1px solid var(--line);background:var(--lacquer);padding:0 6px"> Hz</label>
+      <button class="btn ghost" id="tunerClose" type="button">Done</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- ================= EXPORT SHEET ================= -->
 <dialog id="expDlg">
   <div class="sheet">
     <h2 id="expTitle">Export</h2>
     <button class="opt optbtn" id="expSheet" type="button"><strong>Sheet music</strong><small>See the notes as printed music, page by page, and save it as a PDF.</small></button>
+    <button class="opt optbtn" id="expShare" type="button"><strong>Share song</strong><small>A song file anyone with DG30 Song Coach can add, with the notes, words, chords and tempo. No scanning or API key needed.</small></button>
     <button class="opt optbtn" id="expMidi" type="button"><strong>MIDI file</strong><small>For other piano apps or a computer.</small></button>
     <button class="opt optbtn" id="expScan" type="button"><strong>Reader details</strong><small>A text file of exactly what Claude read on each page. Attach it in your chat with Claude to find out why notes were missed.</small></button>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="expClose" type="button">Close</button></div>
@@ -426,7 +509,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.16";
+const APP_VERSION = "1.17";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1056,6 +1139,8 @@ function strum(chord, vel){
   const gap = 14 / Math.max(0.4, P.tempo);
   chord.pitches.forEach((p, i) => setTimeout(() => { if (P.playing) noteOut(p, vel, true); }, i * gap));
 }
+// what plays while the guitar view is up: the piano part, guitar strums, or nothing
+G.backing = store.get("dg30.gbacking", "piano");
 function guitarStep(nt){
   const ch = P.chords;
   if (P.mode === "wait" && micHearsGuitar()){
@@ -1064,11 +1149,18 @@ function guitarStep(nt){
     else { P.waiting = false; P.waitChord = null; }
   }
   P.t = nt;
+  if (G.backing === "piano"){          // in Wait mode the piano keeps pace with the chords you strum
+    pedalStep();
+    while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
+      const n = P.notes[P.noteIdx++]; noteOut(n.p, n.v, true); P.sounding.push({p:n.p, end:n.t + n.d});
+    }
+    P.sounding = P.sounding.filter(s => { if (s.end <= P.t){ noteOut(s.p, 0, false); return false; } return true; });
+  }
   let idx = -1; for (let i = 0; i < ch.length; i++){ if (ch[i].t <= P.t + 0.001) idx = i; else break; }
   G.idx = idx;
   if (P.mode !== "wait" || !micHearsGuitar()) for (let i = 0; i <= idx; i++) ch[i].done = true;
-  // Listen mode: strum on each chord change and on every beat
-  if (P.mode === "listen" && idx >= 0){
+  // strum on each chord change and on every beat (Strum backing in Listen and Play)
+  if (G.backing === "strum" && P.mode !== "wait" && idx >= 0){
     const beat = 60 / (P.baseBpm || 100);
     if (idx !== G.lastStrumChord){ G.lastStrumChord = idx; G.nextStrum = ch[idx].t + beat; strum(ch[idx], 92); }
     else if (P.t >= G.nextStrum && P.t < ch[idx].end - 0.05){ G.nextStrum += beat; strum(ch[idx], 64); }
@@ -1318,7 +1410,7 @@ function buildPedalEvents(){
   pedal.events = ev.sort((a, b) => a.t - b.t);
   pedal.idx = 0;
 }
-function pedalActive(){ return P.instr !== "guitar" && (P.mode === "listen" || P.hands !== "B"); }
+function pedalActive(){ return P.instr === "guitar" ? G.backing === "piano" : (P.mode === "listen" || P.hands !== "B"); }
 function pedalSeek(t){
   pedal.idx = pedal.events.findIndex(e => e.t > t); if (pedal.idx < 0) pedal.idx = pedal.events.length;
   const prev = pedal.events[pedal.idx - 1];
@@ -1450,6 +1542,7 @@ function setPlaying(on){
 }
 function finish(){
   setPlaying(false);
+  if (PL.playing){ resetRun(); setTimeout(playlistAdvance, 1500); return; }
   if (P.mode === "listen" || !P.total){ resetRun(); return; }
   const acc = Math.round(100 * P.correct / P.total);
   const key = "dg30.best." + P.song.id, best = store.get(key, 0);
@@ -1586,7 +1679,7 @@ function drawBanner(){
   b.classList.toggle("tap", needPiano);
   if (needPiano && (P.playing || !conn.kind)){ b.hidden = false; b.textContent = reconnecting ? "Reconnecting to the piano…" : "Piano not connected · tap to connect"; return; }
   if (P.instr === "guitar"){
-    if (!P.playing) msg = P.mode === "wait" && !micHearsGuitar() ? "Wait mode for guitar listens with the mic: Connect → Listen with mic" : "Press play";
+    if (!P.playing) msg = P.mode === "wait" && !micHearsGuitar() ? "Wait mode for guitar listens with the mic: Connect → Listen with mic" : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : "Press play");
     else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name;
     else if (P.chords.length && P.t < P.chords[0].t) msg = "Get ready…";
     b.hidden = !msg; b.textContent = msg; return;
@@ -1605,6 +1698,7 @@ function allSongs(){
   return [...mine, ...demos];
 }
 function renderLibrary(){
+  try { renderPlaylists(); } catch(e){}
   const box = $("songs"); box.textContent = "";
   for (const s of allSongs()){
     const notes = s.demo ? loadNotes(s.id) : null;
@@ -1761,6 +1855,25 @@ function openExport(id){
   $("expDlg").showModal();
 }
 $("expClose").onclick = () => $("expDlg").close();
+$("expShare").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").close(); shareSong(id); };
+$("plNew").onclick = () => openPlaylistEditor(null);
+$("plCancel").onclick = () => $("plDlg").close();
+$("plDelete").onclick = e => { const b = e.currentTarget; if (!b.dataset.arm){ b.dataset.arm = 1; b.textContent = "Tap again to delete"; return; } delete b.dataset.arm; b.textContent = "Delete playlist";
+  PL.lists = PL.lists.filter(p => p.id !== PL.editing); savePlaylists(); $("plDlg").close(); renderPlaylists(); };
+$("plForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = $("plName").value.trim() || "Playlist " + (PL.lists.length + 1);
+  if (PL.editing){ const p = PL.lists.find(x => x.id === PL.editing); p.name = name; p.songs = [...PL.sel]; }
+  else PL.lists.push({id: "p" + Date.now().toString(36), name, songs: [...PL.sel]});
+  savePlaylists(); $("plDlg").close(); renderPlaylists();
+});
+$("plNext").onclick = () => playlistAdvance();
+$("tunerOpen").onclick = openTuner;
+$("tunerClose").onclick = closeTuner;
+$("tunerDlg").addEventListener("close", () => { cancelAnimationFrame(TUNER.raf); if (TUNER.stream){ TUNER.stream.getTracks().forEach(t => t.stop()); TUNER.stream = null; } });
+$("tunerA4").addEventListener("change", e => { const v = +e.target.value; if (v >= 415 && v <= 466){ TUNER.a4 = v; store.set("dg30.a4", v); } });
+$("backupBtn").onclick = backupNow;
+$("restoreIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) restoreFrom(f); });
 $("expSheet").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").close(); openSheet(id); };
 $("expMidi").onclick = () => { const id = $("expDlg").dataset.id, m = allSongs().find(s => s.id === id); $("expDlg").close(); downloadMidi(m.title, loadNotes(id)); };
 const scanFileName = id => (allSongs().find(s => s.id === id)?.title || "song").replace(/[^\w\- ]+/g, "").trim() + " - reader details.txt";
@@ -1925,7 +2038,7 @@ async function readOnePage(page, model, key, onNotes){
       const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
       if (!line.startsWith("data:")) continue;
       let ev; try { ev = JSON.parse(line.slice(5)); } catch(e){ continue; }
-      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta"){ text += ev.delta.text; onNotes((text.match(/\n\d+\s+[\d.]+\s/g) || []).length); }
+      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta"){ text += ev.delta.text; onNotes((text.match(/\nN\s+\d/g) || []).length); }
       else if (ev.type === "message_delta" && ev.delta?.stop_reason) stop = ev.delta.stop_reason;
       else if (ev.type === "error") throw new Error(ev.error?.type === "overloaded_error" ? "Claude is busy right now. Wait a minute and try again." : "Claude stopped: " + (ev.error?.message || "unknown error"));
     }
@@ -1945,22 +2058,26 @@ function orderPages(pages){
   sorted.reordered = allNumbered && sorted.some((p, i) => p.added !== i + 1);
   return sorted;
 }
-async function readSheetMusic(pages, model, key, onStatus, onTick){
+async function readSheetMusic(pages, model, key, onStatus, onTick, prior = [], onPageDone = null){
   const results = new Array(pages.length), counts = new Array(pages.length).fill(0), done = new Array(pages.length).fill(false);
+  prior.forEach((raw, i) => { if (raw){ const p = parsePageText(raw); p.raw = raw; results[i] = p; done[i] = true; counts[i] = p.notes.length; } });
+  // a page of piano music usually has 150–400 notes; the bar fills as notes arrive and jumps when a page is finished
   const show = () => {
     const finished = done.filter(Boolean).length, total = counts.reduce((a,b) => a + b, 0);
-    onStatus(`Reading page${pages.length > 1 ? "s" : ""}: ${finished} of ${pages.length} done · ${total} notes so far`);
-    onTick(Math.min(0.97, (finished + counts.reduce((a, c, i) => a + (done[i] ? 0 : Math.min(0.9, c / 500)), 0)) / pages.length));
+    onStatus(`Reading page${pages.length > 1 ? "s" : ""}: ${finished} of ${pages.length} done · ${total} notes read so far`);
+    onTick(Math.min(0.97, (finished + counts.reduce((a, c, i) => a + (done[i] ? 0 : Math.min(0.9, c / 300)), 0)) / pages.length));
   };
   show();
   let next = 0, failure = null;
   const worker = async () => {
     while (next < pages.length && !failure){
       const i = next++;
+      if (done[i]) continue;
       try {
         results[i] = await readOnePage(pages[i], model, key, c => { counts[i] = c; show(); });
         if (!results[i].notes.length) throw new Error(`Page ${i + 1} came back with no notes. Retake it flatter and brighter, with the whole page in frame.`);
-        done[i] = true; show();
+        done[i] = true; counts[i] = results[i].notes.length; show();
+        if (onPageDone) await onPageDone(i, results[i].raw);
       } catch(e){ failure = failure || (pages.length > 1 && !/Page \d/.test(e.message) ? new Error(`Page ${i + 1}: ` + e.message) : e); }
     }
   };
@@ -1971,31 +2088,354 @@ async function readSheetMusic(pages, model, key, onStatus, onTick){
 }
 $("scanForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!scan.pages.length) return;
-  const key = store.get("dg30.apikey", ""), model = store.get("dg30.scanModel", "claude-opus-5-5"), st = $("scanStatus"), go = $("scanGo"), bar = $("scanBar");
-  if (!/^sk-ant-/.test(key)){ renderThumbs(); return; }
-  go.disabled = true; bar.hidden = false; bar.firstElementChild.style.width = "0%";
-  if ("wakeLock" in navigator) keepAwake();
-  try {
-    const pages = await readSheetMusic(scan.pages, model, key, m => st.textContent = m, p => bar.firstElementChild.style.width = Math.round(p * 100) + "%");
-    const joined = buildSongFromPages(pages);
-    const notes = simplify(joined.notes, "full", {minDur:0.03});
-    if (!notes.length) throw new Error("No notes were found. Try a sharper, brighter photo.");
-    const t0 = notes[0].t, shift = t0 > 1 ? t0 - 1 : 0;
-    if (shift){ notes.forEach(n => n.t -= shift); joined.lyrics.forEach(l => l.t -= shift); joined.chords.forEach(c => c.t -= shift); joined.pedal.forEach(x => x.t -= shift); }
-    const last = notes[notes.length - 1];
-    const title = $("scanName").value.trim() || pages.map(p => p.title).find(Boolean) || "Scanned music";
-    const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", shift:+shift.toFixed(3), bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
-    if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
-    store.set("dg30.scan." + meta.id, pages.map(p => ({page: p.page, text: p.raw || ""})));
-    if (joined.pedal.length) store.set("dg30.pedal." + meta.id, joined.pedal.map(x => [+x.t.toFixed(3), x.down ? 1 : 0]));
-    const cut = pages.findIndex(p => p.cutOff);
-    const orderNote = pages.length < 2 ? "" : pages.orderedBy === "page"
-      ? (pages.reordered ? ` Put in page order ${pages.map(p => p.page).join(", ")}.` : "")
-      : " Couldn't read page numbers on every page, so pages were kept in the order you added them.";
-    $("scanDlg").close(); renderLibrary();
-    toast(cut >= 0 ? `Added “${title}”. Page ${cut + 1} was too long to finish; its end may be missing.` : `Added “${title}” (${notes.length} notes${joined.lyrics.length ? ", with words" : ""}${joined.chords.length ? " and guitar chords" : ""}, tempo ${Math.round(joined.bpm)}).${orderNote} Use Listen to check it.`);
-  } catch(err){ st.textContent = /Failed to fetch|NetworkError|network/i.test(err.message) ? "Couldn't reach Anthropic. Check your internet connection and keep the screen on while it reads." : err.message; go.disabled = false; }
+  if (!/^sk-ant-/.test(store.get("dg30.apikey", ""))){ renderThumbs(); return; }
+  const pages = scan.pages.map(p => ({b64: p.b64, top: p.top, bottom: p.bottom}));
+  await addJob({kind:"sheet", name: $("scanName").value.trim(), pages});
+  $("scanDlg").close();
+  toast("Reading your music in the background. You can keep using the app; it'll appear in your songs when it's done.");
 });
+
+/* ---------------- background conversions ----------------
+   Each conversion is a job saved on the phone (IndexedDB). You can close the screen and keep using the app;
+   finished pages are saved as they arrive, and if Android pauses or closes the app, the job carries on
+   from where it stopped the next time the app opens. */
+const idb = {
+  db: null,
+  open(){ return this.db || (this.db = new Promise((ok, bad) => {
+    const r = indexedDB.open("dg30", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("jobs", {keyPath:"id"});
+    r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error);
+  })); },
+  async tx(mode, fn){ const db = await this.open(); return new Promise((ok, bad) => { const t = db.transaction("jobs", mode), s = t.objectStore("jobs"); const r = fn(s); t.oncomplete = () => ok(r && r.result); t.onerror = () => bad(t.error); }); },
+  put(job){ return this.tx("readwrite", s => s.put(job)); },
+  del(id){ return this.tx("readwrite", s => s.delete(id)); },
+  all(){ return this.tx("readonly", s => s.getAll()); }
+};
+const jobsUI = new Map();            // id -> {status, progress, name, kind, error}
+let jobsRunning = false;
+function jobStatus(id, patch){ jobsUI.set(id, {...(jobsUI.get(id) || {}), ...patch}); renderJobs(); }
+async function addJob(job){
+  job.id = "j" + Date.now().toString(36); job.created = Date.now(); job.results = job.results || [];
+  try { await idb.put(job); } catch(e){ /* storage full: still run it in memory */ memJobs.set(job.id, job); }
+  jobStatus(job.id, {name: job.name, kind: job.kind, progress: 0, status: "Waiting to start…"});
+  askToNotify();
+  runJobs();
+}
+const memJobs = new Map();
+async function allJobs(){ let list = []; try { list = await idb.all(); } catch(e){} return [...list, ...memJobs.values()].sort((a, b) => a.created - b.created); }
+async function saveJob(job){ if (memJobs.has(job.id)) return; try { await idb.put(job); } catch(e){} }
+async function removeJob(id){ memJobs.delete(id); try { await idb.del(id); } catch(e){} jobsUI.delete(id); renderJobs(); }
+async function runJobs(){
+  if (jobsRunning) return; jobsRunning = true;
+  try {
+    for (;;){
+      const pending = (await allJobs()).filter(j => !j.failed && !jobCancel.has(j.id));
+      if (!pending.length) break;
+      const job = pending[0];
+      if (!jobsUI.has(job.id)) jobStatus(job.id, {name: job.name, kind: job.kind, progress: 0, status: "Picking up where it left off…"});
+      try {
+        const meta = job.kind === "sheet" ? await runSheetJob(job) : await runAudioJob(job);
+        await removeJob(job.id);
+        renderLibrary();
+        const msg = `“${meta.title}” is ready to play.`;
+        toast(msg); notify("Song ready", msg);
+      } catch(err){
+        if (jobCancel.has(job.id)){ await removeJob(job.id); continue; }
+        job.failed = true; job.error = friendlyError(err, job.kind); await saveJob(job);
+        jobStatus(job.id, {status: job.error, failed: true});
+        notify("Couldn't finish a song", job.error);
+      }
+    }
+  } finally { jobsRunning = false; }
+}
+function friendlyError(err, kind){
+  const m = String(err && err.message || err);
+  if (/Failed to fetch|NetworkError|network/i.test(m)) return kind === "sheet" ? "Couldn't reach Anthropic. Check your internet connection, then tap Try again." : "Lost the internet connection while loading the converter. Tap Try again.";
+  if (kind === "audio" && /import|module|Failed to load/i.test(m)) return "The note converter couldn't load. Check your internet connection. Or convert the file at basicpitch.spotify.com and add the MIDI file it gives you.";
+  return m;
+}
+async function runSheetJob(job){
+  const key = store.get("dg30.apikey", ""), model = store.get("dg30.scanModel", "claude-opus-5-5");
+  if (!/^sk-ant-/.test(key)) throw new Error("Add your Anthropic API key in Settings, then tap Try again.");
+  const pages = await readSheetMusic(job.pages, model, key,
+    m => jobStatus(job.id, {status: m}), p => jobStatus(job.id, {progress: p}),
+    job.results, async (i, raw) => { job.results[i] = raw; await saveJob(job); });
+  if (jobCancel.has(job.id)) throw new Error("cancelled");
+  return finishSheetSong(pages, job.name);
+}
+function finishSheetSong(pages, nameIn){
+  const joined = buildSongFromPages(pages);
+  const notes = simplify(joined.notes, "full", {minDur:0.03});
+  if (!notes.length) throw new Error("No notes were found. Try a sharper, brighter photo.");
+  const t0 = notes[0].t, shift = t0 > 1 ? t0 - 1 : 0;
+  if (shift){ notes.forEach(n => n.t -= shift); joined.lyrics.forEach(l => l.t -= shift); joined.chords.forEach(c => c.t -= shift); joined.pedal.forEach(x => x.t -= shift); }
+  const last = notes[notes.length - 1];
+  const title = nameIn || pages.map(p => p.title).find(Boolean) || "Scanned music";
+  const meta = { id:"s" + Date.now().toString(36), title, level:"full", src:"sheet", shift:+shift.toFixed(3), bpm:Math.round(joined.bpm), key:joined.key, words:joined.lyrics.length > 0, guitar:joined.chords.length > 0, count:notes.length, len:last.t + last.d, added:Date.now() };
+  if (!saveSong(meta, notes, joined.lyrics, joined.chords)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+  store.set("dg30.scan." + meta.id, pages.map(p => ({page: p.page, text: p.raw || ""})));
+  if (joined.pedal.length) store.set("dg30.pedal." + meta.id, joined.pedal.map(x => [+x.t.toFixed(3), x.down ? 1 : 0]));
+  return meta;
+}
+async function runAudioJob(job){
+  const file = new File([job.blob], job.fileName || "song", {type: job.blob.type});
+  jobStatus(job.id, {status: "Getting ready…", progress: 0});
+  const raw = await transcribe(file, job.sens, p => jobStatus(job.id, {progress: p, status: `Listening for notes · ${Math.round(p * 100)}%`}), m => jobStatus(job.id, {status: m}));
+  if (jobCancel.has(job.id)) throw new Error("cancelled");
+  return finishAudioSong(raw, job.level, job.name);
+}
+function finishAudioSong(raw, level, name){
+  const notes = simplify(raw, level);
+  if (!notes.length) throw new Error("No notes were found. Try “More notes” or a cleaner piano or melody track.");
+  const t0 = notes[0].t, cutIntro = t0 > 1.5 ? t0 - 1 : 0; if (cutIntro) notes.forEach(n => n.t -= cutIntro);
+  const last = notes[notes.length - 1];
+  const meta = { id: "s" + Date.now().toString(36), title: name || "Untitled song", level, bpm: raw.bpm || estimateTempo(raw), key: raw.key || "", count: notes.length, len: last.t + last.d, added: Date.now() };
+  if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
+  return meta;
+}
+async function renderJobs(){
+  const box = $("jobs"); if (!box) return;
+  const list = [...jobsUI.entries()];
+  box.hidden = !list.length; box.textContent = "";
+  for (const [id, j] of list){
+    const el = document.createElement("div"); el.className = "job" + (j.failed ? " failed" : "");
+    const h = document.createElement("div"); h.className = "jobhead";
+    const t = document.createElement("strong"); t.textContent = (j.kind === "sheet" ? "Reading sheet music: " : "Converting: ") + (j.name || "new song");
+    h.appendChild(t);
+    const acts = document.createElement("div"); acts.className = "row";
+    if (j.failed){
+      const again = document.createElement("button"); again.className = "btn"; again.type = "button"; again.textContent = "Try again";
+      again.onclick = async () => { const job = (await allJobs()).find(x => x.id === id); if (job){ job.failed = false; job.error = ""; await saveJob(job); jobStatus(id, {failed:false, status:"Starting again…"}); runJobs(); } };
+      acts.appendChild(again);
+    }
+    const cancel = document.createElement("button"); cancel.className = "btn ghost"; cancel.type = "button"; cancel.textContent = j.failed ? "Remove" : "Cancel";
+    cancel.onclick = () => { if (cancel.dataset.arm){ jobCancel.add(id); removeJob(id); } else { cancel.dataset.arm = 1; cancel.textContent = "Sure?"; } };
+    acts.appendChild(cancel); h.appendChild(acts);
+    const bar = document.createElement("div"); bar.className = "bar"; const i = document.createElement("i"); i.style.width = Math.round((j.progress || 0) * 100) + "%"; bar.appendChild(i);
+    const st = document.createElement("div"); st.className = "status"; st.textContent = j.status || "";
+    el.append(h, bar, st); box.appendChild(el);
+  }
+}
+const jobCancel = new Set();
+async function askToNotify(){
+  try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch(e){}
+}
+async function notify(title, body){
+  if (!document.hidden) return;
+  try {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg) reg.showNotification(title, {body, icon:"icon-192.png", tag:"dg30-job"}); else new Notification(title, {body});
+  } catch(e){}
+}
+
+/* ---------------- playlists ---------------- */
+const PL = { lists: store.get("dg30.playlists", []), playing: null, editing: null, sel: [] };
+function savePlaylists(){ store.set("dg30.playlists", PL.lists); }
+function renderPlaylists(){
+  const box = $("playlists"); box.textContent = "";
+  const songs = allSongs(), byId = new Map(songs.map(s => [s.id, s]));
+  for (const pl of PL.lists){
+    const ids = pl.songs.filter(id => byId.has(id));
+    const el = document.createElement("div"); el.className = "song";
+    const h = document.createElement("h3"); h.textContent = pl.name;
+    const meta = document.createElement("div"); meta.className = "meta";
+    const lenOf = id => byId.get(id).len || (() => { const n = loadNotes(id), l = n[n.length - 1]; return l ? l.t + l.d : 0; })();
+    meta.textContent = `${ids.length} song${ids.length === 1 ? "" : "s"} · ${fmt(ids.reduce((a, id) => a + lenOf(id), 0))}`;
+    const acts = document.createElement("div"); acts.className = "acts";
+    const go = document.createElement("button"); go.className = "go"; go.type = "button"; go.textContent = "Play all"; go.disabled = !ids.length;
+    go.onclick = () => startPlaylist(pl.id, 0);
+    const ed = document.createElement("button"); ed.type = "button"; ed.textContent = "Edit"; ed.onclick = () => openPlaylistEditor(pl.id);
+    acts.append(go, ed); el.append(h, meta, acts); box.appendChild(el);
+  }
+  $("plEmpty").hidden = PL.lists.length > 0;
+}
+function openPlaylistEditor(id){
+  const pl = PL.lists.find(p => p.id === id);
+  PL.editing = id || null; PL.sel = pl ? pl.songs.filter(x => allSongs().some(s => s.id === x)) : [];
+  $("plName").value = pl ? pl.name : "";
+  $("plDelete").hidden = !pl;
+  renderPlaylistEditor(); $("plDlg").showModal();
+}
+function renderPlaylistEditor(){
+  const songs = allSongs(), byId = new Map(songs.map(s => [s.id, s]));
+  const order = $("plOrder"); order.textContent = "";
+  PL.sel.forEach((id, i) => {
+    const row = document.createElement("div"); row.className = "plrow";
+    const n = document.createElement("span"); n.textContent = `${i + 1}. ${byId.get(id).title}`;
+    const up = document.createElement("button"); up.type = "button"; up.textContent = "↑"; up.setAttribute("aria-label", "Move up"); up.disabled = i === 0;
+    up.onclick = () => { [PL.sel[i - 1], PL.sel[i]] = [PL.sel[i], PL.sel[i - 1]]; renderPlaylistEditor(); };
+    const dn = document.createElement("button"); dn.type = "button"; dn.textContent = "↓"; dn.setAttribute("aria-label", "Move down"); dn.disabled = i === PL.sel.length - 1;
+    dn.onclick = () => { [PL.sel[i + 1], PL.sel[i]] = [PL.sel[i], PL.sel[i + 1]]; renderPlaylistEditor(); };
+    const rm = document.createElement("button"); rm.type = "button"; rm.textContent = "✕"; rm.setAttribute("aria-label", "Remove");
+    rm.onclick = () => { PL.sel.splice(i, 1); renderPlaylistEditor(); };
+    row.append(n, up, dn, rm); order.appendChild(row);
+  });
+  $("plOrderEmpty").hidden = PL.sel.length > 0;
+  const pick = $("plPick"); pick.textContent = "";
+  for (const s of songs){
+    const lab = document.createElement("label"); lab.className = "plpick";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = PL.sel.includes(s.id);
+    cb.onchange = () => { if (cb.checked) PL.sel.push(s.id); else PL.sel = PL.sel.filter(x => x !== s.id); renderPlaylistEditor(); };
+    lab.append(cb, document.createTextNode(" " + s.title)); pick.appendChild(lab);
+  }
+}
+function startPlaylist(id, i){
+  const pl = PL.lists.find(p => p.id === id); if (!pl) return;
+  const ids = pl.songs.filter(x => allSongs().some(s => s.id === x)); if (!ids[i]) { PL.playing = null; return; }
+  PL.playing = {id, i, ids, name: pl.name};
+  openPractice(ids[i]);
+  if (P.mode !== "listen" && !(P.instr === "guitar" && G.backing === "piano")){ P.mode = "listen"; setSeg("modeSeg", "listen"); resetRun(); }
+  updatePlaylistBar();
+  setTimeout(() => { if (practiceVisible() && PL.playing) setPlaying(true); }, i === 0 ? 300 : 1200);
+}
+function updatePlaylistBar(){
+  const on = !!PL.playing;
+  $("plNext").hidden = !on;
+  if (on){ const {i, ids} = PL.playing; $("plNext").textContent = i + 1 < ids.length ? `⏭ ${i + 1}/${ids.length}` : `${i + 1}/${ids.length}`; $("plNext").disabled = i + 1 >= ids.length; }
+}
+function playlistAdvance(){
+  if (!PL.playing) return false;
+  const {id, i} = PL.playing;
+  if (i + 1 >= PL.playing.ids.length){ toast(`Finished “${PL.playing.name}”`); PL.playing = null; updatePlaylistBar(); return false; }
+  setPlaying(false); startPlaylist(id, i + 1); return true;
+}
+
+/* ---------------- guitar tuner ---------------- */
+const TUNER = { stream:null, an:null, buf:null, raf:0, hist:[], target:null, a4: store.get("dg30.a4", 440) };
+const GUITAR_STRINGS = [{n:"E", o:2, p:40}, {n:"A", o:2, p:45}, {n:"D", o:3, p:50}, {n:"G", o:3, p:55}, {n:"B", o:3, p:59}, {n:"E", o:4, p:64}];
+// YIN pitch detection, tuned for 70–1000 Hz
+function yinPitch(buf, sr){
+  let rms = 0; for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / buf.length);
+  if (rms < 0.01) return -1;
+  const minLag = Math.floor(sr / 1000), maxLag = Math.min(Math.floor(sr / 70), Math.floor(buf.length / 2)), W = buf.length - maxLag;
+  const d = new Float32Array(maxLag + 1);
+  for (let tau = 1; tau <= maxLag; tau++){ let sum = 0; for (let j = 0; j < W; j++){ const x = buf[j] - buf[j + tau]; sum += x * x; } d[tau] = sum; }
+  let run = 0, best = -1; const cm = new Float32Array(maxLag + 1); cm[0] = 1;
+  for (let tau = 1; tau <= maxLag; tau++){ run += d[tau]; cm[tau] = d[tau] * tau / (run || 1); }
+  for (let tau = minLag; tau <= maxLag; tau++){ if (cm[tau] < 0.12){ while (tau + 1 <= maxLag && cm[tau + 1] < cm[tau]) tau++; best = tau; break; } }
+  if (best < 0) return -1;
+  const x0 = cm[best - 1] ?? cm[best], x2 = cm[best + 1] ?? cm[best], den = x0 + x2 - 2 * cm[best];
+  const shift = den ? (x0 - x2) / (2 * den) : 0;
+  return sr / (best + shift);
+}
+async function openTuner(){
+  $("tunerDlg").showModal(); renderTunerStrings();
+  $("tunerA4").value = TUNER.a4;
+  if (!navigator.mediaDevices?.getUserMedia){ $("tunerNote").textContent = "–"; $("tunerHint").textContent = "The microphone isn't available here."; return; }
+  try {
+    TUNER.stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+    const a = audioCtx(), src = a.createMediaStreamSource(TUNER.stream);
+    TUNER.an = a.createAnalyser(); TUNER.an.fftSize = 4096; src.connect(TUNER.an);
+    TUNER.buf = new Float32Array(TUNER.an.fftSize); TUNER.hist = [];
+    $("tunerHint").textContent = "Play one string at a time.";
+    tunerLoop();
+  } catch(e){ $("tunerHint").textContent = "Microphone permission was declined. Allow it in Chrome's site settings to use the tuner."; }
+}
+function closeTuner(){
+  cancelAnimationFrame(TUNER.raf);
+  if (TUNER.stream) TUNER.stream.getTracks().forEach(t => t.stop()); TUNER.stream = null;
+  $("tunerDlg").close();
+}
+let tunerLast = 0;
+function tunerLoop(now = 0){
+  TUNER.raf = requestAnimationFrame(tunerLoop);
+  if (now - tunerLast < 60) return; tunerLast = now;
+  TUNER.an.getFloatTimeDomainData(TUNER.buf);
+  const f = yinPitch(TUNER.buf, actx.sampleRate);
+  if (f < 0){ if (TUNER.hist.length) TUNER.hist.shift(); if (!TUNER.hist.length) showTuner(null); return; }
+  TUNER.hist.push(f); if (TUNER.hist.length > 5) TUNER.hist.shift();
+  const sorted = [...TUNER.hist].sort((a, b) => a - b), med = sorted[Math.floor(sorted.length / 2)];
+  showTuner(med);
+}
+function showTuner(f){
+  const needle = $("tunerNeedle"), note = $("tunerNote");
+  if (!f){ note.textContent = "–"; $("tunerHz").textContent = ""; needle.style.transform = "rotate(0deg)"; $("tunerMeter").className = "tmeter"; $("tunerDir").textContent = ""; return; }
+  const midi = 69 + 12 * Math.log2(f / TUNER.a4);
+  let target = TUNER.target, cents;
+  if (target == null){ target = GUITAR_STRINGS.reduce((b, s) => Math.abs(s.p - midi) < Math.abs(b.p - midi) ? s : b).p; if (Math.abs(target - midi) > 2.5) target = Math.round(midi); }
+  cents = Math.max(-50, Math.min(50, Math.round((midi - target) * 100)));
+  note.textContent = SHARP_NAMES[((target % 12) + 12) % 12] + (Math.floor(target / 12) - 1);
+  $("tunerHz").textContent = f.toFixed(1) + " Hz · " + (cents > 0 ? "+" : "") + cents + " cents";
+  needle.style.transform = `rotate(${cents * 0.9}deg)`;
+  const ok = Math.abs(cents) <= 4;
+  $("tunerMeter").className = "tmeter" + (ok ? " ok" : "");
+  $("tunerDir").textContent = ok ? "In tune" : cents < 0 ? "Too low · tighten" : "Too high · loosen";
+  document.querySelectorAll("#tunerStrings button").forEach(b => b.classList.toggle("near", +b.dataset.p === target));
+}
+function renderTunerStrings(){
+  const box = $("tunerStrings"); box.textContent = "";
+  const auto = document.createElement("button"); auto.type = "button"; auto.textContent = "Auto"; auto.setAttribute("aria-pressed", String(TUNER.target == null));
+  auto.onclick = () => { TUNER.target = null; renderTunerStrings(); }; box.appendChild(auto);
+  for (const s of GUITAR_STRINGS){
+    const b = document.createElement("button"); b.type = "button"; b.dataset.p = s.p; b.textContent = s.n + s.o; b.setAttribute("aria-pressed", String(TUNER.target === s.p));
+    b.onclick = () => { TUNER.target = s.p; renderTunerStrings(); noteOut(s.p, 90, true); setTimeout(() => noteOut(s.p, 0, false), 1500); };
+    box.appendChild(b);
+  }
+}
+
+/* ---------------- backup and restore (move songs between devices) ---------------- */
+const BACKUP_SKIP = /^dg30\.(apikey|bleId|out|vol|songVol|mode|hands|tempo$|words|pedalMode|gbacking|scanModel|autoFs|a4|sound$)/;
+function backupData(){
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith("dg30.") && !BACKUP_SKIP.test(k)) data[k] = localStorage.getItem(k); }
+  return {app:"DG30 Song Coach", version: APP_VERSION, saved: new Date().toISOString(), data};
+}
+function backupNow(){
+  const b = backupData(), n = (store.get("dg30.songs", []) || []).length;
+  const day = new Date().toISOString().slice(0, 10);
+  saveTextFile(`DG30 Song Coach backup ${day}.json`, JSON.stringify(b));
+  $("backupStatus").textContent = `Backed up ${n} song${n === 1 ? "" : "s"}${PL.lists.length ? " and " + PL.lists.length + " playlist" + (PL.lists.length === 1 ? "" : "s") : ""}.`;
+}
+async function restoreFrom(file){
+  const st = $("backupStatus");
+  try {
+    const b = JSON.parse(await file.text());
+    if (!b || b.app !== "DG30 Song Coach" || !b.data) throw new Error("That file isn't a DG30 Song Coach backup.");
+    const mine = store.get("dg30.songs", []), theirs = JSON.parse(b.data["dg30.songs"] || "[]");
+    const have = new Set(mine.map(s => s.id)); let added = 0;
+    for (const [k, v] of Object.entries(b.data)){
+      if (k === "dg30.songs" || k === "dg30.playlists") continue;
+      const m = k.match(/^dg30\.[a-z]+\.(.+)$/); if (m && have.has(m[1])) continue;   // keep this device's copy of songs it already has
+      try { localStorage.setItem(k, v); } catch(e){ throw new Error("This device's storage is full. Delete some songs and try again."); }
+    }
+    for (const s of theirs) if (!have.has(s.id)){ mine.push(s); added++; }
+    store.set("dg30.songs", mine.sort((a, b) => (b.added || 0) - (a.added || 0)));
+    const pls = JSON.parse(b.data["dg30.playlists"] || "[]");
+    for (const p of pls) if (!PL.lists.some(x => x.id === p.id)) PL.lists.push(p);
+    savePlaylists();
+    renderLibrary();
+    st.textContent = added ? `Added ${added} song${added === 1 ? "" : "s"} from the backup.` : "Everything in that backup is already on this device.";
+  } catch(e){ st.textContent = e.message || "Couldn't read that file."; }
+}
+
+/* ---------------- share one song as a file ----------------
+   Everything the app knows about the song, so the person you send it to can add it without scanning or an API key. */
+const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal"];
+function songPackage(id){
+  const meta = allSongs().find(s => s.id === id);
+  const pkg = {app:"DG30 Song Coach", kind:"song", version: APP_VERSION, meta: {...meta}};
+  delete pkg.meta.demo;
+  for (const k of SONG_KEYS){ const v = localStorage.getItem(`dg30.${k}.${id}`); if (v != null) pkg[k] = JSON.parse(v); }
+  return pkg;
+}
+function shareSong(id){
+  const pkg = songPackage(id), name = (pkg.meta.title || "song").replace(/[^\w\- ]+/g, "").trim() || "song";
+  const text = JSON.stringify(pkg), file = new File([text], `${name}.dg30song.json`, {type:"application/json"});
+  if (navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file], title: pkg.meta.title, text: `“${pkg.meta.title}” for DG30 Song Coach. Open the app, tap Choose a file and pick this file to add it.`}).catch(() => {}); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast("Saved the song file. Send it to anyone with the app.");
+}
+function importSongPackage(pkg){
+  if (!pkg || pkg.app !== "DG30 Song Coach" || pkg.kind !== "song" || !pkg.meta || !pkg.song) throw new Error("That file isn't a DG30 Song Coach song.");
+  const songs = store.get("dg30.songs", []);
+  if (songs.some(s => s.id === pkg.meta.id && s.title === pkg.meta.title)) return {meta: pkg.meta, dup: true};
+  const meta = {...pkg.meta, id: songs.some(s => s.id === pkg.meta.id) ? "s" + Date.now().toString(36) : pkg.meta.id, added: Date.now(), shared: true};
+  for (const k of SONG_KEYS) if (pkg[k] != null){ if (!store.set(`dg30.${k}.${meta.id}`, pkg[k])) throw new Error("This device's storage is full. Delete a song and try again."); }
+  songs.unshift(meta); store.set("dg30.songs", songs);
+  return {meta, dup: false};
+}
 
 /* ---------------- sheet music export ----------------
    Rebuilds engraved sheet music from what the reader found, one block per printed page with the
@@ -2291,6 +2731,15 @@ const LVL_HELP = { melody:"Just the tune, right hand only. Best place to start."
 function setSeg(segId, v){ $(segId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v))); }
 $("fileIn").addEventListener("change", e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (/\.json$/i.test(f.name) || f.type === "application/json"){
+    f.text().then(t => {
+      const obj = JSON.parse(t);
+      if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
+      const r = importSongPackage(obj); renderLibrary();
+      toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”`);
+    }).catch(err => toast(err.message && !/JSON/.test(err.message) ? err.message : "That file isn't a DG30 Song Coach song."));
+    return;
+  }
   if (/\.(musicxml|xml|mxl)$/i.test(f.name)){
     readMusicXmlFile(f).then(sc => {
       const notes = simplify(sc.notes, "full", {minDur:0.03});
@@ -2302,7 +2751,7 @@ $("fileIn").addEventListener("change", e => {
     return;
   }
   const isMidi = /\.midi?$/i.test(f.name) || /midi/.test(f.type);
-  const isAudio = /^audio\//.test(f.type) || /\.(mp3|m4a|aac|wav|aif|aiff|caf|ogg|oga|opus|flac|webm|mp4)$/i.test(f.name);
+  const isAudio = /^audio\//.test(f.type) || /^video\//.test(f.type) || /\.(mp3|m4a|aac|wav|aif|aiff|caf|ogg|oga|opus|flac|webm|mp4)$/i.test(f.name);
   if (!isMidi && !isAudio){ toast("That file type can't be added. Use an audio file (MP3, M4A, WAV), a MIDI file or a MusicXML file."); return; }
   pending = {file:f, isMidi};
   $("impName").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
@@ -2315,29 +2764,18 @@ $("lvlSeg").addEventListener("click", e => { const b = e.target.closest("button"
 $("impCancel").onclick = () => $("impDlg").close();
 $("impForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!pending) return;
-  const go = $("impGo"), st = $("impStatus"), bar = $("impBar");
+  const go = $("impGo"), st = $("impStatus");
   go.disabled = true;
   try {
-    let raw;
-    if (pending.isMidi) raw = readMidiFile(await pending.file.arrayBuffer());
-    else {
-      bar.hidden = false; bar.firstElementChild.style.width = "0%";
-      raw = await transcribe(pending.file, +$("sens").value, p => { bar.firstElementChild.style.width = Math.round(p * 100) + "%"; }, m => st.textContent = m);
+    if (pending.isMidi){
+      const raw = readMidiFile(await pending.file.arrayBuffer());
+      const meta = finishAudioSong(raw, impLevel, $("impName").value.trim());
+      $("impDlg").close(); renderLibrary(); toast(`Added “${meta.title}”`); return;
     }
-    const notes = simplify(raw, impLevel);
-    if (!notes.length) throw new Error("No notes were found. Try “More notes” or a cleaner piano or melody track.");
-    const t0 = notes[0].t, cutIntro = t0 > 1.5 ? t0 - 1 : 0; if (cutIntro) notes.forEach(n => n.t -= cutIntro);  // trim long silent intros
-    const last = notes[notes.length - 1];
-    const meta = { id: "s" + Date.now().toString(36), title: $("impName").value.trim() || "Untitled song", level: impLevel, bpm: raw.bpm || estimateTempo(raw), key: raw.key || "", count: notes.length, len: last.t + last.d, added: Date.now() };
-    if (!saveSong(meta, notes)) throw new Error("Your phone's browser storage is full. Delete a song and try again.");
-    $("impDlg").close(); renderLibrary(); toast(`Added “${meta.title}”`);
-  } catch(err){
-    console.error(err);
-    st.textContent = /import|fetch|module|Failed to load/i.test(String(err && err.message)) ?
-      "The note converter couldn't load. Check your internet connection. Or convert the file at basicpitch.spotify.com and add the MIDI file it gives you." :
-      (err.message || String(err));
-    go.disabled = false;
-  }
+    await addJob({kind:"audio", name: $("impName").value.trim(), blob: pending.file, fileName: pending.file.name, level: impLevel, sens: +$("sens").value});
+    $("impDlg").close();
+    toast("Converting in the background. You can keep using the app; it'll appear in your songs when it's done.");
+  } catch(err){ st.textContent = err.message || String(err); go.disabled = false; }
 });
 
 /* ---------------- practice UI ---------------- */
@@ -2356,6 +2794,7 @@ function openPractice(id){
   P.baseBpm = meta.bpm || (meta.demo ? DEMOS[id].bpm : 0) || estimateTempo(P.notes);
   setBpm(store.get("dg30.tempo." + id, P.baseBpm));
   $("instrBtn").hidden = !P.origChords.length;
+  updatePlaylistBar();
   $("wordsBtn").hidden = !P.lyricLines.length;
   setWords(P.lyricLines.length > 0 && store.get("dg30.words", false));
   setInstrument(P.chords.length && store.get("dg30.instr." + id, "piano") === "guitar" ? "guitar" : "piano", true);
@@ -2365,6 +2804,7 @@ function openPractice(id){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
+  PL.playing = null; updatePlaylistBar();
   setPlaying(false);
   if (P.instr === "guitar") restorePianoSound(); $("practice").hidden = true; $("library").hidden = false; renderLibrary();
   try { screen.orientation?.unlock?.(); } catch(e){}
@@ -2405,18 +2845,32 @@ function restorePianoSound(){
 }
 function setInstrument(inst, quiet){
   const was = P.playing; setPlaying(false);
-  if (inst === "guitar" && P.instr !== "guitar"){
-    // play the song's guitar part with the DG30's nylon guitar sound
-    if ((conn.midiOut || conn.bleChar) && conn.outMode === "piano"){ G.prevSound = soundState.cur ?? 0; selectSound(SOUNDS.findIndex(x => x.name === "Nylon Acoustic"), true); }
-  } else if (inst === "piano" && P.instr === "guitar") restorePianoSound();
+  if (inst === "piano" && P.instr === "guitar") restorePianoSound();
   P.instr = inst;
+  applyBackingSound();
   $("instrBtn").textContent = inst === "guitar" ? "Piano" : "Guitar";
   $("handSeg").hidden = inst === "guitar";
+  $("backSeg").hidden = inst !== "guitar";
+  setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
   resetRun(); syncScrub();
   if (was && !quiet) setPlaying(true);
 }
 $("instrBtn").onclick = () => setInstrument(P.instr === "guitar" ? "piano" : "guitar");
+// strums use the DG30's nylon guitar sound; the piano part uses your piano sound
+function applyBackingSound(){
+  const pianoOut = (conn.midiOut || conn.bleChar) && conn.outMode === "piano";
+  if (P.instr === "guitar" && G.backing === "strum"){
+    if (pianoOut && G.prevSound == null){ G.prevSound = soundState.cur ?? 0; selectSound(SOUNDS.findIndex(x => x.name === "Nylon Acoustic"), true); }
+  } else restorePianoSound();
+}
+$("backSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const was = P.playing; setPlaying(false);
+  G.backing = b.dataset.v; store.set("dg30.gbacking", G.backing); setSeg("backSeg", G.backing);
+  applyBackingSound(); resetRun(Math.max(P.t, (P.chords[0]?.t ?? 0) - 2));
+  if (was) setPlaying(true);
+});
 $("soundBtn").onclick = openSounds;
 $("setSoundBtn").onclick = openSounds;
 $("soundClose").onclick = () => $("soundDlg").close();
@@ -2470,6 +2924,7 @@ function toast(msg){
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); } });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });
   autoReconnect(true);
+  runJobs();
   $("fsBtn").onclick = async () => { if (isFullscreen()) exitFullscreen(); else { enterFullscreen.manual = true; await enterFullscreen(); enterFullscreen.manual = false; } };
   if (installedApp() && matchMedia("(display-mode: fullscreen)").matches) $("fsBtn").hidden = true;
   $("autoFs").checked = store.get("dg30.autoFs", true);
@@ -2479,7 +2934,7 @@ function toast(msg){
 })();
 
 /* exported for testing */
-window.__coach = { chordSpellings, pedal, buildPedalEvents, measuresToAbc, pageToMeasures, timedToMeasures, songSheets, openSheet, estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
+window.__coach = { yinPitch, songPackage, importSongPackage, backupData, PL, chordSpellings, pedal, buildPedalEvents, measuresToAbc, pageToMeasures, timedToMeasures, songSheets, openSheet, estimateKey, transposeChordName, setTranspose, keyLabel, parseKeyName, parseChord, buildSongFromPages, buildLyricLines, estimateTempo, setInstrument, SOUNDS, selectSound, orderPages, parseMusicXml, parsePageText, pitchToMidi, simplify, buildSteps, parseBleMidi, seq, DEMOS, P, onKeyDown, resetRun, currentStep };
 </script>
 </body>
 </html>

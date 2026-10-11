@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.26">
+<meta name="version" content="1.27">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -588,7 +588,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.26";
+const APP_VERSION = "1.27";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -3181,7 +3181,7 @@ $("handSeg").addEventListener("click", e => { const b = e.target.closest("button
 // Tempo in beats per minute. Each song opens at its own tempo; slower or faster choices are remembered per song.
 function setBpm(bpm){
   const base = P.baseBpm || 100;
-  bpm = Math.round(Math.max(base * 0.25, Math.min(base * 1.5, bpm)));
+  bpm = Math.round(Math.max(Math.min(base * 0.25, 20), Math.min(Math.max(base * 4, 400), bpm)));   // 25% up to 400% (at least 400 BPM)
   P.tempo = bpm / base;
   $("tempoOut").textContent = bpm;
   const pct = Math.round(100 * bpm / base);
@@ -3189,8 +3189,16 @@ function setBpm(bpm){
   if (P.song) { if (pct === 100) store.del("dg30.tempo." + P.song.id); else store.set("dg30.tempo." + P.song.id, bpm); }
 }
 const bpmStep = () => Math.max(2, Math.round((P.baseBpm || 100) * 0.05));
-$("tempoDown").onclick = () => setBpm(Math.round(P.tempo * P.baseBpm) - bpmStep());
-$("tempoUp").onclick = () => setBpm(Math.round(P.tempo * P.baseBpm) + bpmStep());
+// tap to change by 5%; hold to keep going, faster the longer you hold
+function holdStep(btn, dir){
+  let timer = null, n = 0;
+  const step = () => setBpm(Math.round(P.tempo * P.baseBpm) + dir * bpmStep() * (n > 12 ? 3 : 1));
+  const stop = () => { clearTimeout(timer); timer = null; };
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); n = 0; step(); const go = () => { n++; step(); timer = setTimeout(go, n > 4 ? 90 : 160); }; timer = setTimeout(go, 450); });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) btn.addEventListener(ev, stop);
+  btn.addEventListener("click", e => { if (e.detail === 0) step(); });   // keyboard / accessibility
+}
+holdStep($("tempoDown"), -1); holdStep($("tempoUp"), 1);
 $("tempoReset").onclick = () => setBpm(P.baseBpm);
 function setWords(on){
   P.words = !!on;

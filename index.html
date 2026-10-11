@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.18">
+<meta name="version" content="1.19">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -531,7 +531,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.18";
+const APP_VERSION = "1.19";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2550,12 +2550,25 @@ function songPackage(id){
   return pkg;
 }
 function shareSong(id){
-  const pkg = songPackage(id), name = (pkg.meta.title || "song").replace(/[^\w\- ]+/g, "").trim() || "song";
-  const text = JSON.stringify(pkg), file = new File([text], `${name}.dg30song.json`, {type:"application/json"});
-  if (navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file], title: pkg.meta.title, text: `“${pkg.meta.title}” for DG30 Song Coach. Open the app, tap Choose a file and pick this file to add it.`}).catch(() => {}); return; }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast("Saved the song file. Send it to anyone with the app.");
+  let pkg;
+  try { pkg = songPackage(id); } catch(e){ toast("Couldn't package that song: " + e.message); return; }
+  const name = (pkg.meta.title || "song").replace(/[^\w\- ]+/g, "").trim() || "song";
+  shareFile(`${name} (DG30 song).txt`, JSON.stringify(pkg), pkg.meta.title,
+    `“${pkg.meta.title}” for DG30 Song Coach. To add it: open the app, tap Choose a file and pick this file.`,
+    "Saved the song file to your Downloads. Send it to anyone with the app.");
+}
+// share a text file through the phone's share sheet, or save it to Downloads where sharing isn't available
+function shareFile(fileName, text, title, message, savedMsg){
+  const file = new File([text], fileName, {type:"text/plain"});
+  const download = () => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = fileName; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    toast(savedMsg || "Saved to your Downloads.");
+  };
+  let ok = false;
+  try { ok = !!(navigator.canShare && navigator.canShare({files:[file]})); } catch(e){}
+  if (!ok){ download(); return; }
+  navigator.share({files:[file], title, text: message}).catch(err => { if (err && err.name !== "AbortError") download(); });
 }
 function importSongPackage(pkg){
   if (!pkg || pkg.app !== "DG30 Song Coach" || pkg.kind !== "song" || !pkg.meta || !pkg.song) throw new Error("That file isn't a DG30 Song Coach song.");
@@ -2847,13 +2860,7 @@ function scanDetailsText(id){
   scan.forEach((s, i) => { t += `===== Page ${s.page || i + 1} =====\n${s.text.trim()}\n\n`; });
   return t;
 }
-function saveTextFile(name, text){
-  const blob = new Blob([text], {type:"text/plain"});
-  const file = new File([blob], name, {type:"text/plain"});
-  if (navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file], title:name}).catch(() => {}); return; }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-}
+function saveTextFile(name, text){ shareFile(name.replace(/\.json$/i, ".txt"), text, name, "", "Saved to your Downloads."); }
 
 /* ---------------- import flow ---------------- */
 let pending = null, impLevel = "easy";
@@ -2861,10 +2868,11 @@ const LVL_HELP = { melody:"Just the tune, right hand only. Best place to start."
 function setSeg(segId, v){ $(segId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v))); }
 $("fileIn").addEventListener("change", e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  if (/\.json$/i.test(f.name) || f.type === "application/json"){
+  if (/\.(json|txt)$/i.test(f.name) || f.type === "application/json" || f.type === "text/plain"){
     f.text().then(t => {
       const obj = JSON.parse(t);
       if (obj && obj.kind !== "song" && obj.data) return restoreFrom(f).then(() => toast($("backupStatus").textContent));
+      if (!obj || obj.app !== "DG30 Song Coach") throw new Error("That file isn't a DG30 Song Coach song.");
       const r = importSongPackage(obj); renderLibrary();
       toast(r.dup ? `“${r.meta.title}” is already in your songs.` : `Added “${r.meta.title}”`);
     }).catch(err => toast(err.message && !/JSON/.test(err.message) ? err.message : "That file isn't a DG30 Song Coach song."));

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.29">
+<meta name="version" content="1.30">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -648,7 +648,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.29";
+const APP_VERSION = "1.30";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2593,6 +2593,8 @@ async function removeJob(id){ memJobs.delete(id); try { await idb.del(id); } cat
 async function runJobs(){
   if (jobsRunning) return; jobsRunning = true;
   try {
+    // songs that stopped earlier only because the internet dropped (older versions gave up): pick them up again
+    for (const j of await allJobs()) if (j.failed && /reach Anthropic|internet connection|busy right now/i.test(j.error || "")){ j.failed = false; j.error = ""; j.retries = 0; await saveJob(j); }
     if ((await allJobs()).some(j => !j.failed)) bgKeepAlive(true, "Converting a song");
     for (;;){
       const pending = (await allJobs()).filter(j => !j.failed && !jobCancel.has(j.id));
@@ -2602,16 +2604,24 @@ async function runJobs(){
       try {
         const meta = job.kind === "sheet" ? await runSheetJob(job) : await runAudioJob(job);
         await removeJob(job.id);
-        renderLibrary();
+        renderLibrary(); clearJobNotices();
         const msg = `“${meta.title}” is ready to play.`;
         toast(msg); notify("Song ready", msg);
       } catch(err){
         if (jobCancel.has(job.id)){ await removeJob(job.id); continue; }
         // lost the connection (often because the phone paused the app): keep the finished pages and carry on later
-        if (/Failed to fetch|NetworkError|network|aborted|Load failed/i.test(String(err && err.message || err)) && (job.retries || 0) < 5){
+        // lost the connection (often the phone asleep, or Wi-Fi switching): never give up on that. Keep the finished
+        // pages and wait for the internet to come back, without bothering you with an error.
+        const em = String(err && err.message || err);
+        if (/Failed to fetch|NetworkError|network|aborted|Load failed|timed? ?out|ERR_/i.test(em) || (/busy right now/i.test(em) && (job.retries || 0) < 20)){
           job.retries = (job.retries || 0) + 1; await saveJob(job);
-          jobStatus(job.id, {status: "Paused: the connection dropped. It carries on by itself in a moment, or when you come back to the app."});
-          await new Promise(r => { const t = setTimeout(r, document.hidden ? 60000 : 4000); const v = () => { if (!document.hidden){ clearTimeout(t); document.removeEventListener("visibilitychange", v); r(); } }; document.addEventListener("visibilitychange", v); });
+          jobStatus(job.id, {status: /busy/i.test(em) ? "Claude is busy right now. Trying again in a moment…" : "Waiting for the internet. It carries on by itself when the connection is back."});
+          const wait = document.hidden ? Math.min(15, job.retries * 2) * 60000 : Math.min(30, 4 * job.retries) * 1000;
+          await new Promise(r => {
+            const done = () => { clearTimeout(t); window.removeEventListener("online", done); document.removeEventListener("visibilitychange", vis); r(); };
+            const vis = () => { if (!document.hidden) done(); };
+            const t = setTimeout(done, wait); window.addEventListener("online", done); document.addEventListener("visibilitychange", vis);
+          });
           continue;
         }
         job.failed = true; job.error = friendlyError(err, job.kind); await saveJob(job);
@@ -2700,6 +2710,13 @@ const jobCancel = new Set();
 async function askToNotify(){
   try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch(e){}
 }
+// take the app's notices out of the phone's notification shade once they're no longer news
+async function clearJobNotices(){
+  try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (!reg) return;
+        for (const n of await reg.getNotifications({tag: "dg30-job"})) n.close(); } catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) clearJobNotices(); });
+window.addEventListener("load", () => setTimeout(clearJobNotices, 1500));
 async function notify(title, body){
   if (!document.hidden) return;
   try {

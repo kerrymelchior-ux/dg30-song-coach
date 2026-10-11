@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.25">
+<meta name="version" content="1.26">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -422,7 +422,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <span class="label">Where the app's notes play (Listen, guitar strums, the other hand)</span>
       <select id="outSel">
         <option value="piano">On the piano, using its selected sound</option>
-        <option value="phone">On the phone speaker (simple tone)</option>
+        <option value="phone">On the phone speaker</option>
         <option value="off">Silent</option>
       </select>
     </div>
@@ -490,6 +490,14 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <label class="label" for="volSong">Song playback, compared with your playing <output id="volSongOut" class="volout">100%</output></label>
       <input id="volSong" type="range" min="10" max="100" step="5" value="100">
       <small style="color:var(--muted)">Turn the song down to hear your own playing over it in Listen mode or while practicing one hand.</small>
+    </div>
+    <div class="field">
+      <label class="label" for="phoneSoundSel">Sound on the phone speaker (when the piano isn't connected)</label>
+      <select id="phoneSoundSel">
+        <option value="grand">Grand piano (recorded)</option>
+        <option value="simple">Simple tone</option>
+      </select>
+      <small style="color:var(--muted)" id="phoneSoundNote"></small>
     </div>
     <div class="field">
       <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
@@ -580,7 +588,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.25";
+const APP_VERSION = "1.26";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -816,7 +824,73 @@ function downloadMidi(title, notes){
 let actx = null;
 function audioCtx(){ if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
 const synthVoices = new Map();
+/* Grand piano for the phone speaker: recordings of a real concert grand (Salamander Grand Piano, free to use),
+   one every three notes, tuned up or down for the notes in between. Downloaded once, then kept on the phone. */
+const PIANO_SRC = [
+  {base:"https://tonejs.github.io/audio/salamander/", name:(L, o) => L.replace("#", "s") + o + ".mp3"},
+  {base:"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/acoustic_grand_piano-mp3/", name:(L, o) => ({"C":"C","D#":"Eb","F#":"Gb","A":"A"})[L] + o + ".mp3"}
+];
+const grand = { want: store.get("dg30.phoneSound", "grand"), bufs: new Map(), state: "idle", loading: null, bus: null };
+function grandNotes(){ const out = []; for (let p = 21; p <= 108; p += 3) out.push(p); return out.sort((a, b) => Math.abs(a - 62) - Math.abs(b - 62)); }
+function loadGrand(){
+  if (grand.loading) return grand.loading;
+  grand.state = "loading"; showPhoneSound();
+  grand.loading = (async () => {
+    const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-piano"); } catch(e){}
+    const queue = grandNotes();
+    const one = async p => {
+      const L = {0:"C", 3:"D#", 6:"F#", 9:"A"}[p % 12], o = Math.floor(p / 12) - 1;
+      for (const src of PIANO_SRC){
+        const url = src.base + src.name(L, o);
+        try {
+          let res = cache ? await cache.match(url).catch(() => null) : null;
+          if (!res){ res = await fetch(url, {mode:"cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
+          const full = await a.decodeAudioData(await res.arrayBuffer());
+          grand.bufs.set(p, trimSample(a, full, p < 48 ? 9 : p < 72 ? 7 : 4.5));
+          return;
+        } catch(e){ /* try the next source */ }
+      }
+    };
+    const workers = Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); });
+    await Promise.all(workers);
+    grand.state = grand.bufs.size >= 24 ? "ready" : grand.bufs.size ? "partial" : "failed";
+    if (grand.state === "failed") grand.loading = null;     // try again next time
+    showPhoneSound();
+  })();
+  return grand.loading;
+}
+// keep a few seconds of each note, mixed to mono, to save the phone's memory; fade the tail
+function trimSample(a, b, secs){
+  const n = Math.min(b.length, Math.round(secs * b.sampleRate)), out = a.createBuffer(1, n, b.sampleRate), d = out.getChannelData(0);
+  for (let c = 0; c < b.numberOfChannels; c++){ const x = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] += x[i] / b.numberOfChannels; }
+  const fade = Math.min(n, Math.round(0.4 * b.sampleRate)); for (let i = 0; i < fade; i++) d[n - 1 - i] *= i / fade;
+  return out;
+}
+function grandBus(a){
+  if (grand.bus) return grand.bus;
+  if (!vol.master){ vol.master = a.createGain(); vol.master.gain.value = vol.piano / 100; vol.master.connect(a.destination); }
+  const bus = a.createGain(), dry = a.createGain(), wet = a.createGain(), rev = a.createConvolver();
+  // a small room, so it sounds like a piano in a room instead of in a box
+  const len = Math.round(a.sampleRate * 1.8), ir = a.createBuffer(2, len, a.sampleRate);
+  for (let c = 0; c < 2; c++){ const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+  rev.buffer = ir; dry.gain.value = 0.9; wet.gain.value = 0.22;
+  bus.connect(dry); dry.connect(vol.master); bus.connect(rev); rev.connect(wet); wet.connect(vol.master);
+  return grand.bus = bus;
+}
+function grandOn(p, v){
+  let best = null; for (const [sp, buf] of grand.bufs){ if (!best || Math.abs(sp - p) < Math.abs(best.p - p)) best = {p: sp, buf}; }
+  if (!best || Math.abs(best.p - p) > 7) return false;
+  const a = audioCtx(), t = a.currentTime, vel = Math.max(0.05, v / 127);
+  const src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = best.buf; src.playbackRate.value = Math.pow(2, (p - best.p) / 12);
+  lp.type = "lowpass"; lp.frequency.value = 900 + 15000 * vel * vel;         // soft notes are darker, like a real piano
+  g.gain.value = 1.1 * Math.pow(vel, 1.5);
+  src.connect(lp); lp.connect(g); g.connect(grandBus(a)); src.start(t);
+  synthOff(p); synthVoices.set(p, {g, srcs:[src]});
+  return true;
+}
 function synthOn(p, v){
+  if (grand.want === "grand"){ if (!grand.loading) loadGrand(); if (grandOn(p, v)) return; }
   const a = audioCtx(), t = a.currentTime, f = 440 * Math.pow(2, (p - 69) / 12);
   const g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter();
   o1.type = "triangle"; o2.type = "sine"; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -828,13 +902,13 @@ function synthOn(p, v){
   if (!vol.master){ vol.master = a.createGain(); vol.master.gain.value = vol.piano / 100; vol.master.connect(a.destination); }
   o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(vol.master);
   o1.start(t); o2.start(t); o1.stop(t + 3.6); o2.stop(t + 3.6);
-  synthOff(p); synthVoices.set(p, {g, o1, o2});
+  synthOff(p); synthVoices.set(p, {g, srcs:[o1, o2]});
 }
 function synthOff(p, fromPedal){
   if (!fromPedal && typeof pedal !== "undefined" && pedal.down && synthVoices.has(p)){ pedal.held.add(p); return; }
   const s = synthVoices.get(p); if (!s || !actx) return;
-  const t = actx.currentTime; s.g.gain.cancelScheduledValues(t); s.g.gain.setTargetAtTime(0, t, 0.06);
-  try { s.o1.stop(t + 0.4); s.o2.stop(t + 0.4); } catch(e){}
+  const t = actx.currentTime; s.g.gain.cancelScheduledValues(t); s.g.gain.setValueAtTime(s.g.gain.value, t); s.g.gain.setTargetAtTime(0, t, 0.08);
+  for (const o of s.srcs) try { o.stop(t + 0.6); } catch(e){}
   synthVoices.delete(p);
 }
 
@@ -3183,6 +3257,19 @@ $("bleAllBtn").onclick = () => connectBle(true);
 $("midiBtn").onclick = connectMidi;
 $("micBtn").onclick = startMic;
 $("outSel").value = conn.outMode;
+function showPhoneSound(){
+  const el = $("phoneSoundNote"); if (!el) return;
+  $("phoneSoundSel").value = grand.want;
+  el.textContent = grand.want !== "grand" ? "" :
+    grand.state === "ready" ? "Grand piano is ready, and works without internet now." :
+    grand.state === "loading" ? `Downloading the piano… ${Math.round(grand.bufs.size / 30 * 100)}%` :
+    grand.state === "partial" ? "Part of the piano downloaded. The rest will download next time you're online." :
+    grand.state === "failed" ? "Couldn't download the piano, so the simple tone is used. It will try again when you're online." :
+    "The piano downloads the first time a song plays on the phone (a few MB, once).";
+}
+$("phoneSoundSel").onchange = e => { grand.want = e.target.value; store.set("dg30.phoneSound", grand.want); allNotesOff(); if (grand.want === "grand") loadGrand(); showPhoneSound(); };
+showPhoneSound();
+setInterval(() => { if (grand.state === "loading") showPhoneSound(); }, 700);
 $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
 
 /* small toast via the banner on library */
@@ -3323,6 +3410,7 @@ async function showStorageInfo(){
   renderLibrary();
   songStoreReady = loadSongStore();
   songStoreReady.then(() => { renderLibrary(); runJobs(); });
+  if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.30">
+<meta name="version" content="1.31">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -376,12 +376,13 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <button class="btn instr" id="instrBtn" type="button" hidden aria-label="Switch between piano and guitar">Guitar</button>
     <div class="seg" id="modeSeg" role="group" aria-label="Mode">
       <button type="button" data-v="wait" aria-pressed="true">Wait</button>
-      <button type="button" data-v="play" aria-pressed="false">Play</button>
+      <button type="button" data-v="play" aria-pressed="false">Play along</button>
       <button type="button" data-v="listen" aria-pressed="false">Listen</button>
     </div>
     <div class="seg" id="backSeg" role="group" aria-label="What plays along" hidden>
       <button type="button" data-v="piano" aria-pressed="true" title="The piano plays the song while the chords show">Piano</button>
       <button type="button" data-v="strum" aria-pressed="false" title="The piano strums the chords on its guitar sound">Strum</button>
+      <button type="button" data-v="both" aria-pressed="false" title="The piano part and a strumming guitar together">Both</button>
       <button type="button" data-v="off" aria-pressed="false" title="Nothing plays along">Off</button>
     </div>
     <div class="seg" id="handSeg" role="group" aria-label="Hands">
@@ -401,6 +402,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
     <button class="btn instr" id="plNext" type="button" hidden aria-label="Next song in the playlist">⏭</button>
     <button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button>
+    <button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button>
+    <button class="icon" id="handsBtn" type="button" aria-pressed="true" aria-label="Show hands and finger numbers" title="Hands and fingering">&#9995;</button>
     <button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button>
     <button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button>
     <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
@@ -527,6 +530,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       </select>
       <small style="color:var(--muted)" id="strumNote"></small>
     </div>
+    <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="glowChk"> Glowing notes and sparkles (turn off if the phone feels slow)</label>
     <div class="field">
       <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
       <select id="pedalSel">
@@ -648,7 +652,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.30";
+const APP_VERSION = "1.31";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1483,8 +1487,8 @@ function setupChannel2(){
   sendMidi([0xB1, 0, 121]); sendMidi([0xB1, 32, 0]); sendMidi([0xC1, 24]); sendMidi([0xB1, 7, 96]);
   SA.ch2Ready = link;
 }
-function strumAlongStep(t0, t1){
-  if (!strumAlongActive() || t1 <= t0 || t1 - t0 > 0.5) return;
+function strumAlongStep(t0, t1, force){
+  if (!(force || strumAlongActive()) || t1 <= t0 || t1 - t0 > 0.5) return;
   const beat = 60 / (P.baseBpm || 100), beats = songBeats(), pat = STRUM_PAT[beats] || STRUM_PAT[4];
   for (const c of P.chords){
     if (c.end <= t0 || c.t > t1) continue;
@@ -1547,8 +1551,9 @@ function guitarStep(nt){
       P.waiting = true; P.waitChord = c;
     } else { P.waiting = false; P.waitChord = null; }
   }
-  P.t = nt;
-  if (G.backing === "piano"){          // in Wait mode the piano keeps pace with the chords you strum
+  const t0 = P.t; P.t = nt;
+  if (G.backing === "both" && !guitarWaits()) strumAlongStep(t0, nt, true);   // piano part and guitar together
+  if (G.backing === "piano" || G.backing === "both"){          // in Wait mode the piano keeps pace with the chords you strum
     pedalStep();
     while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
       const n = P.notes[P.noteIdx++]; noteOut(n.p, n.v, true); P.sounding.push({p:n.p, end:n.t + n.d});
@@ -1809,7 +1814,7 @@ function buildPedalEvents(){
   pedal.events = ev.sort((a, b) => a.t - b.t);
   pedal.idx = 0;
 }
-function pedalActive(){ return P.instr === "guitar" ? G.backing === "piano" : (P.mode === "listen" || P.hands !== "B"); }
+function pedalActive(){ return P.instr === "guitar" ? (G.backing === "piano" || G.backing === "both") : (P.mode === "listen" || P.hands !== "B"); }
 function pedalSeek(t){
   pedal.idx = pedal.events.findIndex(e => e.t > t); if (pedal.idx < 0) pedal.idx = pedal.events.length;
   const prev = pedal.events[pedal.idx - 1];
@@ -2013,7 +2018,7 @@ function layout(){
   }
   L = {W, H, kbH, hitY: H - kbH, ww, keys, lo, hi, pps: Math.max(90, (H - kbH) / 3.2)};
 }
-function rr(x, y, w, h, r){ r = Math.min(r, w/2, h/2); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
+function rr(x, y, w, h, r){ if (!(w > 0 && h > 0)){ cx.beginPath(); return; } r = Math.max(0, Math.min(r, w/2, h/2)); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 let C = {};
 function readColors(){ C = {bg:css("--lacquer"), panel:css("--panel"), line:css("--line"), ivory:css("--ivory"), muted:css("--muted"), chrome:css("--chrome"), R:css("--right"), L:css("--left"), good:css("--good"), bad:css("--bad")}; }
@@ -2034,6 +2039,8 @@ function drawPiano(now){
   // falling notes (hidden while the words are shown)
   const cur = P.steps[P.stepIdx], horizon = P.t + hitY / pps;
   cx.font = "600 11px " + css("--f-body"); cx.textAlign = "center"; cx.textBaseline = "bottom";
+  if (showHands() && P.fingerFor !== P.notes) computeFingering(P.notes);
+  const fx = glowOn();
   if (!P.words) for (const n of P.notes){
     if (n.t > horizon) break;
     if (n.t + n.d < P.t - 0.3) continue;
@@ -2041,17 +2048,35 @@ function drawPiano(now){
     const y1 = hitY - (n.t - P.t) * pps, y0 = y1 - Math.max(n.d * pps, 8);
     const active = handOn(n.h), col = n.h === "L" ? C.L : C.R;
     const isCur = cur && cur.notes.includes(n) && active;
+    const sounding = n.t <= P.t + 0.01 && n.t + n.d > P.t;
+    const yb = Math.min(y1, hitY), r = Math.min(6, k.w / 3);
     cx.globalAlpha = active ? 1 : 0.28;
-    cx.fillStyle = col; rr(k.x + 1.5, y0, k.w - 3, y1 - y0, Math.min(6, k.w / 3)); cx.fill();
+    // a soft halo of light around each bar, brighter while it's playing
+    if (fx && active){ cx.shadowColor = col; cx.shadowBlur = sounding ? 26 : 14; }
+    cx.fillStyle = col; rr(k.x + 1.5, y0, k.w - 3, yb - y0, r); cx.fill();
+    cx.shadowBlur = 0;
+    if (fx && active && yb - y0 > 6){
+      const g = cx.createLinearGradient(k.x, 0, k.x + k.w, 0);
+      g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, sounding ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.22)"); g.addColorStop(1, "rgba(255,255,255,0)");
+      cx.fillStyle = g; rr(k.x + 1.5, y0 + 2, k.w - 3, yb - y0 - 4, r); cx.fill();
+    }
     if (isCur && P.waiting){
       cx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 160);
-      cx.strokeStyle = C.ivory; cx.lineWidth = 2; cx.stroke();
+      cx.strokeStyle = C.ivory; cx.lineWidth = 2; rr(k.x + 1.5, y0, k.w - 3, yb - y0, r); cx.stroke();
     }
     cx.globalAlpha = 1;
-    if (active && k.w >= 13 && y1 - y0 >= 16 && y1 > 14){ cx.fillStyle = C.bg; cx.fillText(NAMES[n.p % 12], k.x + k.w / 2, Math.min(y1, hitY) - 3); }
+    if (fx && active && sounding) sparkle(k.x + k.w / 2, hitY, k.w, col);
+    if (active && k.w >= 13 && yb - y0 >= 16 && y1 > 14){
+      if (showHands() && n.fg){
+        const cyy = yb - 10; cx.fillStyle = "rgba(0,0,0,0.55)"; cx.beginPath(); cx.arc(k.x + k.w / 2, cyy, Math.min(9, k.w / 2 - 1), 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = "#fff"; cx.textBaseline = "middle"; cx.fillText(String(n.fg), k.x + k.w / 2, cyy + 0.5); cx.textBaseline = "bottom";
+      } else { cx.fillStyle = C.bg; cx.fillText(NAMES[n.p % 12], k.x + k.w / 2, yb - 3); }
+    }
   }
-  // hit line
-  cx.fillStyle = C.chrome; cx.globalAlpha = 0.9; cx.fillRect(0, hitY - 2, W, 2); cx.globalAlpha = 1;
+  // hit line, glowing
+  if (fx){ cx.shadowColor = C.R; cx.shadowBlur = 12; }
+  cx.fillStyle = C.chrome; cx.globalAlpha = 0.9; cx.fillRect(0, hitY - 2, W, 2); cx.globalAlpha = 1; cx.shadowBlur = 0;
+  drawSparks(now);
   // keyboard
   const expect = new Map();
   if (cur && P.mode !== "listen" && cur.t - P.t < 0.6) for (const n of cur.notes) if (handOn(n.h) && !cur.hit.has(n.p)) expect.set(n.p, n.h);
@@ -2071,8 +2096,132 @@ function drawPiano(now){
   for (const [p, k] of keys) if (k.black){
     cx.fillStyle = keyFill(p, k); rr(k.x, hitY, k.w, kbH * 0.62, 3); cx.fill();
   }
+  if (showHands() && !P.words) drawHands(now);
   P.flashes = P.flashes.filter(f => now - f.t < 300);
 }
+/* ---------------- light effects: halos, sparks ---------------- */
+const glowOn = () => store.get("dg30.glow", true);
+const SPARKS = [];
+function sparkle(x, y, w, col){
+  if (SPARKS.length > 260) return;
+  for (let i = 0; i < 2; i++) SPARKS.push({x: x + (Math.random() - 0.5) * w * 0.8, y: y - 2, vx: (Math.random() - 0.5) * 0.6, vy: -(0.6 + Math.random() * 1.6), life: 1, col, r: 0.8 + Math.random() * 1.6});
+}
+function drawSparks(now){
+  const dt = Math.min(0.05, (now - (drawSparks.last || now)) / 1000); drawSparks.last = now;
+  if (!SPARKS.length) return;
+  cx.save(); cx.globalCompositeOperation = "lighter";
+  for (let i = SPARKS.length - 1; i >= 0; i--){
+    const s = SPARKS[i]; s.x += s.vx * dt * 60; s.y += s.vy * dt * 60; s.vx += (Math.random() - 0.5) * 0.2; s.life -= dt * 1.4;
+    if (s.life <= 0 || s.y < 0){ SPARKS.splice(i, 1); continue; }
+    cx.globalAlpha = s.life * 0.9; cx.fillStyle = s.col; cx.shadowColor = s.col; cx.shadowBlur = 6;
+    cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, Math.PI * 2); cx.fill();
+  }
+  cx.restore();
+}
+
+/* ---------------- hands and fingering ----------------
+   Works out a simple fingering: each hand rests over five white keys (thumb to little finger) and moves only
+   when a note falls outside them, leading with the thumb going up the keyboard (right hand) and the little
+   finger going down. Then draws two see-through hands over the keys, with the fingers that play pressing down. */
+const showHands = () => store.get("dg30.showHands", true);
+const WHITE_OF = [0,0,1,1,2,3,3,4,4,5,5,6], WHITE_PC = [0,2,4,5,7,9,11];
+const whiteIdx = p => Math.floor(p / 12) * 7 + WHITE_OF[p % 12];
+const whitePitch = w => Math.floor(w / 7) * 12 + WHITE_PC[((w % 7) + 7) % 7];
+function computeFingering(notes){
+  P.fingerFor = notes; P.handPath = {R: [], L: []};
+  for (const hand of ["R", "L"]){
+    // group the hand's notes into chords / single notes
+    const hn = notes.filter(n => n.h === hand), groups = [];
+    for (let i = 0; i < hn.length;){
+      const g = [hn[i]]; while (i + g.length < hn.length && hn[i + g.length].t - hn[i].t < 0.04) g.push(hn[i + g.length]);
+      i += g.length; const ws = g.map(n => whiteIdx(n.p)); groups.push({g, lo: Math.min(...ws), hi: Math.max(...ws)});
+    }
+    let base = null;
+    groups.forEach((G0, gi) => {
+      const {g, lo, hi} = G0;
+      if (base === null || lo < base || hi > base + 4){
+        if (hi - lo >= 4) base = lo;                                    // a wide chord: stretch from the bottom
+        else {
+          // of the hand positions that reach this note, take the one that covers the most of what comes next
+          let best = null, bestScore = -1;
+          for (let b = hi - 4; b <= lo; b++){
+            let score = 0;
+            for (let j = gi + 1; j < Math.min(groups.length, gi + 12); j++){ const q = groups[j]; if (q.lo < b || q.hi > b + 4) break; score++; }
+            const move = base === null ? 0 : Math.abs(b - base);
+            const pref = (hand === "R" ? b === lo : b + 4 === hi) ? 0.5 : 0;   // the thumb leads into a new position
+            const sc = score * 10 + pref - move * 0.01;
+            if (sc > bestScore){ bestScore = sc; best = b; }
+          }
+          base = best;
+        }
+      }
+      for (const n of g){ const off = Math.max(0, Math.min(4, whiteIdx(n.p) - base)); n.fg = hand === "R" ? off + 1 : 5 - off; }
+      // a chord whose notes landed on one finger: spread them out
+      if (g.length > 1){ const sorted = [...g].sort((a, b) => a.p - b.p); const used = new Set();
+        sorted.forEach((n, k) => { if (used.has(n.fg)){ const alt = [1,2,3,4,5].filter(f => !used.has(f)).sort((a, b) => Math.abs(a - n.fg) - Math.abs(b - n.fg))[0]; if (alt) n.fg = alt; } used.add(n.fg); }); }
+      const prev = P.handPath[hand][P.handPath[hand].length - 1];
+      if (!prev || prev.base !== base) P.handPath[hand].push({t: g[0].t, base});
+    });
+  }
+}
+function handBaseAt(hand, t){
+  const path = (P.handPath || {})[hand]; if (!path || !path.length) return null;
+  let i = 0; while (i + 1 < path.length && path[i + 1].t <= t + 0.02) i++;
+  let b = path[i].base;
+  const nx = path[i + 1];
+  if (path[0].t > t) return path[0].base;
+  if (nx && nx.t - t < 0.3) b += (nx.base - b) * (1 - (nx.t - t) / 0.3);        // glide to the next position
+  return b;
+}
+function drawHands(now){
+  const {H, kbH, hitY, ww, lo} = L, w0 = whiteIdx(lo);
+  const cur = P.steps[P.stepIdx];
+  for (const hand of ["L", "R"]){
+    const base = handBaseAt(hand, P.t); if (base == null) continue;
+    const dim = !handOn(hand) && P.mode !== "listen";
+    // which fingers are playing right now (or are wanted next, while waiting)
+    const down = new Map();
+    for (const n of P.notes){
+      if (n.t > P.t + 0.05) break;
+      if (n.h === hand && n.fg && n.t + n.d > P.t && n.t <= P.t + 0.01) down.set(n.fg, n);
+    }
+    if (P.mode === "wait" && P.waiting && cur) for (const n of cur.notes) if (n.h === hand && n.fg && !cur.hit.has(n.p)) down.set(n.fg, n);
+    const col = hand === "L" ? C.L : C.R;
+    cx.save(); cx.globalAlpha = dim ? 0.28 : 0.72;
+    const fw = ww * 0.72, REACH = [0.24, 0.07, 0, 0.05, 0.15];     // how far each finger reaches up the key: thumb … little
+    const fingerX = f => { const off = hand === "R" ? f - 1 : 5 - f; return (base + off - w0) * ww + ww / 2; };
+    const knuckle = hitY + kbH * 0.8;
+    const skin = cx.createLinearGradient(0, hitY, 0, H);
+    skin.addColorStop(0, "rgb(238,204,178)"); skin.addColorStop(1, "rgb(196,152,124)");
+    const edge = "rgba(90,55,38,0.55)";
+    // palm, seen from above, coming in from your side of the keyboard
+    const xs = [2, 5].map(fingerX), px0 = Math.min(...xs) - fw * 0.6, px1 = Math.max(...xs) + fw * 0.6;
+    cx.fillStyle = skin; cx.strokeStyle = edge; cx.lineWidth = 1;
+    rr(px0, knuckle - fw * 0.3, px1 - px0, H - knuckle + kbH, fw * 0.8); cx.fill(); cx.stroke();
+    for (let f = 5; f >= 1; f--){
+      const n = down.get(f), press = !!n, k = n ? L.keys.get(n.p) : null;
+      const x = k ? k.x + k.w / 2 : fingerX(f);
+      const tip = hitY + kbH * ((k && k.black ? 0.2 : 0.42) + REACH[f - 1] + (press ? 0 : 0.05));
+      const wf = fw * (f === 1 ? 1.1 : f === 5 ? 0.85 : 1);
+      let baseX = x, baseY = knuckle + fw * 0.2;
+      if (f === 1){ baseX = x + (hand === "R" ? fw * 0.9 : -fw * 0.9); baseY = H; }     // the thumb comes from the side of the palm
+      cx.save();
+      cx.translate(x, tip); const ang = Math.atan2(baseX - x, baseY - tip); cx.rotate(-ang);
+      const len = Math.hypot(baseX - x, baseY - tip);
+      if (press){ cx.shadowColor = col; cx.shadowBlur = 18; }
+      cx.fillStyle = press ? col : skin; cx.strokeStyle = edge;
+      rr(-wf / 2, 0, wf, len, wf / 2); cx.fill(); cx.shadowBlur = 0; cx.stroke();
+      // fingernail and finger number
+      cx.fillStyle = press ? "rgba(255,255,255,0.9)" : "rgba(255,238,226,0.85)";
+      rr(-wf * 0.3, wf * 0.12, wf * 0.6, Math.min(wf * 0.7, 13), wf * 0.3); cx.fill();
+      if (wf >= 9){ cx.fillStyle = press ? "#111" : "rgba(70,42,30,0.95)"; cx.font = `700 ${Math.max(9, Math.min(14, wf * 0.62))}px ` + css("--f-body"); cx.textAlign = "center"; cx.textBaseline = "top";
+        cx.fillText(String(f), 0, wf * 0.2 + Math.min(wf * 0.7, 13)); }
+      cx.restore();
+    }
+    cx.restore();
+  }
+}
+
 function drawBanner(){
   const b = $("banner"), cur = P.steps[P.stepIdx];
   let msg = "";
@@ -2080,7 +2229,7 @@ function drawBanner(){
   b.classList.toggle("tap", needPiano);
   if (needPiano && (P.playing || !conn.kind)){ b.hidden = false; b.textContent = reconnecting ? "Reconnecting to the piano…" : "Piano not connected · tap to connect"; return; }
   if (P.instr === "guitar"){
-    if (!P.playing) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then strum each chord. The mic listens for it.") : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : "Press play");
+    if (!P.playing) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then strum each chord. The mic listens for it.") : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : G.backing === "both" ? "Press play: the piano and a guitar play together" : "Press play");
     else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name + (GM.starting ? " · starting the mic…" : " · listening");
     else if (P.chords.length && P.t < P.chords[0].t) msg = "Get ready…";
     b.hidden = !msg; b.textContent = msg; return;
@@ -2782,7 +2931,7 @@ function startPlaylist(id, i){
   const ids = pl.songs.filter(x => allSongs().some(s => s.id === x)); if (!ids[i]) { PL.playing = null; return; }
   PL.playing = {id, i, ids, name: pl.name};
   openPractice(ids[i]);
-  if (P.mode !== "listen" && !(P.instr === "guitar" && G.backing === "piano")){ P.mode = "listen"; setSeg("modeSeg", "listen"); resetRun(); }
+  if (P.mode !== "listen" && !(P.instr === "guitar" && (G.backing === "piano" || G.backing === "both"))){ P.mode = "listen"; setSeg("modeSeg", "listen"); resetRun(); }
   updatePlaylistBar();
   setTimeout(() => { if (practiceVisible() && PL.playing) setPlaying(true); }, i === 0 ? 300 : 1200);
 }
@@ -3580,7 +3729,12 @@ function closePractice(){
 $("backBtn").onclick = closePractice;
 $("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); };
 $("restartBtn").onclick = () => { const was = P.playing; setPlaying(false); resetRun(); if (was) setPlaying(true); };
-$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.mode = b.dataset.v; if (P.mode !== "wait") stopGuitarMic(); else if (P.instr === "guitar") startGuitarMic(); setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+const MODE_HELP = {
+  wait: "Wait: the notes stop at the line until you press the right keys. Best for learning.",
+  play: "Play along: the song keeps moving at its tempo, like playing with a band. It won't wait, and it scores each note you hit on time. With one hand chosen, the app plays the other hand.",
+  listen: "Listen: the app plays the whole song for you so you can hear how it goes."
+};
+$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if (P.mode !== b.dataset.v) toast(P.instr === "guitar" && b.dataset.v === "wait" ? "Wait: the song stops at each chord until the mic hears you strum it." : MODE_HELP[b.dataset.v]); P.mode = b.dataset.v; if (P.mode !== "wait") stopGuitarMic(); else if (P.instr === "guitar") startGuitarMic(); setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 $("handSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.hands = b.dataset.v; setSeg("handSeg", P.hands); store.set("dg30.hands", P.hands); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 // Tempo in beats per minute. Each song opens at its own tempo; slower or faster choices are remembered per song.
 function setBpm(bpm){
@@ -3626,9 +3780,11 @@ function setInstrument(inst, quiet){
   $("instrBtn").textContent = inst === "guitar" ? "Piano" : "Guitar";
   $("handSeg").hidden = inst === "guitar";
   $("backSeg").hidden = inst !== "guitar";
+  $("gtrAlongBtn").hidden = inst === "guitar" || !(P.chords || []).length;
+  $("gtrAlongBtn").setAttribute("aria-pressed", String(SA.mode !== "off"));
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
-  resetRun(); syncScrub();
+  resetRun(P.t); syncScrub();                       // carry on from the same spot in the song
   if (was && !quiet) setPlaying(true);
 }
 $("instrBtn").onclick = () => setInstrument(P.instr === "guitar" ? "piano" : "guitar");
@@ -3687,11 +3843,25 @@ function showStrumNote(){
     : "Strums the song's chords in a down, down-up, up-down-up rhythm.";
 }
 $("strumSel").onchange = e => {
-  const was = SA.mode; strumAlongOff(); SA.mode = e.target.value; store.set("dg30.strumAlong", SA.mode); SA.ch2Ready = false;
+  const was = SA.mode; if (e.target.value !== "off") store.set("dg30.strumLast", e.target.value);
+  setTimeout(() => $("gtrAlongBtn").setAttribute("aria-pressed", String(SA.mode !== "off")), 0); strumAlongOff(); SA.mode = e.target.value; store.set("dg30.strumAlong", SA.mode); SA.ch2Ready = false;
   if (was === "piano" && SA.mode !== "piano" && pianoReady() && soundState.cur != null) selectSound(soundState.cur, true);   // back to your own sound
   showStrumNote();
 };
 showStrumNote();
+$("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
+$("handsBtn").setAttribute("aria-pressed", String(showHands()));
+$("handsBtn").onclick = () => { const on = !showHands(); store.set("dg30.showHands", on); $("handsBtn").setAttribute("aria-pressed", String(on));
+  toast(on ? "Hands on: see where each hand sits, which finger plays each key (1 = thumb … 5 = little finger), and the numbers on the falling notes." : "Hands hidden."); };
+$("gtrAlongBtn").onclick = () => {
+  const on = SA.mode === "off", was = SA.mode;
+  strumAlongOff(); SA.mode = on ? store.get("dg30.strumLast", "phone") : "off";
+  if (!on) store.set("dg30.strumLast", was);
+  store.set("dg30.strumAlong", SA.mode); SA.ch2Ready = false; showStrumNote();
+  if (was === "piano" && !on && pianoReady() && soundState.cur != null) selectSound(soundState.cur, true);
+  $("gtrAlongBtn").setAttribute("aria-pressed", String(on));
+  toast(on ? "A guitar now strums the chords along with the piano." + (SA.mode === "phone" ? " It plays on the phone speaker; in Sound you can move it to the piano." : "") : "Guitar off.");
+};
 $("phoneSoundSel").onchange = e => { grand.want = e.target.value; store.set("dg30.phoneSound", grand.want); allNotesOff(); if (grand.want === "grand") loadGrand(); showPhoneSound(); };
 showPhoneSound();
 setInterval(() => { if (grand.state === "loading") showPhoneSound(); }, 700);

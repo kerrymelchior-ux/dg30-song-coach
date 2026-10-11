@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>DG30 Song Coach</title>
-<meta name="version" content="1.17">
+<meta name="version" content="1.18">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -125,7 +125,23 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .tnote{font:700 64px/1 var(--f-display);text-align:center}
 .tdir{text-align:center;font-weight:600;min-height:1.5em}
 .tstrings{align-self:center}
-.tstrings button.near{outline:2px solid var(--right)}
+#headstock svg{width:100%;height:auto;display:block}
+.hs-board{fill:#2b211c}.hs-fret{stroke:#8d8273;stroke-width:2}
+.hs-wood{fill:#191513;stroke:#5c4f45;stroke-width:1.5}
+.hs-nut{fill:var(--ivory)}
+.hs-str{stroke:#b9afa2;stroke-linecap:round}
+.hs-str.near{stroke:var(--right)}.hs-str.ok{stroke:var(--good)}
+.hs-post{stroke:#8d8273;stroke-width:4}
+.hs-bush{fill:#b9afa2;stroke:#4a4038;stroke-width:1.5}
+.hs-key{fill:var(--ivory);stroke:#4a4038;stroke-width:1.5}
+.peg{cursor:pointer}
+.peg:focus{outline:none}.peg:focus-visible .hs-key{stroke:var(--chrome);stroke-width:3}
+.hs-note{font:700 15px var(--f-body);fill:#14110f;text-anchor:middle;dominant-baseline:middle}
+.hs-oct{font-size:9px}
+.hs-num{font:500 9px var(--f-mono);fill:var(--muted);text-anchor:middle;dominant-baseline:middle}
+.peg.near .hs-key{fill:var(--right)}
+.peg.ok .hs-key{fill:var(--good)}
+.peg.locked .hs-key{stroke:var(--chrome);stroke-width:3.5}
 @media (prefers-reduced-motion:reduce){.tneedle{transition:none}}
 /* Background jobs */
 .jobs{display:flex;flex-direction:column;gap:10px}
@@ -242,6 +258,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <input id="setKey" type="password" autocomplete="off" placeholder="sk-ant-…" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
       <small style="color:var(--muted)">Create one at console.anthropic.com → API keys, then paste it here. It's saved only on this phone and sent only to Anthropic. Each page usually costs a few cents.</small>
     </div>
+    <label class="row" style="gap:8px;font-size:14px;align-items:flex-start"><input id="bgAudioChk" type="checkbox" style="margin-top:4px"> <span>Keep converting when I switch to other apps. Android pauses hidden apps unless they're playing sound, so the app plays a silent sound and shows its progress in your notifications. Music playing in another app may pause while it runs.</span></label>
     <div class="field">
       <span class="label">Your songs on other devices</span>
       <small style="color:var(--muted)">Back up saves all your songs and playlists in one file (not your API key). Save it to Google Drive, then open the app on your other device and tap Restore.</small>
@@ -459,6 +476,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 <dialog id="tunerDlg">
   <div class="sheet tuner">
     <h2>Guitar tuner</h2>
+    <p style="margin:0">Tap a peg to tune that string, or leave it on Auto and play any string.</p>
     <div class="tmeter" id="tunerMeter">
       <div class="tscale"><span>−50</span><span>0</span><span>+50</span></div>
       <div class="tneedle" id="tunerNeedle"></div>
@@ -466,11 +484,15 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="tnote" id="tunerNote">–</div>
     <div class="tdir" id="tunerDir"></div>
     <div class="status" id="tunerHz" style="text-align:center"></div>
-    <div class="seg tstrings" id="tunerStrings" role="group" aria-label="String"></div>
+    <div id="headstock"></div>
+    <div class="row" style="justify-content:center;gap:10px">
+      <div class="seg" id="tunerStrings" role="group" aria-label="Which string"></div>
+      <div class="seg" id="tunerLayout" role="group" aria-label="Headstock shape"></div>
+    </div>
     <p id="tunerHint"></p>
     <div class="row" style="justify-content:space-between">
       <label class="row" style="gap:6px;font-size:13px;color:var(--muted)">A = <input id="tunerA4" type="number" min="415" max="466" step="1" style="width:64px;min-height:34px;border-radius:8px;border:1px solid var(--line);background:var(--lacquer);padding:0 6px"> Hz</label>
-      <button class="btn ghost" id="tunerClose" type="button">Done</button>
+      <button class="btn ghost" id="tunerClose" type="button" autofocus>Done</button>
     </div>
   </div>
 </dialog>
@@ -509,7 +531,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    - Falling notes, Wait / Play / Listen modes, scoring
    ============================================================ */
 
-const APP_VERSION = "1.17";
+const APP_VERSION = "1.18";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1109,13 +1131,34 @@ function prepChords(list, len){
 }
 
 /* listening for a strummed chord through the mic */
+// the guitar mic runs on its own, so Wait mode can hear the guitar while the piano stays connected by Bluetooth
+const GM = { stream:null, an:null, timer:0, starting:false, denied:false };
+const guitarAnalyser = () => GM.an || (conn.kind === "mic" ? mic.an2 : null);
+async function startGuitarMic(){
+  if (GM.an || GM.starting || (conn.kind === "mic" && mic.an2)) return;
+  if (!navigator.mediaDevices?.getUserMedia){ GM.denied = true; return; }
+  GM.starting = true;
+  try {
+    GM.stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+    const a = audioCtx(), src = a.createMediaStreamSource(GM.stream);
+    GM.an = a.createAnalyser(); GM.an.fftSize = 8192; GM.an.smoothingTimeConstant = 0.6; src.connect(GM.an);
+    GM.timer = setInterval(guitarListenTick, 110); GM.denied = false;
+  } catch(e){ GM.denied = true; toast("Allow the microphone so Wait mode can hear your guitar."); resetRun(P.t); }
+  finally { GM.starting = false; }
+}
+function stopGuitarMic(){
+  clearInterval(GM.timer); GM.timer = 0;
+  if (GM.stream) GM.stream.getTracks().forEach(t => t.stop());
+  GM.stream = null; GM.an = null;
+}
+const guitarWaits = () => P.mode === "wait" && !GM.denied;
 function chromaFromMic(){
-  if (!mic.an2) return null;
-  const a = actx, n = mic.an2.frequencyBinCount, buf = mic.fbuf || (mic.fbuf = new Float32Array(n));
-  mic.an2.getFloatFrequencyData(buf);
+  const an = guitarAnalyser(); if (!an) return null;
+  const a = actx, n = an.frequencyBinCount, buf = mic.fbuf && mic.fbuf.length === n ? mic.fbuf : (mic.fbuf = new Float32Array(n));
+  an.getFloatFrequencyData(buf);
   const chroma = new Float32Array(12); let total = 0;
   for (let k = 2; k < n; k++){
-    const f = k * a.sampleRate / mic.an2.fftSize; if (f < 70) continue; if (f > 1500) break;
+    const f = k * a.sampleRate / an.fftSize; if (f < 70) continue; if (f > 1500) break;
     const mag = Math.pow(10, buf[k] / 20); if (!isFinite(mag)) continue;
     const pc = ((Math.round(12 * Math.log2(f / 440)) + 69) % 12 + 12) % 12;
     chroma[pc] += mag; total += mag;
@@ -1131,7 +1174,7 @@ function chordMatch(chroma, chord){
   }
   return nc && nt ? dot / Math.sqrt(nc * nt) : 0;
 }
-function micHearsGuitar(){ return conn.kind === "mic" && !!mic.an2; }
+function micHearsGuitar(){ return !!guitarAnalyser() || GM.starting; }
 const G = { idx:-1, lastStrumChord:-1, nextStrum:0, strumNotes:[], hits:0, prevSound:null };
 function strum(chord, vel){
   for (const p of G.strumNotes) noteOut(p, 0, false);
@@ -1143,10 +1186,14 @@ function strum(chord, vel){
 G.backing = store.get("dg30.gbacking", "piano");
 function guitarStep(nt){
   const ch = P.chords;
-  if (P.mode === "wait" && micHearsGuitar()){
+  if (guitarWaits()){
     const c = ch.find(c => !c.done && c.t <= nt + 0.001);
-    if (c){ nt = Math.max(P.t, Math.min(nt, c.t)); P.waiting = true; P.waitChord = c; }
-    else { P.waiting = false; P.waitChord = null; }
+    if (c){
+      // stop just before the chord and let the piano fall quiet, so the mic hears only the guitar
+      nt = Math.max(P.t, Math.min(nt, c.t - 0.001));
+      if (!P.waiting){ for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; pedalOut(false); }
+      P.waiting = true; P.waitChord = c;
+    } else { P.waiting = false; P.waitChord = null; }
   }
   P.t = nt;
   if (G.backing === "piano"){          // in Wait mode the piano keeps pace with the chords you strum
@@ -1158,14 +1205,14 @@ function guitarStep(nt){
   }
   let idx = -1; for (let i = 0; i < ch.length; i++){ if (ch[i].t <= P.t + 0.001) idx = i; else break; }
   G.idx = idx;
-  if (P.mode !== "wait" || !micHearsGuitar()) for (let i = 0; i <= idx; i++) ch[i].done = true;
+  if (!guitarWaits()) for (let i = 0; i <= idx; i++) ch[i].done = true;
   // strum on each chord change and on every beat (Strum backing in Listen and Play)
   if (G.backing === "strum" && P.mode !== "wait" && idx >= 0){
     const beat = 60 / (P.baseBpm || 100);
     if (idx !== G.lastStrumChord){ G.lastStrumChord = idx; G.nextStrum = ch[idx].t + beat; strum(ch[idx], 92); }
     else if (P.t >= G.nextStrum && P.t < ch[idx].end - 0.05){ G.nextStrum += beat; strum(ch[idx], 64); }
   }
-  if (P.t > P.len + 1 && !(P.mode === "wait" && micHearsGuitar() && ch.some(c => !c.done))) finish();
+  if (P.t > P.len + 1 && !(guitarWaits() && ch.some(c => !c.done))) finish();
 }
 function guitarListenTick(){
   if (P.instr !== "guitar" || !P.playing || !P.waiting || !P.waitChord) return;
@@ -1444,7 +1491,7 @@ function buildSteps(notes){
 function resetRun(fromT){
   allNotesOff();
   P.steps = buildSteps(P.notes);
-  P.total = P.instr === "guitar" ? (P.mode === "wait" && micHearsGuitar() ? (P.chords || []).length : 0) : P.steps.filter(s => s.req.size).length;
+  P.total = P.instr === "guitar" ? (guitarWaits() ? (P.chords || []).length : 0) : P.steps.filter(s => s.req.size).length;
   P.correct = 0; P.wrong = 0; P.streak = 0; P.bestStreak = 0; P.waiting = false; P.waitChord = null;
   for (const c of P.chords || []){ c.done = false; c.ok = false; }
   for (const p of G.strumNotes) noteOut(p, 0, false); G.strumNotes = []; G.lastStrumChord = -1; G.idx = -1;
@@ -1533,6 +1580,7 @@ function syncScrub(){
   $("timeOut").textContent = fmt(P.t) + " / " + fmt(P.len);
 }
 function setPlaying(on){
+  if (on && P.instr === "guitar" && P.mode === "wait") startGuitarMic();
   if (on && !P.playing) setTimeout(() => pedalSeek(P.t), 0);
   if (on && !P.playing && conn.outMode === "piano" && !pianoReady() && (P.mode === "listen" || P.instr === "guitar" || P.hands !== "B"))
     toast("The piano isn't connected, so the song plays on the phone speaker. Tap the message at the top to connect.");
@@ -1679,8 +1727,8 @@ function drawBanner(){
   b.classList.toggle("tap", needPiano);
   if (needPiano && (P.playing || !conn.kind)){ b.hidden = false; b.textContent = reconnecting ? "Reconnecting to the piano…" : "Piano not connected · tap to connect"; return; }
   if (P.instr === "guitar"){
-    if (!P.playing) msg = P.mode === "wait" && !micHearsGuitar() ? "Wait mode for guitar listens with the mic: Connect → Listen with mic" : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : "Press play");
-    else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name;
+    if (!P.playing) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then strum each chord. The mic listens for it.") : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : "Press play");
+    else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name + (GM.starting ? " · starting the mic…" : " · listening");
     else if (P.chords.length && P.t < P.chords[0].t) msg = "Get ready…";
     b.hidden = !msg; b.textContent = msg; return;
   }
@@ -1873,6 +1921,8 @@ $("tunerClose").onclick = closeTuner;
 $("tunerDlg").addEventListener("close", () => { cancelAnimationFrame(TUNER.raf); if (TUNER.stream){ TUNER.stream.getTracks().forEach(t => t.stop()); TUNER.stream = null; } });
 $("tunerA4").addEventListener("change", e => { const v = +e.target.value; if (v >= 415 && v <= 466){ TUNER.a4 = v; store.set("dg30.a4", v); } });
 $("backupBtn").onclick = backupNow;
+$("bgAudioChk").checked = store.get("dg30.bgAudio", true);
+$("bgAudioChk").onchange = e => { store.set("dg30.bgAudio", e.target.checked); if (!e.target.checked) bgKeepAlive(false); else if (jobsRunning) bgKeepAlive(true); };
 $("restoreIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) restoreFrom(f); });
 $("expSheet").onclick = () => { const id = $("expDlg").dataset.id; $("expDlg").close(); openSheet(id); };
 $("expMidi").onclick = () => { const id = $("expDlg").dataset.id, m = allSongs().find(s => s.id === id); $("expDlg").close(); downloadMidi(m.title, loadNotes(id)); };
@@ -2111,9 +2161,40 @@ const idb = {
   del(id){ return this.tx("readwrite", s => s.delete(id)); },
   all(){ return this.tx("readonly", s => s.getAll()); }
 };
+/* keep converting while you use other apps: Android pauses web apps that are hidden, but not ones playing sound.
+   While a job runs, the app plays an almost silent loop and shows a "DG30 Song Coach" media notification with the progress. */
+const BG = { audio:null, url:null };
+function bgSoundUrl(){
+  if (BG.url) return BG.url;
+  const sr = 8000, secs = 12, n = sr * secs, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round((Math.random() * 2 - 1) * 6), true);   // inaudible hiss
+  return BG.url = URL.createObjectURL(new Blob([buf], {type:"audio/wav"}));
+}
+function bgKeepAlive(on, title){
+  if (!store.get("dg30.bgAudio", true)) on = false;
+  if (on){
+    if (!BG.audio){ BG.audio = new Audio(bgSoundUrl()); BG.audio.loop = true; BG.audio.volume = 0.05; }
+    if (BG.audio.paused) BG.audio.play().catch(() => {});
+    if ("mediaSession" in navigator){
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({title: title || "Converting a song", artist: "DG30 Song Coach", artwork: [{src:"icon-512.png", sizes:"512x512", type:"image/png"}]});
+        navigator.mediaSession.setActionHandler("pause", () => {});
+      } catch(e){}
+    }
+  } else if (BG.audio){ BG.audio.pause(); if ("mediaSession" in navigator) try { navigator.mediaSession.metadata = null; } catch(e){} }
+}
 const jobsUI = new Map();            // id -> {status, progress, name, kind, error}
 let jobsRunning = false;
-function jobStatus(id, patch){ jobsUI.set(id, {...(jobsUI.get(id) || {}), ...patch}); renderJobs(); }
+function jobStatus(id, patch){
+  jobsUI.set(id, {...(jobsUI.get(id) || {}), ...patch}); renderJobs();
+  const j = jobsUI.get(id);
+  if (jobsRunning && !j.failed && "mediaSession" in navigator && BG.audio && !BG.audio.paused){
+    try { navigator.mediaSession.metadata = new MediaMetadata({title: `${j.name || "New song"}: ${Math.round((j.progress || 0) * 100)}%`, artist: j.status || "DG30 Song Coach", artwork:[{src:"icon-512.png", sizes:"512x512", type:"image/png"}]}); } catch(e){}
+  }
+}
 async function addJob(job){
   job.id = "j" + Date.now().toString(36); job.created = Date.now(); job.results = job.results || [];
   try { await idb.put(job); } catch(e){ /* storage full: still run it in memory */ memJobs.set(job.id, job); }
@@ -2128,6 +2209,7 @@ async function removeJob(id){ memJobs.delete(id); try { await idb.del(id); } cat
 async function runJobs(){
   if (jobsRunning) return; jobsRunning = true;
   try {
+    if ((await allJobs()).some(j => !j.failed)) bgKeepAlive(true, "Converting a song");
     for (;;){
       const pending = (await allJobs()).filter(j => !j.failed && !jobCancel.has(j.id));
       if (!pending.length) break;
@@ -2141,12 +2223,19 @@ async function runJobs(){
         toast(msg); notify("Song ready", msg);
       } catch(err){
         if (jobCancel.has(job.id)){ await removeJob(job.id); continue; }
+        // lost the connection (often because the phone paused the app): keep the finished pages and carry on later
+        if (/Failed to fetch|NetworkError|network|aborted|Load failed/i.test(String(err && err.message || err)) && (job.retries || 0) < 5){
+          job.retries = (job.retries || 0) + 1; await saveJob(job);
+          jobStatus(job.id, {status: "Paused: the connection dropped. It carries on by itself in a moment, or when you come back to the app."});
+          await new Promise(r => { const t = setTimeout(r, document.hidden ? 60000 : 4000); const v = () => { if (!document.hidden){ clearTimeout(t); document.removeEventListener("visibilitychange", v); r(); } }; document.addEventListener("visibilitychange", v); });
+          continue;
+        }
         job.failed = true; job.error = friendlyError(err, job.kind); await saveJob(job);
         jobStatus(job.id, {status: job.error, failed: true});
         notify("Couldn't finish a song", job.error);
       }
     }
-  } finally { jobsRunning = false; }
+  } finally { jobsRunning = false; bgKeepAlive(false); }
 }
 function friendlyError(err, kind){
   const m = String(err && err.message || err);
@@ -2350,7 +2439,8 @@ function tunerLoop(now = 0){
 }
 function showTuner(f){
   const needle = $("tunerNeedle"), note = $("tunerNote");
-  if (!f){ note.textContent = "–"; $("tunerHz").textContent = ""; needle.style.transform = "rotate(0deg)"; $("tunerMeter").className = "tmeter"; $("tunerDir").textContent = ""; return; }
+  if (!f){ note.textContent = "–"; $("tunerHz").textContent = ""; needle.style.transform = "rotate(0deg)"; $("tunerMeter").className = "tmeter"; $("tunerDir").textContent = "";
+    $("headstock").querySelectorAll(".near").forEach(el => el.classList.remove("near", "ok")); return; }
   const midi = 69 + 12 * Math.log2(f / TUNER.a4);
   let target = TUNER.target, cents;
   if (target == null){ target = GUITAR_STRINGS.reduce((b, s) => Math.abs(s.p - midi) < Math.abs(b.p - midi) ? s : b).p; if (Math.abs(target - midi) > 2.5) target = Math.round(midi); }
@@ -2361,21 +2451,61 @@ function showTuner(f){
   const ok = Math.abs(cents) <= 4;
   $("tunerMeter").className = "tmeter" + (ok ? " ok" : "");
   $("tunerDir").textContent = ok ? "In tune" : cents < 0 ? "Too low · tighten" : "Too high · loosen";
-  document.querySelectorAll("#tunerStrings button").forEach(b => b.classList.toggle("near", +b.dataset.p === target));
+  $("headstock").querySelectorAll("[data-p]").forEach(el => { const on = +el.dataset.p === target; el.classList.toggle("near", on); el.classList.toggle("ok", on && ok); });
+}
+// a headstock like the one in your hands: each tuning peg labelled with the note its string should be
+const STRING_NAMES = {40:"6th", 45:"5th", 50:"4th", 55:"3rd", 59:"2nd", 64:"1st"};
+function headstockSvg(layout){
+  const nutY = [60, 70, 80, 90, 100, 110];                 // low E on top, as you look down at the guitar
+  const pegs = layout === "6" ?
+    GUITAR_STRINGS.map((st, i) => ({st, x: 118 + i * 38, y: 40, bx: 118 + i * 38, by: 12})) :
+    [ {i:2, x:130}, {i:1, x:205}, {i:0, x:280} ].map(o => ({st: GUITAR_STRINGS[o.i], x:o.x, y:44, bx:o.x, by:12}))
+      .concat([ {i:3, x:130}, {i:4, x:205}, {i:5, x:280} ].map(o => ({st: GUITAR_STRINGS[o.i], x:o.x, y:126, bx:o.x, by:158})));
+  const head = layout === "6"
+    ? `<path d="M72 52 L72 118 L300 118 Q340 118 346 92 L350 60 Q352 26 320 24 L110 24 Q86 26 72 52 Z" class="hs-wood"/>`
+    : `<path d="M72 50 C110 28 150 20 300 22 Q318 14 330 30 Q336 44 328 50 Q340 85 328 120 Q336 126 330 140 Q318 156 300 148 C150 150 110 142 72 120 Z" class="hs-wood"/>`;
+  let out = `<svg viewBox="0 0 360 172" class="headstock" role="group" aria-label="Guitar headstock: tap a peg to tune that string">`;
+  out += `<rect x="0" y="54" width="72" height="62" rx="2" class="hs-board"/>`;
+  for (const x of [22, 50]) out += `<line x1="${x}" y1="54" x2="${x}" y2="116" class="hs-fret"/>`;
+  out += head + `<rect x="68" y="52" width="7" height="66" rx="1.5" class="hs-nut"/>`;
+  for (const pg of pegs){
+    const i = GUITAR_STRINGS.indexOf(pg.st);
+    out += `<line x1="0" y1="${nutY[i]}" x2="72" y2="${nutY[i]}" class="hs-str" data-p="${pg.st.p}" style="stroke-width:${2.2 - i * 0.28}"/>`;
+    out += `<line x1="72" y1="${nutY[i]}" x2="${pg.x}" y2="${pg.y}" class="hs-str" data-p="${pg.st.p}" style="stroke-width:${2.2 - i * 0.28}"/>`;
+  }
+  for (const pg of pegs){
+    out += `<g class="peg" data-p="${pg.st.p}" tabindex="0" role="button" aria-label="${pg.st.n}${pg.st.o}, ${STRING_NAMES[pg.st.p]} string">`;
+    out += `<line x1="${pg.x}" y1="${pg.y}" x2="${pg.bx}" y2="${pg.by}" class="hs-post"/>`;
+    out += `<circle cx="${pg.x}" cy="${pg.y}" r="7" class="hs-bush"/>`;
+    out += `<ellipse cx="${pg.bx}" cy="${pg.by}" rx="21" ry="12" class="hs-key"/>`;
+    out += `<text x="${pg.bx}" y="${pg.by + 1}" class="hs-note">${pg.st.n}<tspan class="hs-oct" dx="1" dy="3">${pg.st.o}</tspan></text>`;
+    out += `<text x="${pg.x + (layout === "6" ? 0 : 0)}" y="${pg.y + (pg.by > pg.y ? -12 : 20)}" class="hs-num">${STRING_NAMES[pg.st.p]}</text>`;
+    out += `</g>`;
+  }
+  return out + `</svg>`;
 }
 function renderTunerStrings(){
+  const layout = store.get("dg30.headstock", "3");
+  $("headstock").innerHTML = headstockSvg(layout);
+  $("headstock").querySelectorAll(".peg").forEach(g => {
+    const p = +g.dataset.p;
+    g.classList.toggle("locked", TUNER.target === p);
+    const pick = () => { TUNER.target = TUNER.target === p ? null : p; renderTunerStrings(); if (TUNER.target != null){ noteOut(p, 90, true); setTimeout(() => noteOut(p, 0, false), 1500); } };
+    g.addEventListener("click", pick); g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); pick(); } });
+  });
   const box = $("tunerStrings"); box.textContent = "";
   const auto = document.createElement("button"); auto.type = "button"; auto.textContent = "Auto"; auto.setAttribute("aria-pressed", String(TUNER.target == null));
   auto.onclick = () => { TUNER.target = null; renderTunerStrings(); }; box.appendChild(auto);
-  for (const s of GUITAR_STRINGS){
-    const b = document.createElement("button"); b.type = "button"; b.dataset.p = s.p; b.textContent = s.n + s.o; b.setAttribute("aria-pressed", String(TUNER.target === s.p));
-    b.onclick = () => { TUNER.target = s.p; renderTunerStrings(); noteOut(s.p, 90, true); setTimeout(() => noteOut(s.p, 0, false), 1500); };
-    box.appendChild(b);
+  const lock = document.createElement("button"); lock.type = "button"; lock.textContent = TUNER.target != null ? "One string" : "Tap a peg"; lock.setAttribute("aria-pressed", String(TUNER.target != null)); lock.disabled = TUNER.target == null; box.appendChild(lock);
+  $("tunerLayout").textContent = "";
+  for (const [v, label] of [["3", "3 + 3"], ["6", "6 in a row"]]){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(layout === v));
+    b.onclick = () => { store.set("dg30.headstock", v); renderTunerStrings(); }; $("tunerLayout").appendChild(b);
   }
 }
 
 /* ---------------- backup and restore (move songs between devices) ---------------- */
-const BACKUP_SKIP = /^dg30\.(apikey|bleId|out|vol|songVol|mode|hands|tempo$|words|pedalMode|gbacking|scanModel|autoFs|a4|sound$)/;
+const BACKUP_SKIP = /^dg30\.(apikey|bleId|out|vol|songVol|mode|hands|tempo$|words|pedalMode|gbacking|scanModel|autoFs|a4|sound$|bgAudio|headstock)/;
 function backupData(){
   const data = {};
   for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && k.startsWith("dg30.") && !BACKUP_SKIP.test(k)) data[k] = localStorage.getItem(k); }
@@ -2804,6 +2934,7 @@ function openPractice(id){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
+  stopGuitarMic();
   PL.playing = null; updatePlaylistBar();
   setPlaying(false);
   if (P.instr === "guitar") restorePianoSound(); $("practice").hidden = true; $("library").hidden = false; renderLibrary();
@@ -2813,7 +2944,7 @@ function closePractice(){
 $("backBtn").onclick = closePractice;
 $("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); };
 $("restartBtn").onclick = () => { const was = P.playing; setPlaying(false); resetRun(); if (was) setPlaying(true); };
-$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.mode = b.dataset.v; setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.mode = b.dataset.v; if (P.mode !== "wait") stopGuitarMic(); else if (P.instr === "guitar") startGuitarMic(); setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 $("handSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.hands = b.dataset.v; setSeg("handSeg", P.hands); store.set("dg30.hands", P.hands); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 // Tempo in beats per minute. Each song opens at its own tempo; slower or faster choices are remembered per song.
 function setBpm(bpm){
@@ -2845,7 +2976,7 @@ function restorePianoSound(){
 }
 function setInstrument(inst, quiet){
   const was = P.playing; setPlaying(false);
-  if (inst === "piano" && P.instr === "guitar") restorePianoSound();
+  if (inst === "piano" && P.instr === "guitar"){ restorePianoSound(); stopGuitarMic(); }
   P.instr = inst;
   applyBackingSound();
   $("instrBtn").textContent = inst === "guitar" ? "Piano" : "Guitar";
@@ -2921,7 +3052,7 @@ function toast(msg){
   $("setKeyClear").onclick = () => { store.del("dg30.apikey"); $("setKey").value = ""; $("setKeyStatus").textContent = "Key removed"; };
   renderLibrary();
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
-  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); } });
+  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });
   autoReconnect(true);
   runJobs();

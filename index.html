@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.77">
+<meta name="version" content="1.78">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,6 +83,19 @@ button{cursor:pointer}
 .compbar .rec i{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--bad);margin-right:7px;vertical-align:-1px}
 .compbar .rec.on{background:var(--bad);border-color:var(--bad);color:#fff}.compbar .rec.on i{border-radius:2px;background:#fff;animation:recPulse 1s ease-in-out infinite}
 .compbar [aria-pressed="false"]{opacity:.55}
+@media (max-width:640px){ .compbar{gap:5px} .compbar .btn{padding:0 9px;font-size:13px} }
+body.redoing #compBar{visibility:hidden}
+#redoBar{position:absolute;left:0;right:0;margin:0 auto;width:max-content;z-index:9;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;max-width:calc(100% - 16px);padding:8px 10px;border-radius:16px;background:rgba(20,17,15,.94);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.45);color:var(--ivory);font-size:14px}
+#redoBar .btn{min-height:40px;padding:0 13px}
+#redoBar select{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ivory);padding:0 8px;font-weight:600}
+#redoBar .rdgrp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+#redoBar b{font-weight:700}
+#redoBar .rec i{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--bad);margin-right:7px;vertical-align:-1px}
+#redoBar .btn.on{background:var(--accent);border-color:var(--accent);color:#14110f}
+#redoBar:not([data-phase="pick"]) .rd-pick, #redoBar:not([data-phase="choose"]) .rd-choose, #redoBar:not([data-phase="rec"]):not([data-phase="count"]) .rd-rec{display:none}
+#redoMarks{position:absolute;inset:0;pointer-events:none}
+#redoMarks i{position:absolute;border-radius:8px;background:rgba(48,120,220,.13);box-shadow:inset 0 0 0 2px rgba(48,120,220,.55)}
+#redoMarks i.new{background:rgba(40,160,90,.14);box-shadow:inset 0 0 0 2px rgba(40,160,90,.6)}
 body.composing #bars > *:not(#backBtn):not(#pTitle):not(#pConn):not(#qVolBtn):not(#compBar){display:none!important}
 body.composing .scrub{display:none!important}
 .badge.orig,.badge.orig.on{color:#1a1205!important;background:linear-gradient(135deg,#e2b659,#c9973d)!important;border-color:transparent!important}.badge.orig svg{color:#1a1205!important}
@@ -691,7 +704,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="compbar" id="compBar" hidden>
       <button class="btn rec" id="cRec" type="button"><i></i><span>Record</span></button>
       <button class="btn" id="cMetro" type="button" aria-pressed="true" title="Click along while you record">Click</button>
-      <button class="btn" id="cUndo" type="button" title="Take back the last recording">Undo</button>
+      <button class="btn" id="cRedo" type="button" title="Play a few bars again and choose which version to keep">Redo bars</button>
+      <button class="btn" id="cUndo" type="button" title="Take back the last change">Undo</button>
       <button class="btn" id="cClear" type="button">Clear</button>
       <button class="btn primary" id="cSave" type="button">Save</button>
     </div>
@@ -769,7 +783,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="redoMarks"></div><div id="followSvg"></div></div></div><div id="redoBar" hidden data-phase="pick"><div class="rdgrp rd-pick"><span>Redo bars</span><select id="rdFrom" aria-label="From bar"></select><span>to</span><select id="rdTo" aria-label="To bar"></select><button class="btn" id="rdHear" type="button">&#9654; Hear them</button><button class="btn primary rec" id="rdGo" type="button"><i></i>Record</button><button class="btn ghost" id="rdCancel" type="button">Cancel</button></div><div class="rdgrp rd-rec"><span id="rdRecLbl">Get ready…</span><button class="btn" id="rdStop" type="button">Stop</button></div><div class="rdgrp rd-choose"><span id="rdChoLbl">Bars</span><button class="btn" id="rdOld" type="button">&#9654; Old</button><button class="btn" id="rdNew" type="button">&#9654; New</button><button class="btn primary" id="rdKeepNew" type="button">Keep new</button><button class="btn" id="rdKeepOld" type="button">Keep old</button><button class="btn ghost" id="rdAgain" type="button">Try again</button></div></div><div id="banner" hidden></div></div>
   <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -875,6 +889,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     </div>
     <div class="field"><label class="label" for="barSel">Falling note colors</label>
       <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand (color-blind friendly colors)</option></select></div>
+    <label class="row cbrow"><input id="kbZoom" type="checkbox"><span><b>Zoom the keyboard to the music</b><small>Shows only the keys the song is using right now, so they're as wide as possible. It glides when the music moves up or down.</small></span></label>
     <label class="row cbrow"><input id="lhStripes" type="checkbox"><span><b>Color-blind mode</b><small>Left-hand bars get a white outline and stripes, so you can tell the hands apart without relying on color.</small></span></label>
     <div class="field"><label class="label" for="fxSel">Glowing notes and effects</label>
       <select id="fxSel"><option value="sparkles">Sparkles</option><option value="flames">Flames</option><option value="stars">Twinkling stars</option><option value="bubbles">Bubbles</option><option value="electric">Electric sparks</option><option value="off">Off (plain notes, best if the phone feels slow)</option></select></div>
@@ -1096,7 +1111,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.77";
+const APP_VERSION = "1.78";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -3067,16 +3082,54 @@ function layout(){
   lo = Math.max(21, lo); hi = Math.min(108, hi);
   while (isBlack(lo)) lo--; while (isBlack(hi)) hi++;
   const whites = []; for (let p = lo; p <= hi; p++) if (!isBlack(p)) whites.push(p);
-  const ww = W / whites.length, kbH = Math.max(70, Math.min(170, H * 0.26, ww * 6));
-  const keys = new Map(); let wi = 0;
-  for (let p = lo; p <= hi; p++){
-    if (!isBlack(p)){ keys.set(p, {x: wi * ww, w: ww, black:false}); wi++; }
-    else { const bw = ww * 0.6; keys.set(p, {x: wi * ww - bw / 2, w: bw, black:true}); }
-  }
+  const kbH = Math.max(70, Math.min(170, H * 0.26, W / Math.min(whites.length, 30) * 6));
   const palmH = showHands() && P.instr !== "guitar" ? Math.round(Math.min(kbH * 0.8, H * 0.17)) : 0;
   const hitY = H - kbH - palmH;
-  L = {W, H, kbH, hitY, kbBottom: hitY + kbH, palmH, ww, keys, lo, hi, pps: Math.max(90, hitY / 3.2), gStrumY: H - Math.max(90, Math.min(170, H * 0.32)) - 10};
+  L = {W, H, kbH, hitY, kbBottom: hitY + kbH, palmH, ww: 0, keys: new Map(), lo, hi, whites, pps: Math.max(90, hitY / 3.2), gStrumY: H - Math.max(90, Math.min(170, H * 0.32)) - 10};
+  const [zs, zn] = zoomTarget(true); Object.assign(ZM, {s: zs, n: zn, ts: zs, tn: zn, wide: 0}); placeKeys();
   const fol = $("follow"); if (fol){ fol.hidden = !sheetView(); if (sheetView()) buildFollow(); }
+}
+/* ---------------- keyboard zoom ----------------
+   The keyboard only shows the part of the piano the music is using right now (at least two octaves), so the keys are as
+   wide as they can be. When the music moves higher or lower it glides over; it narrows again once the music settles. */
+const ZM = {s: 0, n: 1, ts: 0, tn: 1, wide: 0, last: 0};
+const zoomOn = () => store.get("dg30.kbZoom", true) && !COMP.on && P.instr !== "guitar";
+function placeKeys(){
+  // ZM.s = first white key showing (can be fractional while gliding), ZM.n = how many white keys fit across
+  const ww = L.W / ZM.n, keys = L.keys; keys.clear(); let wi = 0;
+  for (let p = L.lo; p <= L.hi; p++){
+    if (!isBlack(p)){ keys.set(p, {x: (wi - ZM.s) * ww, w: ww, black: false}); wi++; }
+    else { const bw = ww * 0.6; keys.set(p, {x: (wi - ZM.s) * ww - bw / 2, w: bw, black: true}); }
+  }
+  L.ww = ww;
+}
+const kbWhiteIdx = p => { const w = L.whites; let i = 0; while (i < w.length - 1 && w[i] < p) i++; return w[i] > p ? i - 1 : i; };   // a black key sits just right of its white neighbour
+function zoomTarget(snap){
+  const all = L.whites.length; if (!zoomOn()) return [0, all];
+  const minN = Math.min(all, Math.max(15, Math.ceil(L.W / 72)));
+  if (minN >= all) return [0, all];
+  const t0 = P.t - 0.4, t1 = P.t + L.hitY / L.pps + 2.5;   // what's on screen now plus a little of what's coming
+  let lo = 999, hi = -1;
+  for (const n of P.notes){ if (n.t > t1) break; if (n.t + n.d < t0) continue; if (n.p < lo) lo = n.p; if (n.p > hi) hi = n.p; }
+  if (hi < 0){ if (!snap) return null; lo = P.notes.length ? P.notes[0].p : 60; hi = lo; }
+  let a = kbWhiteIdx(lo) - 1, b = kbWhiteIdx(hi) + 2;
+  if (b - a < minN){ const c = (a + b) / 2; a = c - minN / 2; b = c + minN / 2; }
+  if (a < 0){ b -= a; a = 0; } if (b > all){ a -= b - all; b = all; } a = Math.max(0, a);
+  return [a, b - a];
+}
+function zoomTick(now){
+  if (!L || !L.whites) return;
+  const dt = Math.min(0.1, (now - (ZM.last || now)) / 1000); ZM.last = now;
+  const need = zoomTarget(false);
+  if (need){
+    const [a, n] = need, outside = a < ZM.ts - 0.01 || a + n > ZM.ts + ZM.tn + 0.01;
+    if (outside){ const lo = Math.min(a, ZM.ts), hi = Math.max(a + n, ZM.ts + ZM.tn);   // widen to take in the new notes
+      if (hi - lo <= n * 1.25 || n >= ZM.tn){ ZM.ts = lo; ZM.tn = hi - lo; } else { ZM.ts = a; ZM.tn = n; } ZM.wide = 0; }
+    else if (ZM.tn > n * 1.3){ ZM.wide += dt; if (ZM.wide > 2.5){ ZM.ts = a; ZM.tn = n; ZM.wide = 0; } }   // narrow again after the music settles
+    else ZM.wide = 0;
+  }
+  const k = 1 - Math.exp(-dt * 5);
+  if (Math.abs(ZM.ts - ZM.s) > 0.002 || Math.abs(ZM.tn - ZM.n) > 0.002){ ZM.s += (ZM.ts - ZM.s) * k; ZM.n += (ZM.tn - ZM.n) * k; placeKeys(); }
 }
 function rr(x, y, w, h, r){ if (!(w > 0 && h > 0)){ cx.beginPath(); return; } r = Math.max(0, Math.min(r, w/2, h/2)); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -3089,7 +3142,7 @@ function draw(){
   if (cv.clientWidth && cv.clientHeight && (Math.abs(cv.clientWidth - L.W) > 1 || Math.abs(cv.clientHeight - L.H) > 1)) layout();   // screen area changed size (drawer, dialog, rotation)
   const now = performance.now();
   try { drawBg(now); } catch(e){ GFX.failed = true; }
-  if (P.instr === "guitar"){ drawGuitar(now); if (sheetView()) updateFollow(); } else drawPiano(now);
+  if (P.instr === "guitar"){ drawGuitar(now); if (sheetView()) updateFollow(); } else { if (zoomOn()) zoomTick(now); drawPiano(now); }
   drawLyrics();
   drawBanner();
 }
@@ -3162,6 +3215,7 @@ function drawPiano(now){
     if (expect.has(p)){ const h = expect.get(p); return h === "L" || h === "R" ? noteColor(p, h) : C.muted; }
     return k.black ? "#0b0908" : C.ivory;
   };
+  cx.fillStyle = "#0b0908"; cx.fillRect(0, hitY, W, kbH);   // clear behind the keys (they glide when the keyboard zooms)
   for (const [p, k] of keys) if (!k.black){
     cx.fillStyle = keyFill(p, k); rr(k.x + 0.75, hitY, k.w - 1.5, kbH - 2, 4); cx.fill();
     if (p % 12 === 0 && k.w >= 14){ cx.fillStyle = "#6b6157"; cx.font = "500 10px " + css("--f-mono"); cx.textBaseline = "bottom"; cx.fillText(noteName(p), k.x + k.w / 2, hitY + kbH - 6); }
@@ -3750,6 +3804,7 @@ async function buildFollow(){
     }
     $("followGlow").textContent = ""; FOLLOW.on = [];
     Object.assign(FOLLOW, {key, boxes, anchors, lit, starts, lens: ms.map(m => m.beats * 60 / (m.bpm || bpm)), line: -1});
+    if (COMP.on) rdMarks();
   } catch(e){
     console.warn("sheet view", e);
     svgBox.innerHTML = window.ABCJS ? '<p class="msg">This song couldn\'t be drawn as sheet music. Switch back to Bars.</p>' : '<p class="msg">The sheet music needs the internet the first time, to load the music-drawing tool. Connect and try again, or switch back to Bars.</p>';
@@ -5719,7 +5774,7 @@ function openPractice(id, inst){
 }
 function closePractice(){
   TS.on = false;
-  if (COMP.on){ COMP.on = false; COMP.rec = false; document.body.classList.remove("composing"); $("compBar").hidden = true; $("countNum").hidden = true; }
+  if (COMP.on){ rdClose(); COMP.on = false; COMP.rec = false; document.body.classList.remove("composing"); $("compBar").hidden = true; $("countNum").hidden = true; }
   commitSession();
   setDrawer(false);
   if (typeof RV !== "undefined" && RV.on) stopReview(true);
@@ -6515,6 +6570,7 @@ $("outSel").value = conn.outMode;
 function showPhoneSound(){ instStatus(); }
 
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
+$("kbZoom").checked = store.get("dg30.kbZoom", true); $("kbZoom").onchange = e => { store.set("dg30.kbZoom", e.target.checked); if (practiceVisible()) layout(); };
 $("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
 $("fxSel").value = FX.kind; $("fxSel").onchange = e => { FX.kind = e.target.value; store.set("dg30.fx", FX.kind); SPARKS.length = 0; };
@@ -6637,6 +6693,7 @@ function syncCompBar(){
   $("cRec").querySelector("span").textContent = COMP.rec ? "Stop" : COMP.countUntil > performance.now() ? "Get ready…" : COMP.notes.length ? "Record more" : "Record";
   $("cMetro").setAttribute("aria-pressed", String(COMP.metro));
   $("cUndo").disabled = !COMP.takes.length; $("cSave").disabled = !COMP.notes.length;
+  $("cRedo").disabled = !COMP.notes.length || COMP.rec || COMP.free;
 }
 function compStartRec(){
   audioCtx();
@@ -6671,14 +6728,17 @@ function compKey(p, v, down){
   else { const n = COMP.held.get(p); if (n){ n.d = Math.max(0.05, t - n.t); COMP.held.delete(p); } }
 }
 function compStep(now){
+  rdPlayStep(now);
   // count-in
   if (COMP.countUntil){
     const el = $("countNum");
     if (now < COMP.countUntil){ const j = Math.floor((now - COMP.countStart) / (60000 / COMP.bpm)); el.textContent = String(Math.max(1, COMP.beats - Math.max(0, j))); el.hidden = false; return; }
     el.hidden = true; COMP.countUntil = 0; COMP.rec = true; COMP.t0 = now; COMP.lastBeat = 0; syncCompBar(); FOLLOW.key = null; buildFollow();
+    if (RD.on){ RD.phase = "rec"; rdUI(); }
   }
   if (!COMP.rec) return;
   const t = compNow(); P.t = t;
+  if (RD.on && RD.phase === "rec" && t >= COMP.redoEnd + 0.02){ rdStop(); return; }   // stops by itself at the end of the last bar
   // the click keeps going while you record
   const beat = 60 / COMP.bpm, k = Math.floor((t - COMP.offset) / beat + 1e-6);
   if (k !== COMP.lastBeat){ COMP.lastBeat = k; if (COMP.metro && k > 0 && !COMP.free && !COMP.waitFirst) click(k % COMP.beats === 0); }
@@ -6720,9 +6780,9 @@ function compFitTiming(){
   P.song.bpm = COMP.bpm; P.song.beats = COMP.beats; P.song.timeLabel = COMP.sig; P.baseBpm = COMP.bpm;
   toast(fit ? `Wrote it out at ${COMP.bpm} BPM in ${COMP.sig}` : `Wrote it out in ${COMP.sig}`, 2400);
 }
-$("cRec").onclick = () => { if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
+$("cRec").onclick = () => { if (RD.on) return; if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
 $("cMetro").onclick = () => { COMP.metro = !COMP.metro; store.set("dg30.compMetro", COMP.metro); syncCompBar(); };
-$("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; COMP.notes.length = k; COMP.dirty = true; if (!k){ COMP.free = COMP.autoBpm; COMP.autoSig = COMP.autoSig0; } COMP.autoSig = COMP.autoSig0; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last recording", 1400); };
+$("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; if (typeof k === "object") COMP.notes = k.notes.map(n => ({...n})); else COMP.notes.length = k; COMP.dirty = true; if (k === 0){ COMP.free = COMP.autoBpm; COMP.autoSig = COMP.autoSig0; } COMP.autoSig = COMP.autoSig0; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last change", 1400); };
 $("cClear").onclick = () => {
   const b = $("cClear"); if (!b.dataset.arm){ b.dataset.arm = "1"; b.textContent = "Sure?"; setTimeout(() => { delete b.dataset.arm; b.textContent = "Clear"; }, 2500); return; }
   delete b.dataset.arm; b.textContent = "Clear"; if (COMP.rec) compStopRec();
@@ -6746,6 +6806,121 @@ $("compForm").addEventListener("submit", e => {
   if (!saveSong(meta, notes)){ toast(storageProblem()); return; }
   COMP.savedId = id; COMP.title = title; COMP.dirty = false; $("pTitle").textContent = "✎ " + title;
   $("compDlg").close(); toast(`Saved “${title}” to your library${by ? " by " + by : ""} 🎼`, 2400);
+});
+/* ---------------- redo a few bars ----------------
+   Pick bars (with the lists or by tapping the music), hear them, then record them again: the bar before plays as a
+   lead-in with the count, and recording stops by itself at the end of the last bar. Then compare old and new and keep one. */
+var RD = {on: false, phase: "pick", a: 1, b: 1, tap: 0, before: null, after: null, keepLen: 0};
+const RDP = {on: false, notes: [], i: 0, offs: [], from: 0, to: 0, t0: 0, move: false, btn: null};
+const compBars = () => Math.max(1, Math.ceil((P.len - 1e-6) / compBarLen()));
+const rdSpan = () => { const bl = compBarLen(); return [(RD.a - 1) * bl, RD.b * bl]; };
+function rdFill(sel, v, n){ sel.textContent = ""; for (let i = 1; i <= n; i++){ const o = document.createElement("option"); o.value = i; o.textContent = i; sel.appendChild(o); } sel.value = String(v); }
+function openRedo(){
+  if (!COMP.notes.length || COMP.rec || COMP.free) return;
+  const n = compBars(); RD.on = true; RD.phase = "pick"; RD.tap = 0; RD.before = RD.after = null;
+  if (RD.a > n || RD.b > n || RD.b < RD.a){ RD.a = 1; RD.b = Math.min(n, 2); }
+  rdUI(); toast("Pick the bars, or tap the first and last bar on the music", 2400);
+}
+function rdClose(){ stopListen(); RD.on = false; RD.before = RD.after = null; COMP.countUntil = 0; rdUI(); }
+function rdUI(){
+  const bar = $("redoBar"); bar.hidden = !RD.on; document.body.classList.toggle("redoing", RD.on);
+  if (RD.on){
+    bar.dataset.phase = RD.phase;
+    // over the keyboard while picking and choosing (you're not playing then), up top while you record
+    if (L){ const playing = RD.phase === "count" || RD.phase === "rec";
+      bar.style.top = playing ? "8px" : Math.round(L.hitY + 6) + "px"; bar.style.bottom = "auto"; }
+    const rng = RD.a === RD.b ? `bar ${RD.a}` : `bars ${RD.a}–${RD.b}`;
+    if (RD.phase === "pick"){ const n = compBars(); rdFill($("rdFrom"), RD.a, n); rdFill($("rdTo"), RD.b, n); }
+    $("rdRecLbl").innerHTML = RD.phase === "count" ? "Get ready… the bar before plays first" : `Recording <b>${rng}</b>`;
+    $("rdChoLbl").innerHTML = `<b>${rng[0].toUpperCase() + rng.slice(1)}</b>:`;
+    for (const id of ["rdHear", "rdOld", "rdNew"]) $(id).classList.toggle("on", RDP.on && RDP.btn === id);
+  }
+  rdMarks();
+}
+function rdMarks(){
+  const box = $("redoMarks"); box.textContent = "";
+  if (!RD.on || !FOLLOW.boxes) return;
+  for (let i = RD.a - 1; i <= RD.b - 1; i++){ const b = FOLLOW.boxes[i]; if (!b) continue;
+    const m = document.createElement("i"); if (RD.phase === "choose" && COMP.notes === RD.after) m.className = "new";
+    Object.assign(m.style, {left: b.x0 - 3 + "px", top: b.y0 + "px", width: b.x1 - b.x0 + 6 + "px", height: b.y1 - b.y0 + "px"}); box.appendChild(m); }
+}
+// playing a stretch of notes (to hear the bars, and the lead-in before recording)
+function rdListen(notes, from, to, move, btn, t0){
+  stopListen(); audioCtx();
+  Object.assign(RDP, {on: true, notes: notes.filter(n => n.d != null && n.t >= from - 1e-3 && n.t < to - 1e-3).sort((a, b) => a.t - b.t), i: 0, offs: [], from, to, move, btn, t0: t0 || performance.now() + 60});
+  rdUI();
+}
+function rdPlayStep(now){
+  if (!RDP.on) return;
+  const t = RDP.from + (now - RDP.t0) / 1000;
+  while (RDP.i < RDP.notes.length && RDP.notes[RDP.i].t <= t){ const n = RDP.notes[RDP.i++]; noteOut(n.p, n.v || 80, true); RDP.offs.push({p: n.p, at: Math.min(RDP.to, n.t + n.d)}); }
+  RDP.offs = RDP.offs.filter(o => { if (o.at <= t){ noteOut(o.p, 0, false); return false; } return true; });
+  if (RDP.move && t >= RDP.from) P.t = t;
+  if (t >= RDP.to){ stopListen(); rdUI(); }
+}
+function stopListen(){ if (!RDP.on) return; for (const o of RDP.offs) noteOut(o.p, 0, false); RDP.offs = []; RDP.on = false; RDP.btn = null; }
+function rdToggleListen(btn, notes){
+  if (RDP.on && RDP.btn === btn){ stopListen(); rdUI(); return; }
+  const [A, B] = rdSpan(); rdListen(notes, A, B, true, btn);
+}
+function rdRecord(){
+  stopListen(); audioCtx();
+  const bl = compBarLen(), [A, B] = rdSpan(), g = compGrid();
+  if (!RD.before) RD.before = COMP.notes.map(n => ({...n}));
+  // clear the bars (notes that start before them but ring into them stop at the first bar line)
+  const keep = [];
+  for (const n of RD.before){ const q = Math.round(n.t / g) * g; if (q >= A - 1e-6 && q < B - 1e-6) continue;
+    const m = {...n}; if (m.t < A && m.d != null && m.t + m.d > A) m.d = Math.max(0.05, A - m.t); keep.push(m); }
+  COMP.notes = keep; RD.keepLen = keep.length; COMP.held.clear(); COMP.offset = A; COMP.redoEnd = B;
+  // count-in: one bar of clicks, with the bar before playing as a lead-in
+  const beat = 60 / COMP.bpm, a = audioCtx(), t0 = a.currentTime + 0.08;
+  for (let j = 0; j < COMP.beats; j++) click(j === 0, t0 + j * beat);
+  COMP.countStart = performance.now() + 80; COMP.countUntil = COMP.countStart + COMP.beats * beat * 1000;
+  if (A > 0) rdListen(RD.before, A - bl, A, false, null, COMP.countStart);
+  RD.phase = "count"; compRefresh(); FOLLOW.key = null; buildFollow(); rdUI();
+}
+function rdStop(){
+  if (!COMP.rec){   // stopped during the count: put things back
+    COMP.countUntil = 0; $("countNum").hidden = true; stopListen();
+    COMP.notes = RD.before || COMP.notes; RD.before = null; RD.phase = "pick";
+    compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar(); rdUI(); return;
+  }
+  const B = COMP.redoEnd, now = Math.min(compNow(), B);
+  for (const [p, n] of COMP.held) n.d = Math.max(0.05, now - n.t);
+  COMP.held.clear(); COMP.rec = false;
+  const old = COMP.notes.slice(0, RD.keepLen), g = compGrid(), fresh = COMP.notes.slice(RD.keepLen).filter(n => Math.round(n.t / g) * g < B - 1e-6);   // a note played just before the next bar still belongs to the next bar, so leave it out
+  for (const n of fresh) if (n.t + n.d > B) n.d = Math.max(0.05, B - n.t);
+  if (!fresh.length){ COMP.notes = RD.before; RD.before = null; RD.phase = "pick"; toast("Nothing was played, so nothing changed", 1800); }
+  else { COMP.notes = RD.after = old.concat(fresh); RD.phase = "choose"; }
+  P.t = rdSpan()[0]; compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar(); rdUI();
+}
+function rdKeep(useNew){
+  stopListen();
+  if (useNew){ COMP.takes.push({notes: RD.before}); COMP.notes = RD.after; COMP.dirty = true; toast(`Kept the new ${RD.a === RD.b ? "bar " + RD.a : "bars " + RD.a + "–" + RD.b}`, 1600); }
+  else { COMP.notes = RD.before; toast("Kept what you had", 1400); }
+  RD.on = false; RD.before = RD.after = null; RD.phase = "pick";
+  compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar(); rdUI();
+}
+$("cRedo").onclick = openRedo;
+$("rdFrom").onchange = e => { RD.a = +e.target.value; if (RD.b < RD.a) RD.b = RD.a; RD.tap = 0; rdUI(); };
+$("rdTo").onchange = e => { RD.b = +e.target.value; if (RD.a > RD.b) RD.a = RD.b; RD.tap = 0; rdUI(); };
+$("rdHear").onclick = () => rdToggleListen("rdHear", COMP.notes);
+$("rdGo").onclick = rdRecord;
+$("rdCancel").onclick = rdClose;
+$("rdStop").onclick = rdStop;
+$("rdOld").onclick = () => { COMP.notes = RD.before; compRefresh(); FOLLOW.key = null; buildFollow(); rdToggleListen("rdOld", RD.before); };
+$("rdNew").onclick = () => { COMP.notes = RD.after; compRefresh(); FOLLOW.key = null; buildFollow(); rdToggleListen("rdNew", RD.after); };
+$("rdKeepNew").onclick = () => rdKeep(true);
+$("rdKeepOld").onclick = () => rdKeep(false);
+$("rdAgain").onclick = () => { COMP.notes = RD.before; rdRecord(); };
+// tap the first bar, then the last one, right on the music
+$("follow").addEventListener("click", e => {
+  if (!COMP.on || !RD.on || RD.phase !== "pick" || !FOLLOW.boxes) return;
+  const ref = $("followInner").getBoundingClientRect(), x = e.clientX - ref.left, y = e.clientY - ref.top;
+  const i = FOLLOW.boxes.findIndex(b => b && x >= b.x0 - 4 && x <= b.x1 + 4 && y >= b.y0 && y <= b.y1); if (i < 0) return;
+  const bar = Math.min(compBars(), i + 1);
+  if (!RD.tap){ RD.a = RD.b = bar; RD.tap = 1; } else { if (bar < RD.a){ RD.b = RD.a; RD.a = bar; } else RD.b = bar; RD.tap = 0; }
+  rdUI();
 });
 function renderWrite(){
   const nm = userName(); $("wrHead").textContent = nm ? `Write your own music, ${nm}` : "Write your own music";

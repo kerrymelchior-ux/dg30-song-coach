@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.45">
+<meta name="version" content="1.46">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -312,6 +312,9 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
 
 /* practice toolbar: slim bar, everything else in a drawer */
+.lyrbtn,#wordsBtn.lyrbtn{flex:none;font:600 15px/1 var(--f-body)!important;width:auto;height:auto}
+.lyrbtn[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.lyrbtn.none{color:var(--muted)}
 .pconn{position:relative;flex:none;width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);display:grid;place-items:center;padding:0;color:var(--muted)}
 .pconn i{position:absolute;right:6px;bottom:6px;width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--lacquer)}
 .pconn.on{color:var(--ivory);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
@@ -546,6 +549,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" data-v="R" aria-pressed="false" aria-label="Right hand">R</button>
     </div>
     <button class="btn instr" id="plNext" type="button" hidden aria-label="Next song in the playlist">⏭</button>
+    <button class="btn instr lyrbtn" id="wordsBtn" type="button" aria-pressed="false" title="Show the lyrics">Lyrics</button>
     <button class="tkchip" id="tkChip" type="button" aria-expanded="false" aria-controls="pDrawer" aria-label="Tempo and key: tap for more settings"><span id="tkText">100 bpm · C</span></button>
     <button class="icon" id="moreBtn" type="button" aria-expanded="false" aria-controls="pDrawer" aria-label="More settings" title="More settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></svg></button>
     <span hidden><b id="sAcc"></b><b id="sStreak"></b><b id="sWrong"></b></span>
@@ -571,7 +575,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" data-v="bars" aria-pressed="true">Bars</button>
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
     </div></div>
-    <div class="dgrp dicons"><div class="dcap"><button class="icon" id="wordsBtn" type="button" hidden aria-pressed="false" aria-label="Show words" title="Words on or off">Aa</button><span>Lyrics</span></div>
+    <div class="dgrp dicons">
     <div class="dcap"><button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button><span>Strum along</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
     <div class="dcap"><button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button><span>Full screen</span></div></div>
@@ -872,7 +876,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.45";
+const APP_VERSION = "1.46";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2949,7 +2953,7 @@ function updateFollow(){
 }
 function setView(v){
   store.set("dg30.view", v); setSeg("viewSeg", v);
-  const on = sheetView(); $("follow").hidden = !on; $("wordsBtn").hidden = on || !(P.lyricLines || []).length;
+  const on = sheetView(); $("follow").hidden = !on; $("wordsBtn").hidden = on;
   if (on){ FOLLOW.line = -1; buildFollow(); }
 }
 $("viewSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setView(b.dataset.v); });
@@ -4758,7 +4762,7 @@ function openPractice(id, inst){
   setBpm(store.get("dg30.tempo." + id, P.baseBpm));
   $("instrBtn").hidden = !P.origChords.length;
   updatePlaylistBar();
-  $("wordsBtn").hidden = !P.lyricLines.length;
+  $("wordsBtn").hidden = false; $("wordsBtn").classList.toggle("none", !P.lyricLines.length);
   setSeg("viewSeg", store.get("dg30.view", "bars")); FOLLOW.line = -1;
   setWords(P.lyricLines.length > 0 && store.get("dg30.words", false));
   setInstrument(P.chords.length && (inst || primaryInstr()) === "guitar" ? "guitar" : "piano", true);   // the main instrument decides, unless you picked one from the song menu
@@ -4844,7 +4848,21 @@ function setWords(on){
   $("wordsBtn").setAttribute("aria-pressed", String(P.words));
   $("wordsBtn").setAttribute("aria-label", P.words ? "Hide words and show falling notes" : "Show words instead of falling notes");
 }
-$("wordsBtn").onclick = () => { setWords(!P.words); store.set("dg30.words", P.words); };
+$("wordsBtn").onclick = async () => {
+  if (P.lyricLines && P.lyricLines.length){ setWords(!P.words); store.set("dg30.words", P.words); return; }
+  // no words yet: look them up now (your own songs), then switch them on
+  const m = P.song; if (!m) return;
+  if (m.demo){ toast("This piece has no lyrics"); return; }
+  const raw = store.get("dg30.lyrraw." + m.id, null);
+  if (raw && raw.instrumental){ toast("This song is listed as instrumental"); return; }
+  toast("Looking up the lyrics…", 2500);
+  try {
+    const r = await findLyricsFor(m);
+    if (r !== "added"){ toast(r === "instrumental" ? "This song is listed as instrumental" : "No lyrics found. Check the title and artist with Edit details."); return; }
+    const lyr = loadLyrics(m.id); P.lyricLines = buildLyricLines(lyr);
+    $("wordsBtn").classList.remove("none"); setWords(true); store.set("dg30.words", true); toast("Lyrics added", 1500);
+  } catch(e){ toast("Couldn't reach the lyrics service. Check the connection."); }
+};
 $("keyDown").onclick = () => setTranspose(P.transpose - 1);
 $("keyUp").onclick = () => setTranspose(P.transpose + 1);
 $("keyReset").onclick = () => setTranspose(0);

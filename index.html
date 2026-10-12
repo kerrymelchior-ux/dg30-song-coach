@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.72">
+<meta name="version" content="1.73">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -185,6 +185,7 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .rowacts button{display:flex;align-items:center;gap:14px;min-height:54px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font-weight:500;font-size:15.5px;padding:0 2px}
 .rowacts button svg{width:21px;height:21px;color:var(--muted);flex:none}
 .rowacts button.go svg{color:var(--accent)}
+.rowacts button.danger,.rowacts button.danger svg{color:var(--bad)}
 .rowacts small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
 /* ---------- First-run splash: pick the main instrument ---------- */
 #splash{position:fixed;inset:0;z-index:50;background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--accent) 14%,var(--panel)) 0%,var(--lacquer) 60%);overflow-y:auto;transition:opacity .35s ease}
@@ -1040,7 +1041,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.72";
+const APP_VERSION = "1.73";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -3757,6 +3758,7 @@ function songFeatures(s){
   return {chords: !!s.guitar || store.get("dg30.chords." + s.id, []).length > 0, lyrics: !!s.words || store.get("dg30.lyrics." + s.id, []).length > 0};
 }
 function openRowMenu(s){
+  let delBtn = null;                     // "Delete song" goes last in the list
   const art = $("rowArt"); art.textContent = ""; const src = songArt(s);
   if (src){ const im = document.createElement("img"); im.alt = ""; im.src = src; art.appendChild(im); } else art.textContent = "♫";
   $("rowTitle").textContent = s.title; $("rowSub").textContent = s.artist || s.by || "";
@@ -3773,6 +3775,14 @@ function openRowMenu(s){
   else {
     item("edit", "Edit details", "Name, artist, picture, key and tempo", () => openEdit(s.id));
     item("export", "Export", "Sheet music, MIDI file or reader details", () => openExport(s.id));
+    { const b = document.createElement("button"); b.type = "button"; b.className = "danger";
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+      const t = document.createElement("span"); t.textContent = "Delete song"; const sm = document.createElement("small"); sm.textContent = "Removes it and its recordings from this device"; t.appendChild(sm); b.appendChild(t);
+      b.onclick = () => {
+        if (!b.dataset.arm){ b.dataset.arm = "1"; t.firstChild.textContent = "Tap again to delete"; setTimeout(() => { if (b.isConnected){ delete b.dataset.arm; t.firstChild.textContent = "Delete song"; } }, 3000); return; }
+        $("rowDlg").close(); deleteSong(s.id); renderLibrary(); toast(`Deleted “${s.title}”`, 1800);
+      };
+      delBtn = b; }
     const raw = store.get("dg30.lyrraw." + s.id, null);
     if (f.lyrics && raw && raw.lines) item("lyrics", "Lyrics timing", "Shift or stretch the words to match", () => openLyricTiming(s));
     else if (!f.lyrics) item("lyrics", "Find lyrics", raw && raw.instrumental ? "Listed as instrumental" : "Look them up online", async () => {
@@ -3781,6 +3791,7 @@ function openRowMenu(s){
       catch(e){ toast("Couldn't reach the lyrics service. Check the connection and try again."); }
     });
   }
+  if (delBtn) acts.appendChild(delBtn);
   $("rowDlg").showModal();
 }
 $("rowClose").onclick = () => $("rowDlg").close();
@@ -4629,21 +4640,29 @@ async function restoreFrom(file){
     const b = JSON.parse(await file.text());
     if (!b || !APP_IDS.includes(b.app) || !b.data) throw new Error("That file isn't a Song Coach backup.");
     const mine = store.get("dg30.songs", []), theirs = JSON.parse(b.data["dg30.songs"] || "[]");
-    const have = new Set(mine.map(s => s.id)); let added = 0;
+    const mineById = new Map(mine.map(s => [s.id, s]));
+    const newer = new Set(theirs.filter(s => mineById.has(s.id) && (s.rev || 0) > (mineById.get(s.id).rev || 0)).map(s => s.id));
+    const have = new Set(mine.map(s => s.id).filter(id => !newer.has(id))); let added = 0, updated = 0;
+    for (const id of newer){ for (const k of ["chords", "lyrics", "tempo", "pedal", "scan"]) store.del("dg30." + k + "." + id); }
     for (const [k, v] of Object.entries(b.data)){
       if (k === "dg30.songs" || k === "dg30.playlists") continue;
-      const m = k.match(/^dg30\.[a-z]+\.(.+)$/); if (m && have.has(m[1])) continue;   // keep this device's copy of songs it already has
+      const m = k.match(/^dg30\.([a-z]+)\.(.+)$/); if (m && have.has(m[2])) continue;   // keep this device's copy of songs it already has
+      if (m && newer.has(m[2]) && ["art", "best", "transpose", "rec"].includes(m[1])) continue;   // updating a song keeps your own picture, best score and key
       let val; try { val = JSON.parse(v); } catch(e){ continue; }
       if (!(await store.setAsync(k, val)) && !/^dg30\.scan\./.test(k)) throw new Error(storageProblem());
     }
-    for (const s of theirs) if (!have.has(s.id)){ mine.push(s); added++; }
+    for (const s of theirs){
+      if (newer.has(s.id)){ const i = mine.findIndex(x => x.id === s.id); mine[i] = {...s, added: mine[i].added || s.added}; updated++; }
+      else if (!have.has(s.id)){ mine.push(s); added++; }
+    }
     store.set("dg30.songs", mine.sort((a, b) => (b.added || 0) - (a.added || 0)));
     const pls = JSON.parse(b.data["dg30.playlists"] || "[]");
     for (const p of pls) if (!PL.lists.some(x => x.id === p.id)) PL.lists.push(p);
     savePlaylists();
     renderLibrary();
-    st.textContent = added ? `Added ${added} song${added === 1 ? "" : "s"} from the backup.` : "Everything in that backup is already on this device.";
-    if (added){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true).finally(() => autoLyrics(true).finally(autoGenres)), 500); }
+    st.textContent = added || updated ? [added ? `Added ${added} song${added === 1 ? "" : "s"}` : "", updated ? `updated ${updated} with a newer version` : ""].filter(Boolean).join(" and ").replace(/^u/, "U") + " from the backup." : "Everything in that backup is already on this device.";
+    if (added || updated) toast(st.textContent, 2400);
+    if (added || updated){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true).finally(() => autoLyrics(true).finally(autoGenres)), 500); }
   } catch(e){ st.textContent = e.message || "Couldn't read that file."; }
 }
 

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.49">
+<meta name="version" content="1.50">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -876,7 +876,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.49";
+const APP_VERSION = "1.50";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2116,11 +2116,15 @@ function drawLyrics(){
   let i = -1; for (let k = 0; k < lines.length; k++){ if (lines[k].t0 <= t + 0.6) i = k; else break; }
   if (i < 0) i = 0;
   const maxW = guitar ? W * 0.46 : W - 32;
-  const size = Math.round(Math.max(24, Math.min(guitar ? 60 : 72, W / (guitar ? 20 : 17))));
   const showChords = P.chords.length > 0;
+  // big as the screen allows, but always room for the current line and the next one (so they can scroll)
+  const roomFor2 = (bottom - 60) / (showChords ? 3.55 : 2.45);
+  const size = Math.round(Math.max(20, Math.min(guitar ? 60 : 72, W / (guitar ? 20 : 17), roomFor2)));
   const lineH = size * (showChords ? 1.9 : 1.4);
   cx.save(); cx.textBaseline = "alphabetic"; cx.textAlign = "left";
-  const drawLine = (ln, yy, fs, baseAlpha, litAlpha, withChords) => {
+  const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || C.chrome;
+  // karaoke: each word fills with the highlight color, left to right, while it's sung; sung words stay lit
+  const drawLine = (ln, yy, fs, baseAlpha, litAlpha, withChords, live) => {
     if (!ln) return;
     cx.font = `600 ${fs}px ${css("--f-body")}`;
     const parts = ln.items.map((it, k) => it.text + (it.joins || k === ln.items.length - 1 ? "" : " "));
@@ -2134,8 +2138,16 @@ function drawLyrics(){
         const ch = P.chords.find(c => c.t >= it.t - 0.06 && c.t < nextT - 0.06);
         if (ch){ cx.font = `700 ${Math.round(fs * 0.62)}px ${css("--f-display")}`; cx.fillStyle = ch === P.chords[G.idx] && P.instr === "guitar" ? C.R : C.chrome; cx.globalAlpha = it.t <= t + 1 ? 1 : 0.7; const chX = Math.max(x, chEnd + fs * 0.35); if (chX < W - 8){ cx.fillText(ch.name, chX, yy - fs * 1.05); chEnd = chX + cx.measureText(ch.name).width; } cx.globalAlpha = 1; cx.font = `600 ${fs}px ${css("--f-body")}`; }
       }
-      cx.fillStyle = `rgba(255,255,255,${it.t <= t ? litAlpha : baseAlpha})`;
-      cx.fillText(parts[k], x, yy); x += widths[k];
+      if (!live){ cx.fillStyle = `rgba(255,255,255,${baseAlpha})`; cx.fillText(parts[k], x, yy); x += widths[k]; return; }
+      const wEnd = Math.min(nextT, it.t + Math.max(0.25, Math.min(1.4, nextT - it.t)));
+      const frac = it.t > t ? 0 : Math.min(1, (t - it.t) / Math.max(0.05, wEnd - it.t));
+      cx.fillStyle = `rgba(255,255,255,${baseAlpha})`; cx.fillText(parts[k], x, yy);
+      if (frac > 0){
+        const ww = cx.measureText(it.text).width;
+        cx.save(); cx.beginPath(); cx.rect(x - 2, yy - fs * 1.2, ww * frac + 2, fs * 1.6); cx.clip();
+        cx.fillStyle = accent; cx.fillText(parts[k], x, yy); cx.restore();
+      }
+      x += widths[k];
     });
   };
   // first line sits below the status message; following lines only if they fit above the keyboard or neck
@@ -2148,9 +2160,17 @@ function drawLyrics(){
   gr.addColorStop(0, "rgba(8,6,5,0.82)"); gr.addColorStop(Math.max(0, Math.min(1, yEnd / (yEnd + size))), "rgba(8,6,5,0.72)"); gr.addColorStop(1, "rgba(8,6,5,0)");
   cx.fillStyle = gr; cx.fillRect(bx, 0, bw, Math.min(yEnd + size, bottom));
   cx.shadowColor = "rgba(0,0,0,0.7)"; cx.shadowBlur = Math.round(size * 0.25); cx.shadowOffsetY = 1;
-  drawLine(lines[i], y0, size, 0.72, 1, showChords);
-  if (fits(y0 + lineH)) drawLine(lines[i + 1], y0 + lineH, Math.round(size * 0.8), 0.6, 0.6, showChords);
-  if (fits(y0 + lineH * 1.85)) drawLine(lines[i + 2], y0 + lineH * 1.85, Math.round(size * 0.68), 0.42, 0.42, false);
+  // scroll: when the line changes, the old one slides up and fades while the rest move up into place
+  const nowMs = performance.now();
+  if (P.lyrIdx !== i){ P.lyrPrev = (P.lyrIdx != null && i === P.lyrIdx + 1) ? P.lyrIdx : null; P.lyrIdx = i; P.lyrAt = nowMs; }
+  const k = Math.min(1, (nowMs - (P.lyrAt || 0)) / 380), ease = 1 - Math.pow(1 - k, 3);
+  const slide = P.lyrPrev != null ? (1 - ease) * lineH : 0;
+  cx.save(); cx.beginPath(); cx.rect(0, 0, W, Math.min(yEnd + size * 0.3, bottom)); cx.clip();
+  if (P.lyrPrev != null && k < 1){ cx.globalAlpha = 1 - ease; drawLine(lines[P.lyrPrev], y0 - ease * lineH * 0.9, size, 1, 1, false, true); cx.globalAlpha = 1; }
+  drawLine(lines[i], y0 + slide, size, 0.9, 1, showChords, true);
+  if (fits(y0 + lineH)) drawLine(lines[i + 1], y0 + lineH + slide, Math.round(size * 0.8), 0.6, 0.6, showChords, false);
+  if (fits(y0 + lineH * 1.85)) drawLine(lines[i + 2], y0 + lineH * 1.85 + slide, Math.round(size * 0.68), 0.42, 0.42, false, false);
+  cx.restore();
   cx.restore();
 }
 

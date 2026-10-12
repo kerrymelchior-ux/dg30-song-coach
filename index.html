@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.74">
+<meta name="version" content="1.75">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1041,7 +1041,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.74";
+const APP_VERSION = "1.75";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -5547,6 +5547,7 @@ function openPractice(id, inst){
   setWords(P.lyricLines.length > 0 && store.get("dg30.words", false));
   setInstrument(P.chords.length && (inst || primaryInstr()) === "guitar" ? "guitar" : "piano", true);   // the main instrument decides, unless you picked one from the song menu
   if (P.instr === "guitar" && P.autoChords) setTimeout(() => toast("Chords worked out from the notes", 2200), 400);
+  setTimeout(() => { try { touchKeysTip(); } catch(e){} }, 600);
   $("pTitle").textContent = meta.title;
   PT.loop.on = false; PT.gridFor = null; PT.lastBeat = null; loopUI();
   $("library").hidden = true; $("practice").hidden = false;
@@ -6355,6 +6356,63 @@ function toast(msg, ms){
 }
 
 /* ---------------- tabs ---------------- */
+/* ---------------- play the on-screen keyboard (when no piano is connected) ----------------
+   Each finger is treated as the oval it actually touches (phones report its size), and the key under most of
+   that oval wins. So a thick fingertip that grazes a thin black key still plays the white key it's mostly on,
+   and a finger mostly on the black key plays the black key. Several fingers at once, and sliding to the next key, work. */
+const TK = { down: new Map(), tipShown: store.get("dg30.tkTip", false) };
+function touchKeysOn(){ return practiceVisible() && P.instr !== "guitar" && !pianoReady() && L && L.keys && !(typeof RV !== "undefined" && RV.on); }
+function keyAtPoint(x, y){
+  if (y < L.hitY || y > L.hitY + L.kbH) return null;
+  const blackBottom = L.hitY + L.kbH * 0.62;
+  if (y <= blackBottom) for (const [p, k] of L.keys) if (k.black && x >= k.x && x <= k.x + k.w) return p;
+  for (const [p, k] of L.keys) if (!k.black && x >= k.x && x <= k.x + k.w) return p;
+  return null;
+}
+// sample the fingertip's oval and vote: the key under most of it wins
+function keyUnderFinger(e){
+  const r = cv.getBoundingClientRect(), cxp = e.clientX - r.left, cyp = e.clientY - r.top;
+  const w = Math.max(14, Math.min(60, e.width > 1 ? e.width : 16)), h = Math.max(18, Math.min(70, e.height > 1 ? e.height : 22));
+  const votes = new Map(); let total = 0;
+  for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++){
+    const dx = i / 3, dy = j / 3; if (dx * dx + dy * dy > 1) continue;     // inside the oval
+    const p = keyAtPoint(cxp + dx * w / 2, cyp + dy * h / 2); total++;
+    if (p != null) votes.set(p, (votes.get(p) || 0) + 1);
+  }
+  let best = null, bv = 0; for (const [p, v] of votes) if (v > bv){ bv = v; best = p; }
+  if (best == null) return null;
+  const k = L.keys.get(best), top = L.hitY, depth = k.black ? L.kbH * 0.62 : L.kbH;
+  const vel = Math.round(58 + 64 * Math.max(0, Math.min(1, (cyp - top) / depth)));   // further down the key plays a little louder, like pressing deeper
+  return {p: best, share: bv / Math.max(1, total), vel};
+}
+function tkPress(p, v){
+  if (conn.outMode !== "off" && conn.outMode !== "phone") synthOn(p, v);   // onKeyDown already sounds it when "phone" is chosen
+  onKeyDown(p, v, false);
+}
+function tkRelease(p){
+  if (conn.outMode !== "off" && conn.outMode !== "phone") synthOff(p);
+  onKeyUp(p);
+}
+cv.addEventListener("pointerdown", e => {
+  if (!touchKeysOn()) return;
+  const hit = keyUnderFinger(e); if (!hit) return;
+  e.preventDefault(); audioCtx();
+  try { cv.setPointerCapture(e.pointerId); } catch(x){}
+  TK.down.set(e.pointerId, hit.p); tkPress(hit.p, hit.vel);
+});
+cv.addEventListener("pointermove", e => {
+  const cur = TK.down.get(e.pointerId); if (cur == null || !touchKeysOn()) return;
+  const hit = keyUnderFinger(e); if (!hit || hit.p === cur || hit.share < 0.6) return;    // slide to the next key once you're clearly on it
+  tkRelease(cur); TK.down.set(e.pointerId, hit.p); tkPress(hit.p, hit.vel);
+});
+const tkUp = e => { const cur = TK.down.get(e.pointerId); if (cur == null) return; TK.down.delete(e.pointerId); tkRelease(cur); };
+cv.addEventListener("pointerup", tkUp); cv.addEventListener("pointercancel", tkUp); cv.addEventListener("lostpointercapture", tkUp);
+function touchKeysTip(){
+  if (TK.tipShown || !touchKeysOn()) return;
+  TK.tipShown = true; store.set("dg30.tkTip", true);
+  setTimeout(() => toast("No piano connected: tap the keys on the screen to play along", 2600), 900);
+}
+
 /* ---------------- staying up to date ----------------
    Looks for a newer version on GitHub when the app opens, when you come back to it, and every 30 minutes.
    It never interrupts: the update waits until you're moving around the app with nothing going on (not practicing,

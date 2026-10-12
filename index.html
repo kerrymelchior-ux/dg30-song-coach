@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.76">
+<meta name="version" content="1.77">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -552,8 +552,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <p>Play on your piano or on the keys on screen, and Song Coach writes the sheet music as you go. Save it and it joins your library as an original, signed with your name.</p>
     <div class="field"><label class="label" for="wrTitle">Name of your piece</label><input id="wrTitle" type="text" placeholder="My first song" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
     <div class="row" style="gap:12px">
-      <label class="label" style="display:flex;flex-direction:column;gap:4px">Tempo <select id="wrBpm"><option>60</option><option>72</option><option>80</option><option selected>90</option><option>100</option><option>110</option><option>120</option><option>140</option></select></label>
-      <label class="label" style="display:flex;flex-direction:column;gap:4px">Time <select id="wrSig"><option value="4/4" selected>4/4</option><option value="3/4">3/4 (waltz)</option><option value="6/8">6/8</option><option value="2/4">2/4</option></select></label>
+      <label class="label" style="display:flex;flex-direction:column;gap:4px">Tempo (optional) <select id="wrBpm"><option value="auto" selected>Auto — follows how you play</option><option>60</option><option>72</option><option>80</option><option>90</option><option>100</option><option>110</option><option>120</option><option>140</option></select></label>
+      <label class="label" style="display:flex;flex-direction:column;gap:4px">Time (optional) <select id="wrSig"><option value="auto" selected>Auto — worked out from your playing</option><option value="4/4">4/4</option><option value="3/4">3/4 (waltz)</option><option value="6/8">6/8</option><option value="2/4">2/4</option></select></label>
     </div>
     <div class="row"><button class="btn primary" id="wrStart" type="button">Start writing</button></div>
     <div id="wrList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -1096,7 +1096,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.76";
+const APP_VERSION = "1.77";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -6189,7 +6189,7 @@ function favButton(id, label, after){
   return b;
 }
 const SORTS = {
-  mine: [["recent","Recently added"],["played","Recently played"],["unplayed","Not played lately"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  mine: [["recent","Recently added"],["played","Recently played"],["unplayed","Not played lately"],["az","A–Z"],["fav","Favorites"],["mine","My own music"],["artist","Artist"],["genre","Genre"]],
   samples: [["recent","Default order"],["played","Recently played"],["unplayed","Not played lately"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   recordings: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   playlists: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["size","Most songs"]]
@@ -6222,6 +6222,7 @@ function sortItems(list, mode, get){
     items.sort((a, b) => (when(a) - when(b)) || cmpText(title(a), title(b)));
     key = x => { const t = when(x); return !t ? "Never played" : t < now - 30 * day ? "Over a month ago" : t < now - 7 * day ? "Over a week ago" : "This week"; };
   }
+  else if (mode === "mine"){ const own = x => !!g(x).composed; items.sort((a, b) => (own(b) - own(a)) || cmpText(title(a), title(b))); key = x => own(x) ? "My own music" : "Everything else"; }
   else if (mode === "size") items.sort((a, b) => (b.songs || []).length - (a.songs || []).length);
   if (!key) return items.map(item => ({item}));
   const out = []; let last = null;
@@ -6535,28 +6536,30 @@ function toast(msg, ms){
    and a finger mostly on the black key plays the black key. Several fingers at once, and sliding to the next key, work. */
 const TK = { down: new Map(), tipShown: store.get("dg30.tkTip", false) };
 function touchKeysOn(){ return practiceVisible() && P.instr !== "guitar" && !pianoReady() && L && L.keys && !(typeof RV !== "undefined" && RV.on); }
-function keyAtPoint(x, y){
-  if (y < L.hitY || y > L.hitY + L.kbH) return null;
-  const blackBottom = L.hitY + L.kbH * 0.62;
-  if (y <= blackBottom) for (const [p, k] of L.keys) if (k.black && x >= k.x && x <= k.x + k.w) return p;
+/* Where the finger lands up and down decides black or white, the way you actually play:
+   black keys are pressed in the upper part of the keyboard, white keys down in the front where only white is.
+   So anywhere in the upper part, a touch near a black key plays that black key (with generous room each side);
+   in the front part it's always a white key. */
+const TK_BLACK_ZONE = 0.68;   // top 68% of the keyboard height
+function keyAtPoint(x, y, loose){
+  if (y < L.hitY - (loose ? 16 : 0) || y > L.hitY + L.kbH) return null;
+  if (y <= L.hitY + L.kbH * (loose ? TK_BLACK_ZONE : 0.62)){
+    let best = null, bd = Infinity;
+    for (const [p, k] of L.keys) if (k.black){
+      const d = Math.abs(x - (k.x + k.w / 2)), reach = loose ? L.ww * 0.4 : k.w / 2;   // drawn half-width is 0.3 of a white key
+      if (d <= reach && d < bd){ bd = d; best = p; }
+    }
+    if (best != null) return best;
+  }
   for (const [p, k] of L.keys) if (!k.black && x >= k.x && x <= k.x + k.w) return p;
   return null;
 }
-// sample the fingertip's oval and vote: the key under most of it wins
 function keyUnderFinger(e){
   const r = cv.getBoundingClientRect(), cxp = e.clientX - r.left, cyp = e.clientY - r.top;
-  const w = Math.max(14, Math.min(60, e.width > 1 ? e.width : 16)), h = Math.max(18, Math.min(70, e.height > 1 ? e.height : 22));
-  const votes = new Map(); let total = 0;
-  for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++){
-    const dx = i / 3, dy = j / 3; if (dx * dx + dy * dy > 1) continue;     // inside the oval
-    const p = keyAtPoint(cxp + dx * w / 2, cyp + dy * h / 2); total++;
-    if (p != null) votes.set(p, (votes.get(p) || 0) + 1);
-  }
-  let best = null, bv = 0; for (const [p, v] of votes) if (v > bv){ bv = v; best = p; }
-  if (best == null) return null;
-  const k = L.keys.get(best), top = L.hitY, depth = k.black ? L.kbH * 0.62 : L.kbH;
+  const best = keyAtPoint(cxp, cyp, true); if (best == null) return null;
+  const k = L.keys.get(best), top = L.hitY, depth = k.black ? L.kbH * TK_BLACK_ZONE : L.kbH;
   const vel = Math.round(58 + 64 * Math.max(0, Math.min(1, (cyp - top) / depth)));   // further down the key plays a little louder, like pressing deeper
-  return {p: best, share: bv / Math.max(1, total), vel};
+  return {p: best, vel, x: cxp};
 }
 function tkPress(p, v){
   if (conn.outMode !== "off" && conn.outMode !== "phone") synthOn(p, v);   // onKeyDown already sounds it when "phone" is chosen
@@ -6575,7 +6578,8 @@ cv.addEventListener("pointerdown", e => {
 });
 cv.addEventListener("pointermove", e => {
   const cur = TK.down.get(e.pointerId); if (cur == null || !touchKeysOn()) return;
-  const hit = keyUnderFinger(e); if (!hit || hit.p === cur || hit.share < 0.6) return;    // slide to the next key once you're clearly on it
+  const hit = keyUnderFinger(e); if (!hit || hit.p === cur) return;
+  { const k = L.keys.get(cur), c = k.x + k.w / 2; if (Math.abs(hit.x - c) < L.ww * 0.45) return; }    // slide to the next key once you're clearly off this one
   tkRelease(cur); TK.down.set(e.pointerId, hit.p); tkPress(hit.p, hit.vel);
 });
 const tkUp = e => { const cur = TK.down.get(e.pointerId); if (cur == null) return; TK.down.delete(e.pointerId); tkRelease(cur); };
@@ -6607,9 +6611,12 @@ function compRefresh(){
 function openCompose(fromId){
   const ex = fromId ? songById(fromId) : null;
   COMP.title = ex ? ex.title : ($("wrTitle").value.trim() || `My song ${store.get("dg30.songs", []).filter(x => x.composed).length + 1}`);
-  COMP.sig = ex ? (ex.timeLabel || "4/4") : $("wrSig").value;
+  const sigSel = $("wrSig").value, bpmSel = $("wrBpm").value;
+  COMP.autoSig = COMP.autoSig0 = !ex && sigSel === "auto"; COMP.autoBpm = !ex && bpmSel === "auto";
+  COMP.sig = ex ? (ex.timeLabel || "4/4") : COMP.autoSig ? "4/4" : sigSel;
   COMP.beats = {"4/4": 4, "3/4": 3, "6/8": 3, "2/4": 2}[COMP.sig] || 4;
-  COMP.bpm = ex ? (ex.bpm || 90) : +$("wrBpm").value || 90;
+  COMP.bpm = ex ? (ex.bpm || 90) : COMP.autoBpm ? 90 : +bpmSel || 90;
+  COMP.free = COMP.autoBpm;   // no tempo yet: no count-in or click, the clock starts on your first note
   COMP.notes = ex ? loadNotes(fromId).map(n => ({t: n.t, d: n.d, p: n.p, v: n.v || 80})) : [];
   COMP.held.clear(); COMP.takes = []; COMP.rec = false; COMP.dirty = false; COMP.savedId = ex ? fromId : null; COMP.on = true;
   P.song = {id: "compose", title: COMP.title, bpm: COMP.bpm, beats: COMP.beats, timeLabel: COMP.sig};
@@ -6636,6 +6643,10 @@ function compStartRec(){
   const bl = compBarLen(), last = COMP.notes.reduce((m, n) => Math.max(m, n.t + (n.d || 0)), 0);
   COMP.offset = COMP.notes.length ? Math.ceil((last + 0.05) / bl) * bl : 0;   // keep writing from the next bar
   COMP.takes.push(COMP.notes.length);
+  if (COMP.free){   // your tempo: start the moment you play
+    COMP.rec = true; COMP.waitFirst = true; COMP.t0 = performance.now(); COMP.lastBeat = 0; syncCompBar(); FOLLOW.key = null; buildFollow();
+    toast(COMP.notes.length ? "Play when you're ready" : "Play at your own speed. Tap Stop when you're done and I'll write it out", 2600); return;
+  }
   // one bar of clicks, then go
   const beat = 60 / COMP.bpm, a = audioCtx(), t0 = a.currentTime + 0.08;
   for (let j = 0; j < COMP.beats; j++) click(j === 0, t0 + j * beat);
@@ -6646,13 +6657,16 @@ function compStopRec(){
   if (!COMP.rec && COMP.countUntil > performance.now()){ COMP.countUntil = 0; COMP.takes.pop(); $("countNum").hidden = true; syncCompBar(); return; }
   const now = compNow();
   for (const [p, n] of COMP.held){ n.d = Math.max(0.05, now - n.t); }
-  COMP.held.clear(); COMP.rec = false;
+  COMP.held.clear(); COMP.rec = false; COMP.waitFirst = false;
   if (COMP.takes.length && COMP.notes.length === COMP.takes[COMP.takes.length - 1]) COMP.takes.pop();   // nothing was played
+  if ((COMP.free || COMP.autoSig) && COMP.notes.length) compFitTiming();
   compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar();
 }
 function compKey(p, v, down){
   if (!COMP.rec) return;
+  if (down && COMP.waitFirst){ COMP.waitFirst = false; COMP.t0 = performance.now(); }   // free time: this note is the start
   const t = compNow();
+  if (!down && COMP.waitFirst) return;
   if (down){ const n = {t, d: null, p, v: Math.max(30, Math.min(127, v || 80))}; COMP.notes.push(n); COMP.held.set(p, n); COMP.dirty = true; }
   else { const n = COMP.held.get(p); if (n){ n.d = Math.max(0.05, t - n.t); COMP.held.delete(p); } }
 }
@@ -6667,17 +6681,52 @@ function compStep(now){
   const t = compNow(); P.t = t;
   // the click keeps going while you record
   const beat = 60 / COMP.bpm, k = Math.floor((t - COMP.offset) / beat + 1e-6);
-  if (k !== COMP.lastBeat){ COMP.lastBeat = k; if (COMP.metro && k > 0) click(k % COMP.beats === 0); }
+  if (k !== COMP.lastBeat){ COMP.lastBeat = k; if (COMP.metro && k > 0 && !COMP.free && !COMP.waitFirst) click(k % COMP.beats === 0); }
   // redraw the score a few times a second (and right away when notes are added)
   if (now - COMP.lastBuild > 450 && (COMP.held.size || COMP.notes.length !== COMP.shown)){ COMP.lastBuild = now; COMP.shown = COMP.notes.length; compRefresh(); buildFollow(); }
 }
+/* Free time: after you stop, work out the beat and the meter from what you played and write the score to fit.
+   The tempo is the steadiest pulse in your notes, nudged until the notes sit best on the beat grid; 3 vs 4 comes from
+   where the stronger, lower and longer notes fall. The first note is beat one. */
+function compFitTiming(){
+  const first = COMP.notes.length && COMP.takes.length <= 1;   // only the first take sets the tempo; later takes follow it
+  if (!first) return;
+  const ns = COMP.notes.filter(n => n.d != null);
+  if (ns.length < 2) return;
+  const fit = COMP.free;
+  if (fit){ const t0 = Math.min(...ns.map(n => n.t)); for (const n of COMP.notes) n.t -= t0; }
+  // onsets (chords count once, with their weight)
+  const on = []; for (const n of ns.slice().sort((a, b) => a.t - b.t)){ const o = on[on.length - 1];
+    const w = (n.v || 80) / 127 + (n.p < 55 ? 0.5 : 0) + Math.min(1, (n.d || 0) / 1.2);
+    if (o && n.t - o.t < 0.06) o.w += w * 0.6; else on.push({t: n.t, w}); }
+  let bpm = COMP.bpm;
+  if (!fit){} else if (on.length >= 8) bpm = estimateTempo(ns);
+  else { const g = []; for (let i = 1; i < on.length; i++) if (on[i].t - on[i-1].t > 0.12) g.push(on[i].t - on[i-1].t); g.sort((a, b) => a - b); bpm = g.length ? 60 / g[g.length >> 1] : 90; }
+  if (fit){
+  while (bpm < 55) bpm *= 2; while (bpm > 170) bpm /= 2;
+  // fine-tune: the tempo where notes land closest to eighth notes (error measured in grid units, so it doesn't favour fast tempos)
+  const fitErr = b => { const g = 60 / b / 2; let e = 0; for (const o of on){ const x = o.t / g; e += Math.pow(x - Math.round(x), 2); } return e; };
+  let bb = bpm, be = fitErr(bpm); for (let b = bpm * 0.92; b <= bpm * 1.08; b += 0.25){ const e = fitErr(b); if (e < be - 1e-9){ be = e; bb = b; } }
+  bpm = Math.max(40, Math.min(200, Math.round(bb)));
+  COMP.bpm = bpm; }
+  if (COMP.autoSig){
+    const beat = 60 / bpm, score = n => { let down = 0, nd = 0, all = 0, na = 0;
+      for (const o of on){ const x = (o.t - on[0].t) / beat, k = Math.round(x); if (Math.abs(x - k) > 0.2) continue; all += o.w; na++; if (k % n === 0){ down += o.w; nd++; } }
+      return nd && na ? (down / nd) / (all / na) : 0; };
+    const s3 = score(3), s4 = score(4), span = (on[on.length - 1].t - on[0].t) / beat;
+    COMP.sig = span >= 9 && s3 > s4 * 1.2 ? "3/4" : "4/4"; COMP.beats = COMP.sig === "3/4" ? 3 : 4; COMP.autoSig = false;   // 4/4 unless the waltz feel is clear
+  }
+  COMP.free = false;   // the tempo is set now; "Record more" counts you in at it
+  P.song.bpm = COMP.bpm; P.song.beats = COMP.beats; P.song.timeLabel = COMP.sig; P.baseBpm = COMP.bpm;
+  toast(fit ? `Wrote it out at ${COMP.bpm} BPM in ${COMP.sig}` : `Wrote it out in ${COMP.sig}`, 2400);
+}
 $("cRec").onclick = () => { if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
 $("cMetro").onclick = () => { COMP.metro = !COMP.metro; store.set("dg30.compMetro", COMP.metro); syncCompBar(); };
-$("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; COMP.notes.length = k; COMP.dirty = true; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last recording", 1400); };
+$("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; COMP.notes.length = k; COMP.dirty = true; if (!k){ COMP.free = COMP.autoBpm; COMP.autoSig = COMP.autoSig0; } COMP.autoSig = COMP.autoSig0; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last recording", 1400); };
 $("cClear").onclick = () => {
   const b = $("cClear"); if (!b.dataset.arm){ b.dataset.arm = "1"; b.textContent = "Sure?"; setTimeout(() => { delete b.dataset.arm; b.textContent = "Clear"; }, 2500); return; }
   delete b.dataset.arm; b.textContent = "Clear"; if (COMP.rec) compStopRec();
-  COMP.notes = []; COMP.takes = []; COMP.dirty = true; compRefresh(); P.t = 0; FOLLOW.key = null; buildFollow(); syncCompBar();
+  COMP.notes = []; COMP.takes = []; COMP.dirty = true; COMP.free = COMP.autoBpm; compRefresh(); P.t = 0; FOLLOW.key = null; buildFollow(); syncCompBar();
 };
 $("cSave").onclick = () => { if (COMP.rec) compStopRec(); if (!COMP.notes.length) return; $("cTitle").value = COMP.title; $("cBy").value = userName() || ""; $("compDlg").showModal(); };
 $("cCancel").onclick = () => $("compDlg").close();

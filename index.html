@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.68">
+<meta name="version" content="1.69">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -608,7 +608,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div>Turn your phone sideways for the widest keyboard.</div>
     <div class="label" style="margin-top:10px" id="verLabel"></div>
     <small style="color:var(--muted)">© 2026 Kerry E. Melchior II. All rights reserved.</small>
-    <small style="color:var(--muted)">Sounds: grand piano from the Salamander Grand Piano by Alexander Holm (CC BY 3.0). Guitars and the other phone pianos from the FluidR3 GM sound set by Frank Wen (CC BY 3.0), via midi-js-soundfonts by Benjamin Gleitzman. Sheet music drawn with abcjs.</small>
+    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Guitars and the other phone pianos from the Musyng Kite sound set (CC BY-SA 3.0), with the FluidR3 GM set by Frank Wen (CC BY 3.0) as a backup, via midi-js-soundfonts by Benjamin Gleitzman. Sheet music drawn with abcjs.</small>
   </section>
   </div>
 </main>
@@ -1015,7 +1015,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.68";
+const APP_VERSION = "1.69";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1357,30 +1357,40 @@ const PIANO_SRC = [
   {base:"https://tonejs.github.io/audio/salamander/", name:(L, o) => L.replace("#", "s") + o + ".mp3"},
   {base:"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/acoustic_grand_piano-mp3/", name:(L, o) => ({"C":"C","D#":"Eb","F#":"Gb","A":"A"})[L] + o + ".mp3"}
 ];
-const grand = { want: ["grand","bright","honky","epiano","fm","simple"].includes(store.get("dg30.phoneSound", "grand")) ? store.get("dg30.phoneSound", "grand") : "grand", bufs: new Map(), state: "idle", loading: null, bus: null };
+// The concert grand is recorded at three strengths (soft, medium, loud), so soft playing sounds soft and
+// hard playing sounds bright, like a real piano, instead of one recording made quieter or louder.
+const LAYER_SRC = v => ({base: `https://cdn.jsdelivr.net/npm/@audio-samples/piano-mp3-velocity${v}@1.0.5/audio/`, name: (L, o) => encodeURIComponent(L + o + "v" + v) + ".mp3"});
+const LAYERS = [{key: "mid", v: 8, center: 0.6}, {key: "soft", v: 4, center: 0.3}, {key: "loud", v: 14, center: 0.92}];
+const grand = { layers: {}, want: ["grand","bright","honky","epiano","fm","simple"].includes(store.get("dg30.phoneSound", "grand")) ? store.get("dg30.phoneSound", "grand") : "grand", bufs: new Map(), state: "idle", loading: null, bus: null };
 function grandNotes(){ const out = []; for (let p = 21; p <= 108; p += 3) out.push(p); return out.sort((a, b) => Math.abs(a - 62) - Math.abs(b - 62)); }
 function loadGrand(){
   if (grand.loading) return grand.loading;
   grand.state = "loading"; showPhoneSound();
   grand.loading = (async () => {
     const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-piano"); } catch(e){}
-    const queue = grandNotes();
-    const one = async p => {
-      const L = {0:"C", 3:"D#", 6:"F#", 9:"A"}[p % 12], o = Math.floor(p / 12) - 1;
-      for (const src of PIANO_SRC){
-        const url = src.base + src.name(L, o);
-        try {
-          let res = cache ? await cache.match(url).catch(() => null) : null;
-          if (!res){ res = await fetch(url, {mode:"cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
-          const full = await a.decodeAudioData(await res.arrayBuffer());
-          grand.bufs.set(p, trimSample(a, full, p < 48 ? 9 : p < 72 ? 7 : 4.5));
-          return;
-        } catch(e){ /* try the next source */ }
-      }
-    };
-    const workers = Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); });
-    await Promise.all(workers);
-    grand.state = grand.bufs.size >= 24 ? "ready" : grand.bufs.size ? "partial" : "failed";
+    // medium first (playable sooner), then soft and loud
+    for (const layer of LAYERS){
+      const map = grand.layers[layer.key] || (grand.layers[layer.key] = new Map());
+      const srcs = layer.key === "mid" ? [LAYER_SRC(layer.v), ...PIANO_SRC] : [LAYER_SRC(layer.v)];
+      const queue = grandNotes(), mid = layer.key === "mid";
+      const one = async p => {
+        const L = {0:"C", 3:"D#", 6:"F#", 9:"A"}[p % 12], o = Math.floor(p / 12) - 1;
+        for (const src of srcs){
+          const url = src.base + src.name(L, o);
+          try {
+            let res = cache ? await cache.match(url).catch(() => null) : null;
+            if (!res){ res = await fetch(url, {mode:"cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
+            const full = await a.decodeAudioData(await res.arrayBuffer());
+            map.set(p, trimSample(a, full, mid ? (p < 48 ? 9 : p < 72 ? 7 : 4.5) : (p < 48 ? 6 : p < 72 ? 5 : 3.5)));
+            if (mid) grand.bufs.set(p, map.get(p));
+            return;
+          } catch(e){ /* try the next source */ }
+        }
+      };
+      const workers = Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); });
+      await Promise.all(workers);
+      if (mid){ grand.state = grand.bufs.size >= 24 ? "ready" : grand.bufs.size ? "partial" : "failed"; showPhoneSound(); if (grand.state === "failed") break; }
+    }
     if (grand.state === "failed") grand.loading = null;     // try again next time
     showPhoneSound();
   })();
@@ -1405,13 +1415,28 @@ function grandBus(a){
   return grand.bus = bus;
 }
 function grandOn(p, v, bufs){
-  let best = null; for (const [sp, buf] of (bufs || grand.bufs)){ if (!best || Math.abs(sp - p) < Math.abs(best.p - p)) best = {p: sp, buf}; }
+  const vel = Math.max(0.05, v / 127);
+  // the concert grand: use the recording made at about this strength (soft, medium or loud)
+  let layer = null;
+  if (!bufs && grand.layers){
+    const want = vel < 0.45 ? "soft" : vel < 0.8 ? "mid" : "loud", L0 = LAYERS.find(x => x.key === want);
+    if (grand.layers[want] && grand.layers[want].size >= 24) layer = L0;
+  }
+  const pool = bufs || (layer ? grand.layers[layer.key] : grand.bufs);
+  let best = null; for (const [sp, buf] of pool){ if (!best || Math.abs(sp - p) < Math.abs(best.p - p)) best = {p: sp, buf}; }
   if (!best || Math.abs(best.p - p) > 7) return false;
-  const a = audioCtx(), t = a.currentTime, vel = Math.max(0.05, v / 127);
+  const a = audioCtx(), t = a.currentTime;
   const src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
   src.buffer = best.buf; src.playbackRate.value = Math.pow(2, (p - best.p) / 12);
-  lp.type = "lowpass"; lp.frequency.value = 900 + 15000 * vel * vel;         // soft notes are darker, like a real piano
-  g.gain.value = 1.1 * Math.pow(vel, 1.5);
+  lp.type = "lowpass";
+  if (layer){          // the recording already has the right tone for its strength; just shade between strengths
+    const rel = vel / layer.center;
+    lp.frequency.value = Math.min(18000, 3500 + 14000 * Math.min(1, vel * 1.1));
+    g.gain.value = (layer.key === "soft" ? 1.5 : layer.key === "loud" ? 0.9 : 1.05) * Math.pow(Math.max(0.2, Math.min(1.6, rel)), 1.1);
+  } else {
+    lp.frequency.value = 900 + 15000 * vel * vel;         // soft notes are darker, like a real piano
+    g.gain.value = 1.1 * Math.pow(vel, 1.5);
+  }
   src.connect(lp); lp.connect(g); g.connect(grandBus(a)); src.start(t);
   synthOff(p); synthVoices.set(p, {g, srcs:[src]});
   return true;
@@ -1783,7 +1808,7 @@ async function pickInstr(k){
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
     allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel();
-    if (k === "grand") await loadGrand(); else if (GS[k]) await loadGuitar(k);
+    if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (GS[k]) await loadGuitar(k);
     if (grand.want !== k || !$("instDlg").open) return;
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
@@ -2057,14 +2082,14 @@ function loadGuitar(kind){
     const N = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
     const queue = []; if (gtr) for (let p = 40; p <= 88; p += 3) queue.push(p); else { for (let p = 21; p <= 108; p += 3) queue.push(p); queue.sort((x, y) => Math.abs(x - 62) - Math.abs(y - 62)); }
     g.total = queue.length;
-    const bases = ["https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/", "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/"];
+    const bases = ["https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/", "https://gleitz.github.io/midi-js-soundfonts/MusyngKite/", "https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/", "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/"];
     const one = async p => {
       for (const base of bases){
         const url = `${base}${GTR_FILES[kind]}-mp3/${N[p % 12]}${Math.floor(p / 12) - 1}.mp3`;
         try {
           let res = cache ? await cache.match(url).catch(() => null) : null;
           if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
-          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), gtr ? (p < 52 ? 4.5 : 3.5) : (p < 48 ? 7 : p < 72 ? 5.5 : 4)));
+          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), gtr ? (p < 52 ? 6 : p < 64 ? 5 : 4) : (p < 48 ? 7 : p < 72 ? 5.5 : 4)));
           return;
         } catch(e){}
       }

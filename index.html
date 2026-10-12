@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.61">
+<meta name="version" content="1.62">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -226,7 +226,10 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 #follow{position:absolute;left:0;right:0;top:0;overflow-y:auto;background:#fbf7ee;color:#1a1714;-webkit-overflow-scrolling:touch}
 #followInner{position:relative;padding:6px 8px 40px}
 #followHi{display:none!important}
-#followCur{position:absolute;width:3px;background:#e0573f;border-radius:2px;box-shadow:0 0 8px rgba(224,87,63,.7);pointer-events:none}
+#followCur{display:none!important}
+#followGlow{position:absolute;inset:0;pointer-events:none}
+#followGlow i{position:absolute;border-radius:9px;background:rgba(232,98,60,.22);box-shadow:0 0 0 2px rgba(232,98,60,.45),0 0 14px rgba(232,98,60,.55)}
+#followSvg .fnow,#followSvg .fnow path{fill:#d8432a!important;stroke:#d8432a}
 #followSvg svg{display:block}
 #follow .msg{padding:24px;color:#6b6157;text-align:center}
 #banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,17,15,.85);border:1px solid var(--line);font-size:13px;font-weight:500;white-space:nowrap;pointer-events:none}
@@ -686,7 +689,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
   <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -983,7 +986,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.61";
+const APP_VERSION = "1.62";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -3192,7 +3195,7 @@ async function buildFollow(){
     const lines = {}; boxes.forEach(b => { if (!b) return; const L0 = lines[b.line] || (lines[b.line] = {y0: 1e9, y1: -1e9}); L0.y0 = Math.min(L0.y0, b.y0); L0.y1 = Math.max(L0.y1, b.y1); });
     boxes.forEach(b => { if (b){ b.y0 = lines[b.line].y0 - 4; b.y1 = lines[b.line].y1 + 4; } });
     // where each note sits inside its bar, so the line moves from note to note in time with the music
-    const anchors = [];
+    const anchors = [], lit = [];
     for (let i = 0; i < ms.length; i++){
       const b = boxes[i]; if (!b){ anchors[i] = null; continue; }
       const mid = (b.y0 + b.y1) / 2, groups = {};
@@ -3201,16 +3204,21 @@ async function buildFollow(){
         const dm = c.match(/abcjs-d(\d+)(?:-(\d+))?/); if (!dm) return;
         const r = e.getBoundingClientRect(), vm = c.match(/abcjs-v(\d+)/);
         const g = (r.height ? (r.top + r.height / 2 - ref.top < mid ? "t" : "b") : "x") + (vm ? vm[1] : "0");
-        (groups[g] || (groups[g] = [])).push({x: r.width ? r.left - ref.left + Math.min(r.width / 2, 7) : null, d: parseFloat(dm[1] + "." + (dm[2] || "0")), rest: /abcjs-rest/.test(c)});
+        (groups[g] || (groups[g] = [])).push({x: r.width ? r.left - ref.left + Math.min(r.width / 2, 7) : null, d: parseFloat(dm[1] + "." + (dm[2] || "0")), rest: /abcjs-rest/.test(c),
+          el: e, box: r.width ? {x: r.left - ref.left, y: r.top - ref.top, w: r.width, h: r.height} : null});
       });
-      const pts = [];
-      for (const arr of Object.values(groups)){ let q = 0; for (const n of arr){ if (n.x != null && !n.rest) pts.push({f: q * 4 / (ms[i].beats || 4), x: n.x}); q += n.d; } }
+      const pts = [], here = [];
+      for (const arr of Object.values(groups)){ let q = 0; for (const n of arr){ const per = 4 / (ms[i].beats || 4);
+        if (n.x != null && !n.rest){ pts.push({f: q * per, x: n.x}); here.push({el: n.el, box: n.box, f0: q * per, f1: (q + n.d) * per}); }
+        q += n.d; } }
+      lit[i] = here;
       pts.sort((a, c) => a.f - c.f || a.x - c.x);
       const clean = [];
       for (const p of pts){ if (p.f >= 0.999) continue; const l = clean[clean.length - 1]; if (l && (Math.abs(l.f - p.f) < 1e-6 || p.x <= l.x)) continue; clean.push(p); }
       anchors[i] = clean;
     }
-    Object.assign(FOLLOW, {key, boxes, anchors, starts, lens: ms.map(m => m.beats * 60 / (m.bpm || bpm)), line: -1});
+    $("followGlow").textContent = ""; FOLLOW.on = [];
+    Object.assign(FOLLOW, {key, boxes, anchors, lit, starts, lens: ms.map(m => m.beats * 60 / (m.bpm || bpm)), line: -1});
   } catch(e){
     console.warn("sheet view", e);
     svgBox.innerHTML = window.ABCJS ? '<p class="msg">This song couldn\'t be drawn as sheet music. Switch back to Bars.</p>' : '<p class="msg">The sheet music needs the internet the first time, to load the music-drawing tool. Connect and try again, or switch back to Bars.</p>';
@@ -3232,6 +3240,17 @@ function updateFollow(){
   const A = pts[k], B = pts[Math.min(k + 1, pts.length - 1)];
   const lx = B.f > A.f ? A.x + (B.x - A.x) * (frac - A.f) / (B.f - A.f) : A.x;
   Object.assign(cur.style, {left: lx + "px", top: b.y0 + "px", height: b.y1 - b.y0 + "px"});
+  // light up the notes sounding right now (in Wait mode, the ones to play next)
+  const eps = 0.035 / (FOLLOW.lens[i] || 1);
+  const now = ((FOLLOW.lit && FOLLOW.lit[i]) || []).filter(n => n.f0 <= frac + eps && frac < n.f1 - eps / 2);
+  const was = FOLLOW.on || [];
+  if (now.length !== was.length || now.some((n, k) => n !== was[k])){
+    was.forEach(n => n.el.classList.remove("fnow")); now.forEach(n => n.el.classList.add("fnow"));
+    const glow = $("followGlow"); glow.textContent = "";
+    for (const n of now){ if (!n.box) continue; const d = document.createElement("i");
+      Object.assign(d.style, {left: n.box.x - 4 + "px", top: n.box.y - 4 + "px", width: n.box.w + 8 + "px", height: n.box.h + 8 + "px"}); glow.appendChild(d); }
+    FOLLOW.on = now;
+  }
   if (b.line !== FOLLOW.line){                       // a new line of music: scroll it near the top
     FOLLOW.line = b.line;
     box.scrollTo({top: Math.max(0, b.y0 - 12), behavior: P.playing ? "smooth" : "auto"});

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.50">
+<meta name="version" content="1.51">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -210,7 +210,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 #banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,17,15,.85);border:1px solid var(--line);font-size:13px;font-weight:500;white-space:nowrap;pointer-events:none}
 #banner.tap{pointer-events:auto;cursor:pointer;border-color:var(--chrome)}
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
-.scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
+.scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);cursor:pointer;animation:toastIn .15s ease-out;background:var(--ivory);color:var(--lacquer);padding:10px 16px;border-radius:14px;font-weight:600;z-index:50;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.45);text-align:center}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-50%)}}
@@ -311,6 +311,21 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .snd:hover{background:var(--lacquer)}
 .snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
 
+/* practice tools: loop band on the progress bar, count-in, metronome, speed trainer */
+.loopbtn{flex:none;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 9px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px;color:var(--ivory)}
+.loopbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--lacquer)}
+.seekwrap{position:relative;flex:1;display:flex;align-items:center;min-width:0}
+.seekwrap #seek{width:100%}
+#loopBand{position:absolute;top:50%;height:22px;transform:translateY(-50%);background:color-mix(in srgb,var(--accent) 28%,transparent);border-left:2px solid var(--accent);border-right:2px solid var(--accent);border-radius:4px;pointer-events:none}
+.lh{position:absolute;top:50%;width:14px;height:34px;margin-top:-17px;border-radius:5px;background:var(--accent);border:2px solid var(--ivory);pointer-events:auto;touch-action:none;cursor:ew-resize}
+.lh::before{content:"";position:absolute;inset:-10px -14px}      /* a bigger area to grab with a finger */
+#loopA{left:-8px}#loopB{right:-8px}
+#countNum{position:absolute;inset:0;display:grid;place-items:center;z-index:8;pointer-events:none;font:700 min(34vh,180px)/1 var(--f-display);color:var(--ivory);text-shadow:0 6px 30px rgba(0,0,0,.6)}
+.ptools{display:flex;gap:8px;flex-wrap:wrap}
+.ptool{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px;color:var(--muted)}
+.ptool[aria-pressed="true"]{background:var(--ivory);border-color:var(--ivory);color:var(--lacquer)}
+.trainset{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:4px}
+.trainset select{min-height:32px;padding:0 6px;margin:0 3px}
 /* practice toolbar: slim bar, everything else in a drawer */
 .lyrbtn,#wordsBtn.lyrbtn{flex:none;font:600 15px/1 var(--f-body)!important;width:auto;height:auto}
 .lyrbtn[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
@@ -561,6 +576,15 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
       <button type="button" data-v="both" aria-pressed="false" title="The piano part and a strumming guitar together">Both</button>
       <button type="button" data-v="off" aria-pressed="false" title="Nothing plays along">Off</button>
     </div></div>
+    <div class="dgrp"><span class="dlbl">Practice</span><div class="ptools">
+      <button type="button" class="ptool" id="metroBtn" aria-pressed="false">Metronome</button>
+      <button type="button" class="ptool" id="countBtn" aria-pressed="true">Count-in</button>
+      <button type="button" class="ptool" id="trainBtn" aria-pressed="false">Speed trainer</button>
+    </div><div class="trainset" id="trainSet" hidden>
+      <label>Start <select id="trStart"><option>40</option><option>50</option><option selected>60</option><option>70</option><option>80</option></select>%</label>
+      <label>Up <select id="trStep"><option>2</option><option selected>5</option><option>10</option></select>% each clean pass</label>
+      <label>to <select id="trTarget"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>125</option></select>%</label>
+    </div></div>
     <div class="dgrp"><span class="dlbl">Tempo</span><div class="stepper" role="group" aria-label="Tempo">
       <button type="button" id="tempoDown" aria-label="Slower">&#8722;</button>
       <span id="tempoReset" title="Tap to go back to the song's own tempo"><small id="tempoLbl">Tempo</small><output id="tempoOut">100</output></span>
@@ -584,8 +608,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
-  <div class="scrub"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><output id="timeOut">0:00 / 0:00</output></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
+  <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
 <!-- ================= CONNECT SHEET ================= -->
@@ -876,7 +900,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.50";
+const APP_VERSION = "1.51";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2359,6 +2383,8 @@ function onKeyUp(p){
 
 function step(now){
   const dt = Math.min(0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
+  if (P.playing && countInTick()){ draw(); requestAnimationFrame(step); return; }      // counting in: the music waits
+  if (P.playing){ metroTick(); loopCheck(); }
   if (P.playing && P.instr === "guitar"){ guitarStep(P.t + dt * P.tempo); syncScrub(); }
   else if (P.playing){
     let nt = P.t + dt * P.tempo;
@@ -2392,9 +2418,19 @@ function updateStats(){
   $("sAcc").textContent = done ? Math.round(100 * P.correct / done) + "%" : "–";
   $("sStreak").textContent = P.streak; $("sWrong").textContent = P.wrong;
 }
+function seekWindow(){
+  if (typeof PT !== "undefined" && PT.dragWin) return PT.dragWin;
+  if (typeof PT !== "undefined" && PT.loop.on && P.len){
+    const span = Math.max(PT.loop.b - PT.loop.a, 6);
+    const w0 = Math.max(0, PT.loop.a - span * 0.6), w1 = Math.min(P.len + 2, PT.loop.b + span * 0.6);
+    return [w0, Math.max(w0 + 1, w1)];
+  }
+  return [0, P.len || 1];
+}
 function syncScrub(){
-  if (document.activeElement !== $("seek")) $("seek").value = P.len ? Math.round(1000 * Math.max(0, P.t) / P.len) : 0;
-  $("timeOut").textContent = fmt(P.t) + " / " + fmt(P.len);
+  const [w0, w1] = seekWindow();
+  if (document.activeElement !== $("seek")) $("seek").value = Math.round(1000 * Math.max(0, Math.min(1, (P.t - w0) / (w1 - w0))));
+  $("timeOut").textContent = (typeof PT !== "undefined" && PT.loop.on) ? `Loop ${fmt(PT.loop.a)}–${fmt(PT.loop.b)}` : fmt(P.t) + " / " + fmt(P.len);
 }
 function setPlaying(on){
   if (on && P.instr === "guitar" && P.mode === "wait") startGuitarMic();
@@ -2406,6 +2442,7 @@ function setPlaying(on){
   keepAwake();
 }
 function finish(){
+  if (PT.loop.on) return;
   setPlaying(false);
   if (PL.playing){ resetRun(); setTimeout(playlistAdvance, 1500); return; }
   if (P.mode === "listen" || !P.total){ resetRun(); return; }
@@ -4788,6 +4825,7 @@ function openPractice(id, inst){
   setInstrument(P.chords.length && (inst || primaryInstr()) === "guitar" ? "guitar" : "piano", true);   // the main instrument decides, unless you picked one from the song menu
   if (P.instr === "guitar" && P.autoChords) setTimeout(() => toast("Chords worked out from the notes", 2200), 400);
   $("pTitle").textContent = meta.title;
+  PT.loop.on = false; PT.gridFor = null; PT.lastBeat = null; loopUI();
   $("library").hidden = true; $("practice").hidden = false;
   readColors(); resetRun(); layout(); syncScrub(); setPlaying(false);
   enterFullscreen(); keepAwake();
@@ -4803,6 +4841,146 @@ function closePractice(){
 }
 $("backBtn").onclick = closePractice;
 
+
+/* ---------------- practice tools ----------------
+   Loop a section (two bars to start; drag the handles on the progress bar), a speed trainer that starts the loop
+   slower and speeds it up after each clean pass, a metronome, and a one-bar count-in before playing. */
+const PT = {
+  loop: {on:false, a:0, b:0},
+  trainer: Object.assign({on:false, start:60, step:5, target:100}, store.get("dg30.trainer", {})),
+  metro: store.get("dg30.metro", false), countIn: store.get("dg30.countIn", true),
+  countUntil: 0, countShown: 0, lastBeat: null, gridFor: null, grid: {phase:0, bar:0}
+};
+PT.trainer.on = false;                                   // the trainer starts off each time
+const beatLen = () => 60 / (P.baseBpm || 100);
+// where the beats fall: the phase that puts the most note starts on a beat, and the beat with the most bass notes is "1"
+function ensureGrid(){
+  if (PT.gridFor === P.origNotes) return PT.grid;
+  const bl = beatLen(), ons = (P.origNotes || []).map(n => n.t), bass = (P.origNotes || []).filter(n => n.p < 55).map(n => n.t);
+  let best = 0, bestN = -1;
+  for (let ph = 0; ph < bl; ph += bl / 48){ let c = 0; for (const t of ons){ const d = Math.abs(((t - ph) / bl) - Math.round((t - ph) / bl)) * bl; if (d < 0.04) c++; } if (c > bestN){ bestN = c; best = ph; } }
+  const beats = Math.max(1, Math.round(songBeats())), tally = new Array(beats).fill(0);
+  for (const t of (bass.length > 8 ? bass : ons)){ const k = Math.round((t - best) / bl); tally[((k % beats) + beats) % beats]++; }
+  const one = tally.indexOf(Math.max(...tally));
+  PT.grid = {phase: best, bar: best + one * bl, beats}; PT.gridFor = P.origNotes;
+  return PT.grid;
+}
+const snapBeat = t => { const g = ensureGrid(), bl = beatLen(); return g.phase + Math.round((t - g.phase) / bl) * bl; };
+const barStartAt = t => { const g = ensureGrid(), bar = beatLen() * g.beats; return g.bar + Math.floor((t - g.bar) / bar) * bar; };
+// the click: a short wooden tick on the phone, a higher one on beat 1
+function click(accent, when){
+  try {
+    const a = audioCtx(), t = when || a.currentTime, o = a.createOscillator(), g = a.createGain();
+    o.type = "triangle"; o.frequency.value = accent ? 1760 : 1180;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(accent ? 0.5 : 0.32, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 0.08);
+  } catch(e){}
+}
+function isBarOne(k){ const g = ensureGrid(); const off = Math.round((g.bar - g.phase) / beatLen()); return (((k - off) % g.beats) + g.beats) % g.beats === 0; }
+function metroTick(){
+  if (!PT.metro || !P.playing || performance.now() < PT.countUntil) return;
+  const g = ensureGrid(), k = Math.floor((P.t - g.phase) / beatLen() + 1e-6);
+  if (PT.lastBeat === null || k < PT.lastBeat){ PT.lastBeat = k; return; }
+  if (k !== PT.lastBeat){ PT.lastBeat = k; click(isBarOne(k)); }
+}
+// one bar of clicks (4, 3, 2, 1) before the music moves
+function startCountIn(){
+  if (!PT.countIn) return;
+  const g = ensureGrid(), n = g.beats || 4, bd = beatLen() / Math.max(0.05, P.tempo), a = audioCtx(), t0 = a.currentTime + 0.05;
+  for (let j = 0; j < n; j++) click(j === 0, t0 + j * bd);
+  PT.countStart = performance.now() + 50; PT.countUntil = PT.countStart + n * bd * 1000; PT.countN = n; PT.countBd = bd;
+}
+function countInTick(){
+  const el = $("countNum"), now = performance.now();
+  if (now >= PT.countUntil || !P.playing){ if (!el.hidden){ el.hidden = true; } return false; }
+  const j = Math.floor((now - PT.countStart) / (PT.countBd * 1000));
+  const txt = String(Math.max(1, PT.countN - Math.max(0, j)));
+  if (el.textContent !== txt) el.textContent = txt; el.hidden = false;
+  return true;
+}
+// loop
+function loopUI(){
+  const b = $("loopBtn"), band = $("loopBand"), L0 = PT.loop;
+  b.setAttribute("aria-pressed", String(L0.on)); band.hidden = !L0.on || !P.len;
+  if (L0.on && P.len){ const [w0, w1] = seekWindow(); band.style.left = (100 * (L0.a - w0) / (w1 - w0)) + "%"; band.style.width = (100 * (L0.b - L0.a) / (w1 - w0)) + "%"; }
+  syncScrub();
+}
+function loopExpected(){
+  const a = PT.loop.a, b = PT.loop.b;
+  const list = P.instr === "guitar" ? (tabsView() ? (P.tabs || []) : (P.chords || [])) : P.steps.filter(s => s.req && s.req.size);
+  return list.filter(x => x.t >= a - 0.01 && x.t < b - 0.01).length;
+}
+function setLoop(on, a, b){
+  const bl = beatLen();
+  if (on){
+    a = Math.max(0, a); b = Math.min(P.len + 2, Math.max(a + bl, b));
+    PT.loop = {on:true, a, b};
+    if (P.t < a - 0.05 || P.t > b){ const was = P.playing; setPlaying(false); resetRun(a); syncScrub(); if (was){ setPlaying(true); } }
+    if (PT.trainer.on) trainerStart();
+  } else PT.loop.on = false;
+  loopUI();
+}
+$("loopBtn").onclick = () => {
+  if (PT.loop.on){ setLoop(false); toast("Loop off", 1200); return; }
+  const g = ensureGrid(), bar = beatLen() * g.beats, a = Math.max(0, barStartAt(Math.max(P.t, P.notes[0] ? P.notes[0].t : 0)));
+  setLoop(true, a, a + 2 * bar);
+  toast("Looping these 2 bars. Drag the handles on the bar to change it.", 2600);
+};
+function loopPass(){
+  // judge the pass, let the speed trainer react, then go round again (with the count-in)
+  const exp = loopExpected(), clean = P.mode !== "listen" && exp > 0 && P.wrong === 0 && P.correct >= Math.ceil(exp * 0.9);
+  if (PT.trainer.on && P.mode !== "listen" && PT.fromA){
+    const pct = PT.trainer.cur || Math.round(100 * P.tempo), tgt = PT.trainer.target;
+    if (clean && pct < tgt){ const np = Math.min(tgt, pct + PT.trainer.step); PT.trainer.cur = np; setBpm(P.baseBpm * np / 100); toast(np >= tgt ? `Clean! Now at full target speed, ${np}%` : `Clean! Speeding up to ${np}%`, 1600); }
+    else if (clean) toast("Clean at target speed. Nice work!", 1600);
+    else toast(`Not quite clean. Again at ${pct}%`, 1400);
+  }
+  resetRun(PT.loop.a); PT.lastBeat = null; PT.fromA = true; syncScrub();
+  startCountIn();
+}
+function loopCheck(){ if (PT.loop.on && P.playing && P.t >= PT.loop.b) loopPass(); }
+// drag the handles
+function bindHandle(el, which){
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId);
+    const rect = $("seek").getBoundingClientRect(), bl = beatLen(), [w0, w1] = seekWindow(); PT.dragWin = [w0, w1];
+    const move = ev => {
+      const t = snapBeat(w0 + Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width)) * (w1 - w0));
+      if (which === "a") PT.loop.a = Math.max(0, Math.min(t, PT.loop.b - bl)); else PT.loop.b = Math.min(P.len + 2, Math.max(t, PT.loop.a + bl));
+      loopUI();
+    };
+    const up = () => { PT.dragWin = null; loopUI(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+      if (P.t < PT.loop.a - 0.05 || P.t > PT.loop.b){ const was = P.playing; setPlaying(false); resetRun(PT.loop.a); syncScrub(); if (was) setPlaying(true); } };
+    el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  });
+}
+bindHandle($("loopA"), "a"); bindHandle($("loopB"), "b");
+// speed trainer
+function trainerStart(){
+  PT.trainer.cur = PT.trainer.start; setBpm(P.baseBpm * PT.trainer.start / 100);
+  if (PT.loop.on){ const was = P.playing; setPlaying(false); resetRun(PT.loop.a); syncScrub(); PT.fromA = true; if (was){ setPlaying(true); startCountIn(); } }
+  toast(`Speed trainer: starting at ${PT.trainer.start}%`, 1600);
+}
+function syncTools(){
+  $("metroBtn").setAttribute("aria-pressed", String(PT.metro)); $("countBtn").setAttribute("aria-pressed", String(PT.countIn));
+  $("trainBtn").setAttribute("aria-pressed", String(PT.trainer.on)); $("trainSet").hidden = !PT.trainer.on;
+  $("trStart").value = PT.trainer.start; $("trStep").value = PT.trainer.step; $("trTarget").value = PT.trainer.target;
+}
+$("metroBtn").onclick = () => { PT.metro = !PT.metro; store.set("dg30.metro", PT.metro); PT.lastBeat = null; syncTools(); };
+$("countBtn").onclick = () => { PT.countIn = !PT.countIn; store.set("dg30.countIn", PT.countIn); syncTools(); };
+$("trainBtn").onclick = () => {
+  PT.trainer.on = !PT.trainer.on; syncTools();
+  if (!PT.trainer.on) return;
+  if (!PT.loop.on){ const g = ensureGrid(), bar = beatLen() * g.beats, a = Math.max(0, barStartAt(Math.max(P.t, P.notes[0] ? P.notes[0].t : 0))); setLoop(true, a, a + 2 * bar); }
+  else trainerStart();
+  if (P.mode === "listen"){ P.mode = "wait"; setSeg("modeSeg", "wait"); store.set("dg30.mode", "wait"); toast("Speed trainer: switched to Wait mode so it can hear you", 2200); }
+};
+const saveTrainer = () => store.set("dg30.trainer", {start: PT.trainer.start, step: PT.trainer.step, target: PT.trainer.target});
+$("trStart").onchange = e => { PT.trainer.start = +e.target.value; saveTrainer(); if (PT.trainer.on) trainerStart(); };
+$("trStep").onchange = e => { PT.trainer.step = +e.target.value; saveTrainer(); };
+$("trTarget").onchange = e => { PT.trainer.target = +e.target.value; saveTrainer(); };
+syncTools();
+
 /* connection light in the practice bar: green = piano connected, amber = listening with the mic, red = not connected */
 function syncPConn(){
   const b = $("pConn"); if (!b) return;
@@ -4813,7 +4991,7 @@ function syncPConn(){
 }
 $("pConn").onclick = () => $("connDlg").showModal();
 setInterval(syncPConn, 1500);
-$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); if (P.playing) setDrawer(false); };
+$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(PT.loop.on ? PT.loop.a : null); setPlaying(!P.playing); if (P.playing){ setDrawer(false); PT.lastBeat = null; PT.fromA = PT.loop.on && P.t <= PT.loop.a + 0.05; startCountIn(); } else { PT.countUntil = 0; $("countNum").hidden = true; } };
 /* ---------- practice drawer: tempo, key, view, words, strum, sound, full screen ---------- */
 function placeDrawer(){ const bar = $("bars"); $("pDrawer").style.top = (bar.offsetTop + bar.offsetHeight) + "px"; }
 function setDrawer(open){
@@ -4958,7 +5136,7 @@ $("volDone").onclick = () => $("volDlg").close();
 $("volSong").addEventListener("input", e => { vol.song = +e.target.value; store.set("dg30.songVol", vol.song); showVol(); });
 $("pedalSel").value = store.get("dg30.pedalMode", "auto");
 $("pedalSel").addEventListener("change", e => { store.set("dg30.pedalMode", e.target.value); if (P.song){ buildPedalEvents(); pedalSeek(P.t); } });
-$("seek").addEventListener("input", e => { const was = P.playing; setPlaying(false); resetRun(P.len * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
+$("seek").addEventListener("input", e => { const [w0, w1] = seekWindow(); const was = P.playing; setPlaying(false); resetRun(w0 + (w1 - w0) * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
 $("resAgain").onclick = () => { $("resDlg").close(); resetRun(); setPlaying(true); };
 $("resLib").onclick = () => { $("resDlg").close(); closePractice(); };
 

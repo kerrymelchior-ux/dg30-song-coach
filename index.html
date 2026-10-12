@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.53">
+<meta name="version" content="1.54">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -334,14 +334,22 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 @keyframes recPulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.recbtn[aria-pressed="true"] i{animation:none}}
 .takes{display:flex;flex-direction:column;max-height:52vh;overflow-y:auto}
-.take{display:grid;grid-template-columns:48px 1fr auto;gap:2px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
-.take .tplay{grid-row:1/3;width:48px;height:48px;border-radius:50%;border:0;background:var(--accent);color:var(--lacquer);font-size:18px;display:grid;place-items:center;padding:0}
+.take{display:grid;grid-template-columns:48px minmax(0,1fr) auto;grid-template-areas:"play head acts" "play info acts";gap:2px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.take .tplay{grid-area:play;width:48px;height:48px;border-radius:50%;border:0;background:var(--accent);color:var(--lacquer);font-size:18px;display:grid;place-items:center;padding:0}
 .take .tplay.on{background:var(--bad);color:#fff}
 .take b{font-weight:600}
 .take small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
-.take .tacts{grid-row:1/3;grid-column:3;display:flex;gap:6px}
+.take .tacts{grid-area:acts;display:flex;gap:6px}
+.take .thead{grid-area:head}.take .tpos{grid-area:info}
 .take .tacts button{min-height:38px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-size:12.5px;font-weight:600}
 .take.fresh{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.take .thead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
+.tsong{display:inline-flex;align-items:center;gap:7px;max-width:100%;border:0;background:none;padding:2px 0;color:var(--accent);font-weight:600;font-size:13.5px;text-align:left;cursor:pointer;min-width:0}
+.tsong img{width:22px;height:22px;border-radius:4px;object-fit:cover;flex:none}
+.tsong:disabled{color:var(--muted);cursor:default}
+.libtakes{max-height:none;overflow:visible}
+.libtakes .take:first-child{border-top:0}
+@media (max-width:520px){ .take{grid-template-columns:44px minmax(0,1fr);grid-template-areas:"play head" "play info" "acts acts";row-gap:4px} .take .tacts{justify-content:flex-end;margin-top:6px} .take .tplay{width:44px;height:44px} }
 /* practice toolbar: slim bar, everything else in a drawer */
 .lyrbtn,#wordsBtn.lyrbtn{flex:none;font:600 15px/1 var(--f-body)!important;width:auto;height:auto}
 .lyrbtn[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
@@ -429,6 +437,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <button type="button" data-v="samples" aria-pressed="false">Samples</button>
     <button type="button" data-v="add" aria-pressed="false">Add a song</button>
     <button type="button" data-v="playlists" aria-pressed="false">Playlists</button>
+    <button type="button" data-v="recordings" aria-pressed="false">Recordings</button>
   </div>
 
   <section id="jobs" class="jobs" hidden aria-live="polite"></section>
@@ -453,6 +462,11 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </section>
 
   </div>
+
+  <section id="secRecs" style="display:flex;flex-direction:column;gap:8px" hidden>
+    <p class="sheetnote" id="recsEmpty">No recordings yet. Open a song, tap Rec at the bottom, play, then tap Stop. Your takes show up here.</p>
+    <div id="recsList" class="takes libtakes"></div>
+  </section>
 
   <section id="secPlaylists" style="display:flex;flex-direction:column;gap:8px" hidden>
     <div class="row" style="justify-content:space-between"><div class="label">Playlists</div><button class="btn primary" id="plNew" type="button" style="min-height:36px">New playlist</button></div>
@@ -927,7 +941,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.53";
+const APP_VERSION = "1.54";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -3086,7 +3100,8 @@ function renderLibrary(){
   const tab = libTab || (mine.length ? "mine" : "samples");
   setSeg("libSeg", tab);
   $("secAdd").hidden = tab !== "add"; $("secPlaylists").hidden = tab !== "playlists"; $("secSongs").hidden = tab !== "mine" && tab !== "samples";
-  if (tab === "add" || tab === "playlists"){ box.textContent = ""; return; }
+  $("secRecs").hidden = tab !== "recordings"; if (tab === "recordings") renderRecs();
+  if (tab === "add" || tab === "playlists" || tab === "recordings"){ box.textContent = ""; return; }
   const list = allSongs().filter(s => tab === "samples" ? s.demo : !s.demo);
   $("libEmpty").hidden = !(tab === "mine" && !list.length);
   const q = libQuery.trim().toLowerCase();
@@ -5075,7 +5090,7 @@ function takeOut(type, a, b){
 function stopTake(){
   clearInterval(TP.timer); TP.timer = 0;
   for (const p of TP.held) takeOut(1, p, 0); TP.held.clear(); pedalOut(false);
-  const was = TP.take; TP.take = null; if (was) renderTakes();
+  const was = TP.take; TP.take = null; if (was){ renderTakes(); }
 }
 function playTake(t){
   stopTake();
@@ -5116,25 +5131,48 @@ function deleteTake(t){
 let takesFor = null, takesFresh = null;
 function openTakes(songId, fresh){ takesFor = songId; takesFresh = fresh || null; renderTakes(); if (!$("takesDlg").open) $("takesDlg").showModal(); }
 function renderTakes(){
-  const box = $("takesList"); if (!box) return; box.textContent = "";
+  const box = $("takesList"); if (!box) return;
   const m = takesFor ? songById(takesFor) : null;
   const list = takeList().filter(t => !takesFor || t.songId === takesFor).sort((a, b) => b.at - a.at);
   $("takesSub").textContent = list.length ? (m ? `${m.title}: ` : "") + "tap play to hear a take through the piano, or the phone when it isn't connected." : "No takes yet. In a song, tap Rec at the bottom, play, then tap Stop.";
+  takeRows(box, list, !takesFor);
+  if (!$("secRecs").hidden) renderRecs();
+}
+// the Recordings tab in the library: every take, newest first, each tied back to its song
+function renderRecs(){
+  const list = takeList().sort((a, b) => b.at - a.at);
+  $("recsEmpty").hidden = list.length > 0;
+  takeRows($("recsList"), list, true);
+}
+function takeRows(box, list, withSong){
+  box.textContent = "";
   for (const t of list){
-    const row = document.createElement("div"); row.className = "take" + (t.id === takesFresh ? " fresh" : "") + (TP.take && TP.take.id === t.id ? " playing" : "");
-    const pl = document.createElement("button"); pl.type = "button"; pl.className = "tplay" + (TP.take && TP.take.id === t.id ? " on" : "");
-    pl.textContent = TP.take && TP.take.id === t.id ? "■" : "▶"; pl.setAttribute("aria-label", (TP.take && TP.take.id === t.id ? "Stop " : "Play ") + t.name);
-    pl.onclick = () => TP.take && TP.take.id === t.id ? stopTake() : playTake(t);
-    const name = document.createElement("b"); name.textContent = t.name + (takesFor ? "" : " · " + t.songTitle);
+    const playing = TP.take && TP.take.id === t.id;
+    const row = document.createElement("div"); row.className = "take" + (t.id === takesFresh && !withSong ? " fresh" : "") + (playing ? " playing" : "") + (withSong ? " withsong" : "");
+    const pl = document.createElement("button"); pl.type = "button"; pl.className = "tplay" + (playing ? " on" : "");
+    pl.textContent = playing ? "■" : "▶"; pl.setAttribute("aria-label", (playing ? "Stop " : "Play ") + t.name);
+    pl.onclick = () => playing ? stopTake() : playTake(t);
+    const head = document.createElement("div"); head.className = "thead";
+    const name = document.createElement("b"); name.textContent = t.name; head.appendChild(name);
+    if (withSong){
+      const song = songById(t.songId);
+      const link = document.createElement("button"); link.type = "button"; link.className = "tsong";
+      const art = song ? songArt(song) : null;
+      if (art){ const im = document.createElement("img"); im.src = art; im.alt = ""; link.appendChild(im); }
+      link.append((song ? song.title : t.songTitle) + (song ? "" : " (song removed)"));
+      link.disabled = !song; link.title = song ? "Open this song" : "";
+      link.onclick = () => { if (!song) return; stopTake(); if ($("takesDlg").open) $("takesDlg").close(); openPractice(song.id); };
+      head.appendChild(link);
+    }
     const info = document.createElement("small"); info.className = "tpos";
     const when = new Date(t.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
     info.textContent = `${fmt(t.dur / 1000)} · ${t.notes} notes · ${when}`;
     const acts = document.createElement("div"); acts.className = "tacts";
-    const ren = document.createElement("button"); ren.type = "button"; ren.textContent = "Rename"; ren.onclick = () => { const v = prompt("Name this take", t.name); if (v && v.trim()){ const l = takeList(); const x = l.find(y => y.id === t.id); if (x){ x.name = v.trim().slice(0, 60); store.set("dg30.recs", l); renderTakes(); } } };
+    const ren = document.createElement("button"); ren.type = "button"; ren.textContent = "Rename"; ren.onclick = () => { const v = prompt("Name this take", t.name); if (v && v.trim()){ const l = takeList(); const x = l.find(y => y.id === t.id); if (x){ x.name = v.trim().slice(0, 60); store.set("dg30.recs", l); renderTakes(); renderRecs(); } } };
     const ex = document.createElement("button"); ex.type = "button"; ex.textContent = "Export"; ex.onclick = () => exportTake(t);
     const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
-    del.onclick = () => { if (del.dataset.sure){ deleteTake(t); } else { del.dataset.sure = "1"; del.textContent = "Sure?"; setTimeout(() => { del.dataset.sure = ""; del.textContent = "Delete"; }, 2500); } };
-    acts.append(ren, ex, del); row.append(pl, name, acts, info); box.appendChild(row);
+    del.onclick = () => { if (del.dataset.sure){ deleteTake(t); renderRecs(); } else { del.dataset.sure = "1"; del.textContent = "Sure?"; setTimeout(() => { del.dataset.sure = ""; del.textContent = "Delete"; }, 2500); } };
+    acts.append(ren, ex, del); row.append(pl, head, acts, info); box.appendChild(row);
   }
 }
 $("takesDone").onclick = () => { stopTake(); $("takesDlg").close(); };

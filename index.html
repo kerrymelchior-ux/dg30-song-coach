@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.70">
+<meta name="version" content="1.71">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -630,6 +630,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div>Songs with chord symbols get a <b>Guitar</b> button: chords scroll down with finger positions on the neck, and Listen strums them.</div>
     <div>Turn your phone sideways for the widest keyboard.</div>
     <div class="label" style="margin-top:10px" id="verLabel"></div>
+    <div class="row" style="gap:10px;align-items:center"><button class="btn" id="updBtn" type="button">Check for updates</button><span id="updStatus" style="color:var(--muted);font-size:14px"></span></div>
     <small style="color:var(--muted)">© 2026 Kerry E. Melchior II. All rights reserved.</small>
     <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Guitars and the other phone pianos from the Musyng Kite sound set (CC BY-SA 3.0), with the FluidR3 GM set by Frank Wen (CC BY 3.0) as a backup, via midi-js-soundfonts by Benjamin Gleitzman. Sheet music drawn with abcjs.</small>
   </section>
@@ -1038,7 +1039,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.70";
+const APP_VERSION = "1.71";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -6301,6 +6302,58 @@ function toast(msg, ms){
 }
 
 /* ---------------- tabs ---------------- */
+/* ---------------- staying up to date ----------------
+   Looks for a newer version on GitHub when the app opens, when you come back to it, and every 30 minutes.
+   It never interrupts: the update waits until you're moving around the app with nothing going on (not practicing,
+   recording, playing a take, importing or converting songs, or in the middle of a dialog), then reloads in a second. */
+const UPD = { latest: null, checking: false, last: 0 };
+const verNum = v => String(v || "0").split(".").map(x => parseInt(x, 10) || 0);
+function newerThan(a, b){ const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++){ const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; } return false; }
+async function checkForUpdate(manual){
+  if (UPD.checking || navigator.onLine === false){ if (manual) $("updStatus").textContent = "You're offline. Try again when you're connected."; return; }
+  UPD.checking = true; UPD.last = Date.now(); if (manual) $("updStatus").textContent = "Checking…";
+  try {
+    const r = await fetch("index.html?v=" + Date.now(), {cache: "no-store"});
+    const m = r.ok && (await r.text()).match(/<meta name="version" content="([\d.]+)">/);
+    const v = m && m[1];
+    if (v && newerThan(v, APP_VERSION)){
+      UPD.latest = v;
+      if (manual){ $("updStatus").textContent = `Version ${v} is ready.`; updateSafe(true) ? applyUpdate() : toast(`Version ${v} will install as soon as you finish what you're doing.`, 2600); }
+      else maybeUpdate();
+    } else if (manual) $("updStatus").textContent = `You have the latest version (v${APP_VERSION}).`;
+  } catch(e){ if (manual) $("updStatus").textContent = "Couldn't check right now. Try again in a bit."; }
+  finally { UPD.checking = false; }
+}
+// nothing in progress that a reload would interrupt
+function updateSafe(manual){
+  if (typeof practiceVisible === "function" && practiceVisible()) return false;                // practicing (also covers takes being played back)
+  if (typeof REC !== "undefined" && REC.on) return false;                                       // recording
+  if (typeof RV !== "undefined" && RV.on) return false;
+  if (typeof jobsUI !== "undefined" && jobsUI.size) return false;                               // importing, converting, reading sheet music
+  if (typeof PL !== "undefined" && PL.playing) return false;                                    // a playlist is going
+  if (document.querySelector("dialog[open]") && !manual) return false;                          // editing a song, importing, a settings dialog
+  const a = document.activeElement; if (!manual && a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;   // typing
+  // background tidy-ups (covers, lyrics, genres, sound downloads) simply pick up again after the update
+  return true;
+}
+function maybeUpdate(){ if (UPD.latest && updateSafe(false)) applyUpdate(); }
+function applyUpdate(){
+  const v = UPD.latest, tried = store.get("dg30.updTried", null);
+  if (tried && tried.v === v && Date.now() - tried.t < 10 * 60 * 1000) return;     // GitHub may still be catching up; don't loop
+  store.set("dg30.updTried", {v, t: Date.now()});
+  toast(`Updating Song Coach to v${v}…`, 1500);
+  setTimeout(() => location.reload(), 900);
+}
+(() => {
+  const was = store.get("dg30.updTried", null);
+  if (was && was.v === APP_VERSION){ store.del("dg30.updTried"); setTimeout(() => toast(`Song Coach updated to v${APP_VERSION}`, 2200), 1200); }
+})();
+setTimeout(() => checkForUpdate(false), 3000);
+setInterval(() => { if (!document.hidden && Date.now() - UPD.last > 30 * 60 * 1000) checkForUpdate(false); }, 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - UPD.last > 60 * 1000) checkForUpdate(false); });
+// moving around the app is a good moment
+["click"].forEach(ev => document.addEventListener(ev, () => { if (UPD.latest) setTimeout(maybeUpdate, 400); }, true));
+
 function showTab(name){
   $("tabSongs").hidden = name !== "songs"; $("tabSettings").hidden = name !== "settings";
   $("tabBtnSettings").setAttribute("aria-expanded", String(name === "settings"));
@@ -6308,6 +6361,7 @@ function showTab(name){
   try { sessionStorage.setItem("dg30.tab", name); } catch(e){}
 }
 $("tabBtnSongs").onclick = () => showTab("songs");
+$("updBtn").onclick = () => checkForUpdate(true);
 $("tabBtnSettings").onclick = () => { showTab($("tabSettings").hidden ? "settings" : "songs"); window.scrollTo(0, 0); };
 $("setConnBtn").onclick = () => $("connDlg").showModal();
 try { const t = sessionStorage.getItem("dg30.tab"); if (t) showTab(t); } catch(e){}

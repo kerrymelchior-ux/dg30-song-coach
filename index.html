@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.46">
+<meta name="version" content="1.49">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -352,7 +352,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .dcap{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--muted);min-width:52px;text-align:center}
 .dcap:has(> button[hidden]){display:none}
 .dlbl{font-size:12px;font-weight:600;color:var(--muted)}
-.dgrp:has(> #backSeg[hidden]),.dgrp:has(> #viewSeg[hidden]){display:none}
+.dgrp:has(> #backSeg[hidden]),.dgrp:has(> #viewSeg[hidden]):has(> #gViewSeg2[hidden]){display:none}
 .pdrawer .stepper button{width:44px;min-height:42px}
 .pdrawer .stepper span{min-width:70px}
 .pdrawer .stepper small{display:none}
@@ -574,11 +574,11 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="dgrp"><span class="dlbl">Show</span><div class="seg" id="viewSeg" role="group" aria-label="Show falling bars or sheet music">
       <button type="button" data-v="bars" aria-pressed="true">Bars</button>
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
-    </div></div>
+    </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords or tabs" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button></div></div>
     <div class="dgrp dicons">
     <div class="dcap"><button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button><span>Strum along</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
-    <div class="dcap"><button class="icon" id="fsBtn" type="button" aria-label="Full screen" title="Full screen">&#x26F6;</button><span>Full screen</span></div></div>
+    </div><button id="fsBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
   </div>
   <video id="keepAwake" muted playsinline loop hidden aria-hidden="true">
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
@@ -876,7 +876,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.46";
+const APP_VERSION = "1.49";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2857,7 +2857,7 @@ const sheetView = () => P.instr !== "guitar" && store.get("dg30.view", "bars") =
 const FOLLOW = { key: null, boxes: [], starts: [], lens: [], line: -1, busy: false };
 async function buildFollow(){
   if (!sheetView() || !P.song || !L) return;
-  const key = [P.song.id, P.transpose, Math.round(L.W), P.baseBpm].join("|");
+  const key = [P.song.id, P.transpose, Math.round(L.W), P.baseBpm, P.words ? 1 : 0].join("|");
   const box = $("follow"); box.hidden = false; box.style.height = L.hitY + "px";
   if (FOLLOW.key === key) return;
   if (FOLLOW.busy){ FOLLOW.again = true; return; }
@@ -2867,7 +2867,7 @@ async function buildFollow(){
     const meta = P.song, d = meta.demo ? DEMOS[meta.id] : null, shift = meta.shift || 0;
     const beats = (d && d.beats) || meta.beats || 4, bpm = P.baseBpm || 100;
     const notes = P.notes.map(n => ({...n, t: n.t + shift}));
-    const lyrics = loadLyrics(meta.id).map(l => ({t: l.t + shift, w: l.w}));
+    const lyrics = P.words ? loadLyrics(meta.id).map(l => ({t: l.t + shift, w: l.w})) : [];
     const chords = (P.chords || []).map(c => ({t: c.t + shift, name: c.src || c.name}));
     let ms, starts;
     const scan = store.get("dg30.scan." + meta.id, null);
@@ -2953,7 +2953,7 @@ function updateFollow(){
 }
 function setView(v){
   store.set("dg30.view", v); setSeg("viewSeg", v);
-  const on = sheetView(); $("follow").hidden = !on; $("wordsBtn").hidden = on;
+  const on = sheetView(); $("follow").hidden = !on; $("wordsBtn").hidden = false;
   if (on){ FOLLOW.line = -1; buildFollow(); }
 }
 $("viewSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setView(b.dataset.v); });
@@ -4768,7 +4768,6 @@ function openPractice(id, inst){
   setInstrument(P.chords.length && (inst || primaryInstr()) === "guitar" ? "guitar" : "piano", true);   // the main instrument decides, unless you picked one from the song menu
   if (P.instr === "guitar" && P.autoChords) setTimeout(() => toast("Chords worked out from the notes", 2200), 400);
   $("pTitle").textContent = meta.title;
-  if (sheetView()) $("wordsBtn").hidden = true;
   $("library").hidden = true; $("practice").hidden = false;
   readColors(); resetRun(); layout(); syncScrub(); setPlaying(false);
   enterFullscreen(); keepAwake();
@@ -4845,6 +4844,7 @@ holdStep($("tempoDown"), -1); holdStep($("tempoUp"), 1);
 $("tempoReset").onclick = () => setBpm(P.baseBpm);
 function setWords(on){
   P.words = !!on;
+  if (sheetView()) buildFollow();                 // sheet music: words under the notes on or off
   $("wordsBtn").setAttribute("aria-pressed", String(P.words));
   $("wordsBtn").setAttribute("aria-label", P.words ? "Hide words and show falling notes" : "Show words instead of falling notes");
 }
@@ -4879,7 +4879,7 @@ function setInstrument(inst, quiet){
   $("instrBtn").textContent = inst === "guitar" ? "Piano" : "Guitar";
   $("handSeg").hidden = inst === "guitar";
   $("backSeg").hidden = inst !== "guitar";
-  $("gViewSeg").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view);
+  $("gViewSeg").hidden = $("gViewSeg2").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   $("viewSeg").hidden = inst === "guitar";
   $("gtrAlongBtn").hidden = inst === "guitar" || !(P.chords || []).length;
   $("gtrAlongBtn").setAttribute("aria-pressed", String(SA.mode !== "off"));
@@ -4896,15 +4896,16 @@ function applyBackingSound(){
     if (pianoOut && G.prevSound == null){ G.prevSound = soundState.cur ?? 0; selectSound(SOUNDS.findIndex(x => x.name === "Nylon Acoustic"), true); }
   } else restorePianoSound();
 }
-$("gViewSeg").addEventListener("click", e => {
+const onGView = e => {
   const b = e.target.closest("button"); if (!b || b.dataset.v === G.view) return;
   const was = P.playing; setPlaying(false);
-  G.view = b.dataset.v; store.set("dg30.gview", G.view); setSeg("gViewSeg", G.view);
+  G.view = b.dataset.v; store.set("dg30.gview", G.view); setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   if (G.view === "tabs") ensureTabs();
   resetRun(P.t); syncScrub();
   toast(G.view === "tabs" ? "Tabs: pick the melody note by note" : "Chords: strum along", 1600);
   if (was) setPlaying(true);
-});
+};
+$("gViewSeg").addEventListener("click", onGView); $("gViewSeg2").addEventListener("click", onGView);
 $("backSeg").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   const was = P.playing; setPlaying(false);

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.58">
+<meta name="version" content="1.59">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -666,7 +666,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
     </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords or tabs" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button></div></div>
     <div class="dgrp dicons">
-    <div class="dcap"><button class="icon" id="gtrAlongBtn" type="button" hidden aria-pressed="false" aria-label="Guitar strums along" title="Add a strumming guitar">&#127928;</button><span>Strum along</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
     </div><button id="fsBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
   </div>
@@ -784,13 +783,17 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <small style="color:var(--muted)" id="phoneSoundNote"></small>
     </div>
     <div class="field">
-      <label class="label" for="strumSel">Guitar strums along while you play piano (songs with chords)</label>
-      <select id="strumSel">
-        <option value="off">Off</option>
-        <option value="phone">Guitar on the phone speaker</option>
-        <option value="piano">Guitar on the piano, as a second sound</option>
-      </select>
-      <small style="color:var(--muted)" id="strumNote"></small>
+      <label class="label" for="gtrSoundSel">Guitar sound on the phone speaker</label>
+      <div class="row" style="flex-wrap:nowrap;gap:8px">
+        <select id="gtrSoundSel" style="flex:1;min-width:0">
+          <option value="steel">Acoustic, steel strings (recorded)</option>
+          <option value="nylon">Acoustic, nylon strings (recorded)</option>
+          <option value="twelve">12-string acoustic</option>
+          <option value="synth">Simple plucked string</option>
+        </select>
+        <button class="btn" id="gtrSoundTry" type="button" style="min-height:42px">Hear it</button>
+      </div>
+      <small style="color:var(--muted)" id="gtrSoundNote">Used for strumming and tabs on the phone. With the piano connected, the piano's own guitar sound plays instead.</small>
     </div>
     <div class="row" style="gap:10px;flex-wrap:nowrap">
       <div class="field" style="flex:1;min-width:0"><label class="label" for="barSel">Falling note colors</label>
@@ -978,7 +981,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.58";
+const APP_VERSION = "1.59";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1872,27 +1875,23 @@ function strum(chord, vel){
   for (const p of G.strumNotes) noteOut(p, 0, false);
   G.strumNotes = chord.pitches.slice();
   const gap = 14 / Math.max(0.4, P.tempo);
-  chord.pitches.forEach((p, i) => setTimeout(() => { if (P.playing) noteOut(p, vel, true); }, i * gap));
+  const onPhone = !(conn.outMode === "piano" && pianoReady());
+  chord.pitches.forEach((p, i) => setTimeout(() => {
+    if (!P.playing) return;
+    if (onPhone){ if (conn.outMode !== "off") phoneGuitar(p, Math.min(1, vel / 110) * vol.song / 100, 0); }
+    else noteOut(p, vel, true);
+  }, i * gap));
 }
 /* ---------------- guitar strums along with the piano ----------------
    While you play the piano part, a guitar strums the song's chords in a down / down-up / up-down-up rhythm.
    It plays on the phone speaker, or on the piano itself as a second sound on MIDI channel 2. The second way needs
    the DG30's Multi-timbre setting turned on, so the piano can play two different sounds at once. */
-const SA = { mode: store.get("dg30.strumAlong", "off"), ch2Ready: false, ring: [], phoneRing: new Map() };
+const SA = { phoneRing: new Map() };   // guitar notes ringing on the phone (the guitar screen's strums and "Both" backing)
+store.del("dg30.strumAlong"); store.del("dg30.strumLast");
 const STRUM_PAT = { 4: [[0,"D",1],[1,"D",0.8],[1.5,"U",0.6],[2.5,"U",0.6],[3,"D",0.8],[3.5,"U",0.6]], 3: [[0,"D",1],[1,"D",0.75],[1.5,"U",0.6],[2,"D",0.75],[2.5,"U",0.6]], 2: [[0,"D",1],[1,"D",0.8],[1.5,"U",0.6]], 1.5: [[0,"D",0.9]] };
-const strumOnPiano = () => SA.mode === "piano" && pianoReady() && conn.outMode === "piano";
-function strumAlongActive(){ return SA.mode !== "off" && P.instr === "piano" && (P.chords || []).length > 0 && conn.outMode !== "off"; }
 function songBeats(){ const d = P.song && P.song.id && DEMOS[P.song.id]; return (d && d.beats) || (P.song && P.song.beats) || 4; }
-// Multi-timbre mode: channel 1 = concert grand, channel 2 = nylon guitar (Bank 121/0, General MIDI 2 numbering)
-function setupChannel2(){
-  const link = conn.bleChar || conn.midiOut;
-  if (SA.ch2Ready === link) return;
-  sendMidi([0xB0, 0, 121]); sendMidi([0xB0, 32, 0]); sendMidi([0xC0, 0]);
-  sendMidi([0xB1, 0, 121]); sendMidi([0xB1, 32, 0]); sendMidi([0xC1, 24]); sendMidi([0xB1, 7, 96]);
-  SA.ch2Ready = link;
-}
-function strumAlongStep(t0, t1, force){
-  if (!(force || strumAlongActive()) || t1 <= t0 || t1 - t0 > 0.5) return;
+function strumAlongStep(t0, t1){
+  if (!(P.chords || []).length || t1 <= t0 || t1 - t0 > 0.5) return;
   const beat = 60 / (P.baseBpm || 100), beats = songBeats(), pat = STRUM_PAT[beats] || STRUM_PAT[4];
   for (const c of P.chords){
     if (c.end <= t0 || c.t > t1) continue;
@@ -1907,16 +1906,10 @@ function strumAlongStep(t0, t1, force){
 function strumOnce(c, dir, vel){
   const ps = dir === "D" ? c.pitches.slice() : c.pitches.slice(-4).reverse();
   const v = Math.round(vel * 78 * vol.song / 100), gap = (dir === "D" ? 0.016 : 0.012) / Math.max(0.6, Math.sqrt(P.tempo));
-  if (strumOnPiano()){
-    setupChannel2();
-    for (const p of SA.ring) sendMidi([0x81, p, 0]);
-    SA.ring = ps.slice();
-    ps.forEach((p, i) => setTimeout(() => { if (P.playing) sendMidi([0x91, p, v]); }, i * gap * 1000));
-  } else ps.forEach((p, i) => phoneGuitar(p, v / 127, i * gap));
+  ps.forEach((p, i) => phoneGuitar(p, v / 127, i * gap));
 }
 function strumAlongOff(){
-  for (const p of SA.ring) sendMidi([0x81, p, 0]); SA.ring = [];
-  if (actx) for (const r of SA.phoneRing.values()){ try { r.g.gain.setTargetAtTime(0, actx.currentTime, 0.05); r.src.stop(actx.currentTime + 0.3); } catch(e){} }
+  if (actx) for (const r of SA.phoneRing.values()){ try { r.g.gain.setTargetAtTime(0, actx.currentTime, 0.05); (r.srcs || [r.src]).forEach(x => x.stop(actx.currentTime + 0.3)); } catch(e){} }
   SA.phoneRing.clear();
 }
 // a plucked-string guitar for the phone speaker (Karplus–Strong), made once per note
@@ -1933,9 +1926,71 @@ function gtrBuf(a, p){
   const norm = 0.6 / (peak || 1); for (let i = 0; i < len; i++) d[i] *= norm;
   gtrBufs.set(p, b); return b;
 }
+/* recorded guitars for the phone speaker: steel- and nylon-string acoustic (FluidR3 GM samples, CC BY 3.0),
+   loaded once and kept on the phone; the 12-string doubles each note the way a real one does. */
+const GTR_FILES = {nylon: "acoustic_guitar_nylon", steel: "acoustic_guitar_steel"};
+const GS = {nylon: {bufs: new Map(), state: "none"}, steel: {bufs: new Map(), state: "none"}};
+const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return ["steel", "nylon", "twelve", "synth"].includes(v) ? v : "steel"; };
+function loadGuitar(kind){
+  const g = GS[kind]; if (!g) return Promise.resolve();
+  if (g.loading) return g.loading;
+  g.state = "loading"; showGtrSound();
+  g.loading = (async () => {
+    const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-guitar"); } catch(e){}
+    const N = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+    const queue = []; for (let p = 40; p <= 88; p += 3) queue.push(p);
+    const bases = ["https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/", "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/"];
+    const one = async p => {
+      for (const base of bases){
+        const url = `${base}${GTR_FILES[kind]}-mp3/${N[p % 12]}${Math.floor(p / 12) - 1}.mp3`;
+        try {
+          let res = cache ? await cache.match(url).catch(() => null) : null;
+          if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
+          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), p < 52 ? 4.5 : 3.5));
+          return;
+        } catch(e){}
+      }
+    };
+    await Promise.all(Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); }));
+    g.state = g.bufs.size >= 10 ? "ready" : g.bufs.size ? "partial" : "failed";
+    if (g.state === "failed") g.loading = null;
+    showGtrSound();
+  })();
+  return g.loading;
+}
+function showGtrSound(){
+  const el = $("gtrSoundNote"); if (!el) return;
+  const k = gtrSound(), g = GS[k === "twelve" ? "steel" : k];
+  el.textContent = !g ? "A simple plucked-string sound made on the phone." :
+    g.state === "loading" ? "Downloading the guitar sound (once)…" :
+    g.state === "failed" ? "The guitar sound couldn't be downloaded, so a simple plucked string plays for now. It will try again next time." :
+    (k === "twelve" ? "Steel-string samples, doubled the way a 12-string is: an octave string on the four low pairs, a twin on the top two. " : "Recorded guitar. ") + "Used for strumming and tabs on the phone; with the piano connected, the piano's own guitar sound plays instead.";
+}
+function nearestBuf(g, p){ let best = null, bd = 99; for (const [q, b] of g.bufs){ const d = Math.abs(q - p); if (d < bd){ bd = d; best = [q, b]; } } return best; }
 function phoneGuitar(p, vel, delay){
+  vel = isFinite(vel) ? Math.max(0, Math.min(1, vel)) : 0.8; delay = isFinite(delay) ? Math.max(0, delay) : 0;
+  const kind = gtrSound(), g = kind === "synth" ? null : GS[kind === "twelve" ? "steel" : kind];
+  if (g && g.state === "none") loadGuitar(kind === "twelve" ? "steel" : kind);
+  if (!g || !g.bufs.size) return pluckSynth(p, vel, delay);
+  const a = audioCtx(), t = a.currentTime + delay, old = SA.phoneRing.get(p);
+  if (old){ try { old.g.gain.setTargetAtTime(0, t, 0.02); (old.srcs || [old.src]).forEach(x => x.stop(t + 0.2)); } catch(e){} }
+  const out = a.createGain(); out.connect(grandBus(a)); const srcs = [];
+  const voice = (pitch, gain, dt, cents) => {
+    const nb = nearestBuf(g, pitch); if (!nb) return;
+    const src = a.createBufferSource(), vg = a.createGain();
+    src.buffer = nb[1]; src.playbackRate.value = Math.pow(2, (pitch - nb[0]) / 12 + (cents || 0) / 1200);
+    vg.gain.value = gain * (0.3 + 0.8 * vel);
+    src.connect(vg); vg.connect(out); src.start(t + dt); srcs.push(src);
+  };
+  if (kind === "twelve"){
+    if (p < 59){ voice(p + 12, 0.5, 0, 3); voice(p, 0.85, 0.011, 0); }     // octave string first, then the main string
+    else { voice(p, 0.75, 0, -4); voice(p, 0.7, 0.008, 5); }               // two strings in unison, a hair apart
+  } else voice(p, 1, 0, 0);
+  SA.phoneRing.set(p, {src: srcs[0], srcs, g: out});
+}
+function pluckSynth(p, vel, delay){
   const a = audioCtx(), t = a.currentTime + delay, string = SA.phoneRing.get(p);
-  if (string){ try { string.g.gain.setTargetAtTime(0, t, 0.02); string.src.stop(t + 0.2); } catch(e){} }
+  if (string){ try { string.g.gain.setTargetAtTime(0, t, 0.02); (string.srcs || [string.src]).forEach(x => x.stop(t + 0.2)); } catch(e){} }
   const src = a.createBufferSource(), g = a.createGain(), lp = a.createBiquadFilter();
   src.buffer = gtrBuf(a, p); lp.type = "lowpass"; lp.frequency.value = 2500 + 4000 * vel; g.gain.value = 0.55 * vel;
   src.connect(lp); lp.connect(g); g.connect(grandBus(a)); src.start(t);
@@ -1964,7 +2019,7 @@ function guitarStep(nt){
     } else { P.waiting = false; P.waitChord = null; }
   }
   const t0 = P.t; P.t = nt;
-  if (G.backing === "both" && !guitarWaits()) strumAlongStep(t0, nt, true);   // piano part and guitar together
+  if (G.backing === "both" && !guitarWaits()) strumAlongStep(t0, nt);   // piano part and guitar together
   if (G.backing === "piano" || G.backing === "both"){          // in Wait mode the piano keeps pace with the chords you strum
     pedalStep();
     while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
@@ -2474,7 +2529,6 @@ function step(now){
       if (s && nt >= s.t){ nt = s.t; if (!P.waiting){ P.waiting = true; } }
     }
     const t0 = P.t; P.t = nt;
-    strumAlongStep(t0, nt);
     pedalStep();
     // play notes the app should voice (Listen mode, or the hand you're not practicing)
     while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t){
@@ -5583,8 +5637,6 @@ function setInstrument(inst, quiet){
   $("backSeg").hidden = inst !== "guitar";
   $("gViewSeg").hidden = $("gViewSeg2").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   $("viewSeg").hidden = inst === "guitar";
-  $("gtrAlongBtn").hidden = inst === "guitar" || !(P.chords || []).length;
-  $("gtrAlongBtn").setAttribute("aria-pressed", String(SA.mode !== "off"));
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
   resetRun(P.t); syncScrub(); if (practiceVisible()) layout();   // carry on from the same spot in the song
@@ -5662,33 +5714,18 @@ function showPhoneSound(){
     grand.state === "failed" ? "Couldn't download the piano, so the simple tone is used. It will try again when you're online." :
     "The piano downloads the first time a song plays on the phone (a few MB, once).";
 }
-function showStrumNote(){
-  $("strumSel").value = SA.mode;
-  $("strumNote").textContent = SA.mode === "piano"
-    ? "The piano plays the song with its concert grand and the chords on its nylon guitar, at the same time. Turn on Multi-timbre on your piano first: MIDI settings on the piano or in Kawai's PianoRemote app. Turn it off again to go back to one sound."
-    : SA.mode === "phone" ? "The guitar plays from the phone while the piano plays the song. Works without changing anything on the piano."
-    : "Strums the song's chords in a down, down-up, up-down-up rhythm.";
-}
-$("strumSel").onchange = e => {
-  const was = SA.mode; if (e.target.value !== "off") store.set("dg30.strumLast", e.target.value);
-  setTimeout(() => $("gtrAlongBtn").setAttribute("aria-pressed", String(SA.mode !== "off")), 0); strumAlongOff(); SA.mode = e.target.value; store.set("dg30.strumAlong", SA.mode); SA.ch2Ready = false;
-  if (was === "piano" && SA.mode !== "piano" && pianoReady() && soundState.cur != null) selectSound(soundState.cur, true);   // back to your own sound
-  showStrumNote();
-};
-showStrumNote();
+
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
+$("gtrSoundSel").value = gtrSound(); showGtrSound();
+$("gtrSoundSel").onchange = e => { store.set("dg30.gtrSound", e.target.value); const k = e.target.value; if (k !== "synth") loadGuitar(k === "twelve" ? "steel" : k); showGtrSound(); };
+$("gtrSoundTry").onclick = async () => {
+  const k = gtrSound(); if (k !== "synth"){ const g = GS[k === "twelve" ? "steel" : k]; if (!g.bufs.size){ $("gtrSoundNote").textContent = "Downloading the guitar sound (once)…"; await loadGuitar(k === "twelve" ? "steel" : k); } }
+  [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
+  setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
+};
 $("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
 $("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
-$("gtrAlongBtn").onclick = () => {
-  const on = SA.mode === "off", was = SA.mode;
-  strumAlongOff(); SA.mode = on ? store.get("dg30.strumLast", "phone") : "off";
-  if (!on) store.set("dg30.strumLast", was);
-  store.set("dg30.strumAlong", SA.mode); SA.ch2Ready = false; showStrumNote();
-  if (was === "piano" && !on && pianoReady() && soundState.cur != null) selectSound(soundState.cur, true);
-  $("gtrAlongBtn").setAttribute("aria-pressed", String(on));
-  toast(on ? "A guitar now strums the chords along with the piano." + (SA.mode === "phone" ? " It plays on the phone speaker; in Sound you can move it to the piano." : "") : "Guitar off.");
-};
 $("phoneSoundSel").onchange = e => { grand.want = e.target.value; store.set("dg30.phoneSound", grand.want); allNotesOff(); if (grand.want === "grand") loadGrand(); showPhoneSound(); };
 showPhoneSound();
 setInterval(() => { if (grand.state === "loading") showPhoneSound(); }, 700);

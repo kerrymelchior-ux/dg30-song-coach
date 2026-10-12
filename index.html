@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.62">
+<meta name="version" content="1.64">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -415,7 +415,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .vpresets{display:flex;gap:8px;flex-wrap:wrap}
 .vpresets button{min-height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px}
 @media (max-width:520px){ .loopbtn span,.recbtn span{display:none} .loopbtn,.recbtn{padding:0 9px} }
-@media (max-height:520px) and (max-width:1000px){ .qvol input{width:62px} .qvol{padding-right:8px} #bars .seg button{padding:0 7px} #bars{gap:5px} .tkchip{padding:0 8px} }
+@media (max-height:520px) and (max-width:1000px){ .qvol input{width:62px} .qvol{padding-right:8px} #bars .seg button{padding:0 6px} #modeSeg .pa{display:none} #bars{gap:5px} .tkchip{padding:0 8px} }
 #practice{position:fixed}
 .tkchip{flex:none;height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ivory);white-space:nowrap}
 .tkchip.changed{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--accent)}
@@ -436,7 +436,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .dcap{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--muted);min-width:52px;text-align:center}
 .dcap:has(> button[hidden]){display:none}
 .dlbl{font-size:12px;font-weight:600;color:var(--muted)}
-.dgrp:has(> #backSeg[hidden]),.dgrp:has(> #viewSeg[hidden]):has(> #gViewSeg2[hidden]){display:none}
+.dgrp:has(> #magicSeg[hidden]),.dgrp:has(> #backSeg[hidden]),.dgrp:has(> #viewSeg[hidden]):has(> #gViewSeg2[hidden]){display:none}
 .pdrawer .stepper button{width:44px;min-height:42px}
 .pdrawer .stepper span{min-width:70px}
 .pdrawer .stepper small{display:none}
@@ -631,12 +631,14 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <button class="btn instr" id="instrBtn" type="button" hidden aria-label="Switch between piano and guitar">Guitar</button>
     <div class="seg" id="modeSeg" role="group" aria-label="Mode">
       <button type="button" data-v="wait" aria-pressed="true">Wait</button>
-      <button type="button" data-v="play" aria-pressed="false">Play along</button>
+      <button type="button" data-v="play" aria-pressed="false" aria-label="Play along">Play<span class="pa"> along</span></button>
       <button type="button" data-v="listen" aria-pressed="false">Listen</button>
+      <button type="button" data-v="magic" aria-pressed="false" id="magicModeBtn" title="Tap any key in rhythm and the right notes play">Magic</button>
     </div>
-    <div class="seg" id="gViewSeg" role="group" aria-label="Chords or tabs" hidden>
+    <div class="seg" id="gViewSeg" role="group" aria-label="Chords, tabs or sheet music" hidden>
       <button type="button" data-v="chords" aria-pressed="true" title="Chord shapes to strum">Chords</button>
       <button type="button" data-v="tabs" aria-pressed="false" title="The melody as guitar tab: string and fret for each note">Tabs</button>
+      <button type="button" data-v="sheet" aria-pressed="false" title="Sheet music with the chord names above it">Sheet</button>
     </div>
     <div class="seg" id="handSeg" role="group" aria-label="Hands">
       <button type="button" data-v="L" aria-pressed="false" aria-label="Left hand">L</button>
@@ -655,6 +657,11 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" data-v="strum" aria-pressed="false" title="The piano strums the chords on its guitar sound">Strum</button>
       <button type="button" data-v="both" aria-pressed="false" title="The piano part and a strumming guitar together">Both</button>
       <button type="button" data-v="off" aria-pressed="false" title="Nothing plays along">Off</button>
+    </div></div>
+    <div class="dgrp" id="magicGrp"><span class="dlbl">Magic: one tap for each</span><div class="seg" id="magicSeg" role="group" aria-label="What each tap plays" hidden>
+      <button type="button" data-v="beat" aria-pressed="false" title="Tap a steady beat; the whole song follows">Beat</button>
+      <button type="button" data-v="melody" aria-pressed="true" title="Tap the melody's rhythm; the other hand comes along">Melody note</button>
+      <button type="button" data-v="notes" aria-pressed="false" title="Tap the rhythm of every note in the hands you picked">Every note</button>
     </div></div>
     <div class="dgrp"><span class="dlbl">Practice</span><div class="ptools">
       <button type="button" class="ptool" id="metroBtn" aria-pressed="false">Metronome</button>
@@ -679,7 +686,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="dgrp"><span class="dlbl">Show</span><div class="seg" id="viewSeg" role="group" aria-label="Show falling bars or sheet music">
       <button type="button" data-v="bars" aria-pressed="true">Bars</button>
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
-    </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords or tabs" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button></div></div>
+    </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords, tabs or sheet music" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button><button type="button" data-v="sheet" aria-pressed="false">Sheet</button></div></div>
     <div class="dgrp dicons">
     <div class="dcap"><button class="icon" id="instBtn" type="button" aria-label="Instrument" title="Instrument">&#127929;</button><span>Instrument</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
@@ -804,6 +811,17 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       </select>
     </div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
+  </div>
+</dialog>
+
+<!-- ================= MAGIC TIP ================= -->
+<dialog id="magicDlg">
+  <div class="sheet">
+    <h2>Magic mode with your piano</h2>
+    <p>Tap any key in the song's rhythm and the piano plays the right notes. Press harder to play louder.</p>
+    <p>The app just asked the piano to stop sounding the keys you press (this is called <b>Local Control</b>), so you only hear the song's notes. It turns it back on when you leave Magic.</p>
+    <p style="color:var(--muted)">If you still hear the key you pressed along with the right notes, your piano didn't accept the request. Turn <b>Local Control</b> off in the piano's MIDI settings, or in Kawai's PianoRemote app, and turn it back on when you're done. Turning the piano off and on also turns it back on.</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="magicOk">Got it</button></div>
   </div>
 </dialog>
 
@@ -986,7 +1004,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.62";
+const APP_VERSION = "1.64";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2069,7 +2087,7 @@ function pluckSynth(p, vel, delay){
 
 // what plays while the guitar view is up: the piano part, guitar strums, or nothing
 G.backing = store.get("dg30.gbacking2", "strum");
-G.view = store.get("dg30.gview", "chords") === "tabs" ? "tabs" : "chords";   // chords or tabs on the guitar screen   // guitar screen starts on Strum; your later choice is remembered
+G.view = ["tabs", "sheet"].includes(store.get("dg30.gview", "chords")) ? store.get("dg30.gview") : "chords";   // chords or tabs on the guitar screen   // guitar screen starts on Strum; your later choice is remembered
 function guitarStep(nt){
   const ch = P.chords;
   if (guitarWaits() && tabsView()){
@@ -2256,10 +2274,11 @@ function drawGuitar(now){
   L.gStrumY = strumY;
   const pps = Math.max(70, strumY / 4.5), laneX0 = W * 0.30, laneX1 = W * 0.70;
   drawBackdrop(now, W, H);              // same background as the piano screen
+  const noLane = tabsView() || sheetView();   // tabs and sheet music replace the falling chords
   // beat lines
   const beat = 60 / (P.baseBpm || 100);
   cx.strokeStyle = C.line; cx.lineWidth = 1;
-  if (!P.words && !tabsView()) for (let k = Math.floor((P.t - 1) / beat); k * beat < P.t + strumY / pps; k++){
+  if (!P.words && !noLane) for (let k = Math.floor((P.t - 1) / beat); k * beat < P.t + strumY / pps; k++){
     const y = strumY - (k * beat - P.t) * pps; if (y < 0 || y > strumY) continue;
     cx.globalAlpha = k % 4 === 0 ? 0.9 : 0.4; cx.beginPath(); cx.moveTo(laneX0, y); cx.lineTo(laneX1, y); cx.stroke();
   }
@@ -2267,7 +2286,7 @@ function drawGuitar(now){
   // falling chords
   const cur = P.chords[G.idx], next = P.chords[G.idx + 1];
   if (tabsView()) drawTabs(now, W, strumY);
-  if (!P.words && !tabsView()) for (let i = 0; i < P.chords.length; i++){
+  if (!P.words && !noLane) for (let i = 0; i < P.chords.length; i++){
     const c = P.chords[i]; if (c.t > P.t + strumY / pps) break; if (c.end < P.t - 0.5) continue;
     const y1 = strumY - (c.t - P.t) * pps, y0 = Math.max(-20, strumY - (c.end - P.t) * pps);
     const isCur = i === G.idx;
@@ -2278,16 +2297,16 @@ function drawGuitar(now){
     cx.font = `700 ${Math.min(30, Math.max(16, (laneX1 - laneX0) / 8))}px ${css("--f-display")}`;
     if (y1 > 18) cx.fillText(c.name, (laneX0 + laneX1) / 2, Math.min(y1, strumY) - 8);
   }
-  if (!P.words && !tabsView()) { cx.fillStyle = C.chrome; cx.fillRect(laneX0, strumY - 1, laneX1 - laneX0, 3); }
+  if (!P.words && !noLane) { cx.fillStyle = C.chrome; cx.fillRect(laneX0, strumY - 1, laneX1 - laneX0, 3); }
   // chord charts: current (left, large) and next (right, smaller)
   const boxW = Math.min(W * 0.17, 150), boxH = Math.min(strumY * 0.62, boxW * 1.25);
   cx.textAlign = "center"; cx.textBaseline = "top";
-  if (cur && !tabsView()){
+  if (cur && !noLane){
     const bx = (laneX0 - boxW) / 2, by = Math.max(46, strumY - boxH - 10);
     cx.fillStyle = C.ivory; cx.font = `700 ${Math.min(34, boxW / 3)}px ${css("--f-display")}`; cx.fillText(cur.name, laneX0 / 2, by - 40);
     drawChordBox(bx, by, boxW, boxH, cur, 1);
   }
-  if (next && !tabsView()){
+  if (next && !noLane){
     const nw = boxW * 0.72, nh = boxH * 0.72, bx = laneX1 + (W - laneX1 - nw) / 2, by = Math.max(46, strumY - nh - 10);
     cx.fillStyle = C.muted; cx.font = `600 11px ${css("--f-body")}`; cx.fillText("NEXT", laneX1 + (W - laneX1) / 2, by - 44);
     cx.fillStyle = C.ivory; cx.font = `700 ${Math.min(24, nw / 3)}px ${css("--f-display")}`; cx.fillText(next.name, laneX1 + (W - laneX1) / 2, by - 30);
@@ -2547,6 +2566,7 @@ function resetRun(fromT){
   for (let i = 0; i < P.stepIdx; i++) P.steps[i].done = true;
   P.noteIdx = P.notes.findIndex(n => n.t >= P.t); if (P.noteIdx < 0) P.noteIdx = P.notes.length;
   buildPedalEvents(); pedalSeek(P.t);
+  buildMagic();
   updateStats();
 }
 function allNotesOff(){ pedalOut(false); for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; try { strumAlongOff(); } catch(e){} }
@@ -2566,6 +2586,7 @@ function currentStep(){
 }
 function onKeyDown(p, v, fromMic){
   P.pressed.set(p, {t:performance.now(), state:"neutral"});
+  if (magicOn() && practiceVisible() && !(typeof RV !== "undefined" && RV.on)){ if (!fromMic){ P.pressed.get(p).state = "good"; magicTap(v); } return; }   // any key plays the right notes
   if (practiceVisible() && conn.kind !== "mic" && conn.outMode === "phone" && !(conn.midiOut || conn.bleChar)) synthOn(p, v);
   if (!P.playing || P.mode === "listen" || P.instr === "guitar") return;
   const s = currentStep(); if (!s) return;
@@ -2583,14 +2604,89 @@ function onKeyDown(p, v, fromMic){
 }
 function onKeyUp(p){
   const k = P.pressed.get(p); if (k){ P.flashes.push({p, state:k.state, t:performance.now()}); P.pressed.delete(p); }
+  if (magicOn()) return;
   if (conn.outMode === "phone" && !(conn.midiOut || conn.bleChar) && conn.kind !== "mic") synthOff(p);
 }
 
+/* ---------------- Magic: tap any key in rhythm and the right notes play (like Kawai's Concert Magic) ----------------
+   Each tap moves the song to its next "cue" and plays what's there. Between taps the song flows at the speed you're
+   tapping, then waits at the next cue. Any key works; it's about the rhythm. The score is how steady your timing is. */
+const M = { level: ["beat","melody","notes"].includes(store.get("dg30.magicLvl", "melody")) ? store.get("dg30.magicLvl", "melody") : "melody",
+  cues: [], ci: 0, rate: 1, vel: 1, lastTap: 0, lastCue: null, scored: 0, linkOff: null, tipShown: store.get("dg30.magicTip", false) };
+const magicOn = () => P.mode === "magic" && P.instr !== "guitar";
+function buildMagic(){
+  const ts = []; const add = t => { if (!ts.length || t - ts[ts.length - 1] > 0.06) ts.push(t); };
+  if (M.level === "beat"){
+    const g = ensureGrid(), bl = beatLen(), first = (P.notes[0]?.t ?? 0) - 0.05;
+    for (let k = Math.ceil((first - g.phase) / bl - 1e-6); g.phase + k * bl <= P.len; k++) add(g.phase + k * bl);
+  } else {
+    const tagged = P.notes.some(n => n.h === "L" || n.h === "R");
+    const mh = P.hands === "L" ? "L" : "R";
+    for (const st of P.steps){
+      const pick = M.level === "notes" ? st.notes.some(n => handOn(n.h) || !tagged)
+        : st.notes.some(n => tagged ? n.h === mh : n.p >= 60);
+      if (pick) add(st.t);
+    }
+    if (!ts.length) for (const st of P.steps) add(st.t);
+  }
+  M.cues = ts; M.ci = ts.findIndex(t => t >= P.t - 0.01); if (M.ci < 0) M.ci = ts.length;
+  M.rate = P.tempo || 1; M.lastTap = 0; M.lastCue = null; M.scored = 0; M.vel = 1;
+  if (magicOn()) P.total = 0;
+}
+// play everything that's due now, at the strength you tapped
+function magicPlayDue(nowMs){
+  while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t <= P.t + 0.0005){
+    const n = P.notes[P.noteIdx++], v = Math.max(1, Math.min(127, Math.round((n.v || 80) * M.vel)));
+    noteOut(n.p, v, true); P.sounding.push({p: n.p, end: n.t + n.d, rend: nowMs + n.d * 1000 / Math.max(0.25, M.rate)});
+  }
+}
+function magicTap(v){
+  if (!P.playing){ setPlaying(true); PT.countUntil = 0; }
+  const cue = M.cues[M.ci]; if (cue == null) return;
+  const nowMs = performance.now();
+  if (M.lastTap && M.lastCue != null){
+    const songGap = cue - M.lastCue, real = (nowMs - M.lastTap) / 1000, exp = songGap / M.rate;
+    if (songGap > 0.02 && real > 0.03 && real < exp * 2.5 + 0.6){          // a long pause isn't scored: you stopped on purpose
+      const ok = Math.abs(real - exp) <= Math.max(0.07, exp * 0.22);
+      M.scored++; P.total = M.scored;
+      if (ok){ P.correct++; P.streak++; P.bestStreak = Math.max(P.bestStreak || 0, P.streak); } else { P.wrong++; P.streak = 0; }
+      M.rate = Math.max(0.25, Math.min(2.5, M.rate * 0.45 + (songGap / real) * 0.55));
+    }
+  }
+  M.lastTap = nowMs; M.lastCue = cue; M.vel = Math.max(0.35, Math.min(1.45, (v || 90) / 85));
+  while (P.noteIdx < P.notes.length && P.notes[P.noteIdx].t < cue - 0.08) P.noteIdx++;   // you tapped ahead: skip what's in between
+  P.t = Math.max(P.t, cue); M.ci++; P.waiting = false;
+  magicPlayDue(nowMs); updateStats(); syncScrub();
+}
+function magicStep(dt){
+  const nowMs = performance.now(), cue = M.cues[M.ci];
+  let nt = P.t + dt * M.rate;
+  if (cue != null && nt >= cue - 0.001){ nt = Math.max(P.t, cue - 0.001); P.waiting = true; } else P.waiting = false;
+  P.t = nt; pedalStep(); magicPlayDue(nowMs);
+  P.sounding = P.sounding.filter(x => { if (x.end <= P.t || (x.rend && nowMs >= x.rend)){ noteOut(x.p, 0, false); return false; } return true; });
+  while (P.stepIdx < P.steps.length && P.steps[P.stepIdx].t <= P.t){ P.steps[P.stepIdx].done = true; P.stepIdx++; }
+  if (cue == null && P.t > P.len + 1) finish();
+  syncScrub();
+}
+// with the piano connected, its own sound of the key you pressed is switched off (Local Control) while Magic is on
+function syncMagicLocal(){
+  const link = conn.bleChar || conn.midiOut || null;
+  const want = magicOn() && practiceVisible() && !document.hidden && link && conn.outMode === "piano" ? link : null;
+  if (want === M.linkOff) return;
+  if (M.linkOff && M.linkOff === link) sendMidi([0xB0, 122, 127]);          // Local Control back on
+  if (want){ sendMidi([0xB0, 122, 0]); if (!M.tipShown){ M.tipShown = true; store.set("dg30.magicTip", true); setTimeout(() => $("magicDlg").showModal(), 300); } }
+  M.linkOff = want;
+}
+window.addEventListener("pagehide", () => { if (M.linkOff){ try { sendMidi([0xB0, 122, 127]); } catch(e){} M.linkOff = null; } });
+document.addEventListener("visibilitychange", () => syncMagicLocal());
+
 function step(now){
   const dt = Math.min(0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
+  syncMagicLocal();
   if (P.playing && countInTick()){ draw(); requestAnimationFrame(step); return; }      // counting in: the music waits
   if (P.playing){ metroTick(); loopCheck(); }
   if (P.playing && P.instr === "guitar"){ guitarStep(P.t + dt * P.tempo); syncScrub(); }
+  else if (P.playing && magicOn()) magicStep(dt);
   else if (P.playing){
     let nt = P.t + dt * P.tempo;
     if (P.mode === "wait"){
@@ -2651,6 +2747,11 @@ function finish(){
   if (PL.playing){ resetRun(); setTimeout(playlistAdvance, 1500); return; }
   if (P.mode === "listen" || !P.total){ resetRun(); return; }
   const acc = Math.round(100 * P.correct / P.total);
+  if (magicOn()){
+    $("resAcc").textContent = acc + "%";
+    $("resText").textContent = `Timing: ${P.correct} of ${P.total} taps were right in rhythm, longest steady run ${P.bestStreak || 0}. When the rhythm feels easy, try Every note, then Wait mode to learn the keys.`;
+    $("resDlg").showModal(); return;
+  }
   const key = "dg30.best." + P.song.id, best = store.get(key, 0);
   if (acc > best) store.set(key, acc);
   $("resAcc").textContent = acc + "%";
@@ -2718,7 +2819,7 @@ function layout(){
   }
   const palmH = showHands() && P.instr !== "guitar" ? Math.round(Math.min(kbH * 0.8, H * 0.17)) : 0;
   const hitY = H - kbH - palmH;
-  L = {W, H, kbH, hitY, kbBottom: hitY + kbH, palmH, ww, keys, lo, hi, pps: Math.max(90, hitY / 3.2)};
+  L = {W, H, kbH, hitY, kbBottom: hitY + kbH, palmH, ww, keys, lo, hi, pps: Math.max(90, hitY / 3.2), gStrumY: H - Math.max(90, Math.min(170, H * 0.32)) - 10};
   const fol = $("follow"); if (fol){ fol.hidden = !sheetView(); if (sheetView()) buildFollow(); }
 }
 function rr(x, y, w, h, r){ if (!(w > 0 && h > 0)){ cx.beginPath(); return; } r = Math.max(0, Math.min(r, w/2, h/2)); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
@@ -2731,7 +2832,7 @@ function draw(){
   if (cv.clientWidth && cv.clientHeight && (Math.abs(cv.clientWidth - L.W) > 1 || Math.abs(cv.clientHeight - L.H) > 1)) layout();   // screen area changed size (drawer, dialog, rotation)
   const now = performance.now();
   try { drawBg(now); } catch(e){ GFX.failed = true; }
-  if (P.instr === "guitar") drawGuitar(now); else drawPiano(now);
+  if (P.instr === "guitar"){ drawGuitar(now); if (sheetView()) updateFollow(); } else drawPiano(now);
   drawLyrics();
   drawBanner();
 }
@@ -3142,12 +3243,14 @@ function drawBg(now){
 /* ---------------- follow along on sheet music ----------------
    Shows the song as printed music in place of the falling bars. The bar you're in is lit up and a red line
    moves through it in time with the song; the page scrolls by itself. */
-const sheetView = () => P.instr !== "guitar" && store.get("dg30.view", "bars") === "sheet";
+const sheetView = () => P.instr === "guitar" ? G.view === "sheet" : store.get("dg30.view", "bars") === "sheet";
+// the sheet music fills the space above the keyboard, or above the guitar neck
+const followH = () => P.instr === "guitar" ? (L.gStrumY || L.H * 0.62) : L.hitY;
 const FOLLOW = { key: null, boxes: [], starts: [], lens: [], line: -1, busy: false };
 async function buildFollow(){
   if (!sheetView() || !P.song || !L) return;
-  const key = [P.song.id, P.transpose, Math.round(L.W), P.baseBpm, P.words ? 1 : 0].join("|");
-  const box = $("follow"); box.hidden = false; box.style.height = L.hitY + "px";
+  const key = [P.song.id, P.transpose, Math.round(L.W), Math.round(followH()), P.baseBpm, P.words ? 1 : 0].join("|");
+  const box = $("follow"); box.hidden = false; box.style.height = followH() + "px";
   if (FOLLOW.key === key) return;
   if (FOLLOW.busy){ FOLLOW.again = true; return; }
   FOLLOW.busy = true; const svgBox = $("followSvg");
@@ -3181,7 +3284,7 @@ async function buildFollow(){
     const draw = scale => { svgBox.textContent = ""; ABCJS.renderAbc(svgBox, abc, {add_classes: true, responsive: "resize", staffwidth: Math.max(260, (L.W - 40) / scale), paddingtop: 0, paddingbottom: 6, paddingleft: 0, paddingright: 0}); };
     try { draw(1); } catch(e){ ABC_NO_TRIP = true; try { abc = measuresToAbc("", keyStr, ms, {perLine}).replace(/^T:.*\n/m, ""); } finally { ABC_NO_TRIP = false; } draw(1); }
     const lineH = (() => { const els = svgBox.querySelectorAll(".abcjs-l0"); let a = 1e9, b = -1e9; els.forEach(e => { const r = e.getBoundingClientRect(); if (r.height){ a = Math.min(a, r.top); b = Math.max(b, r.bottom); } }); return b - a + 40; })();
-    if (lineH > L.hitY - 8 && lineH > 0) draw(Math.max(0.45, (L.hitY - 8) / lineH));
+    if (lineH > followH() - 8 && lineH > 0) draw(Math.max(0.45, (followH() - 8) / lineH));
     // where each bar sits on the page
     const ref = $("followInner").getBoundingClientRect(), boxes = [];
     for (let i = 0; i < ms.length; i++){
@@ -3276,6 +3379,12 @@ function drawBanner(){
     else if (!P.playing) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then strum each chord. The mic listens for it.") : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : G.backing === "both" ? "Press play: the piano and a guitar play together" : "Press play");
     else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name + (GM.starting ? " · starting the mic…" : " · listening");
     else if (P.chords.length && P.t < P.chords[0].t) msg = "Get ready…";
+    b.hidden = !msg; b.textContent = msg; return;
+  }
+  if (magicOn()){
+    msg = conn.kind === "mic" ? "Magic needs the piano connected by Bluetooth, or tap the screen in rhythm"
+      : !P.playing ? "Magic: tap any key in rhythm (or tap the screen). The right notes play."
+      : P.waiting && M.ci === 0 ? "Tap any key to start" : "";
     b.hidden = !msg; b.textContent = msg; return;
   }
   if (!P.playing) msg = "Press play";
@@ -5149,7 +5258,7 @@ function metroTick(){
 }
 // one bar of clicks (4, 3, 2, 1) before the music moves
 function startCountIn(){
-  if (!PT.countIn) return;
+  if (!PT.countIn || magicOn()) return;
   const g = ensureGrid(), n = g.beats || 4, bd = beatLen() / Math.max(0.05, P.tempo), a = audioCtx(), t0 = a.currentTime + 0.05;
   for (let j = 0; j < n; j++) click(j === 0, t0 + j * bd);
   PT.countStart = performance.now() + 50; PT.countUntil = PT.countStart + n * bd * 1000; PT.countN = n; PT.countBd = bd;
@@ -5242,13 +5351,13 @@ $("trainBtn").onclick = () => {
     if (pv.bpm) setBpm(pv.bpm);
     if (pv.madeLoop) setLoop(false);
     resetRun(P.t); syncScrub(); if (was) setPlaying(true);
-    toast(`Speed trainer off. Back to ${({wait:"Wait", play:"Play along", listen:"Listen"})[P.mode]} at ${Math.round(100 * P.tempo)}%`, 1800);
+    toast(`Speed trainer off. Back to ${({wait:"Wait", play:"Play along", listen:"Listen", magic:"Magic"})[P.mode]} at ${Math.round(100 * P.tempo)}%`, 1800);
     return;
   }
   PT.trainer.prev = {mode: P.mode, bpm: Math.round(P.tempo * (P.baseBpm || 100)), madeLoop: !PT.loop.on};
   if (!PT.loop.on){ const g = ensureGrid(), bar = beatLen() * g.beats, a = Math.max(0, barStartAt(Math.max(P.t, P.notes[0] ? P.notes[0].t : 0))); setLoop(true, a, a + 2 * bar); }
   else trainerStart();
-  if (P.mode === "listen"){ P.mode = "wait"; setSeg("modeSeg", "wait"); store.set("dg30.mode", "wait"); toast("Speed trainer: switched to Wait mode so it can hear you", 2200); }
+  if (P.mode === "listen" || P.mode === "magic"){ P.mode = "wait"; setSeg("modeSeg", "wait"); store.set("dg30.mode", "wait"); syncMagicUI(); toast("Speed trainer: switched to Wait mode so it can hear you", 2200); }
 };
 const saveTrainer = () => store.set("dg30.trainer", {start: PT.trainer.start, step: PT.trainer.step, target: PT.trainer.target});
 $("trStart").onchange = e => { PT.trainer.start = +e.target.value; saveTrainer(); if (PT.trainer.on) trainerStart(); };
@@ -5670,9 +5779,15 @@ $("restartBtn").onclick = () => { const was = P.playing; setPlaying(false); rese
 const MODE_HELP = {
   wait: "Wait: the notes stop at the line until you press the right keys. Best for learning.",
   play: "Play along: the song keeps moving at its tempo, like playing with a band. It won't wait, and it scores each note you hit on time. With one hand chosen, the app plays the other hand.",
-  listen: "Listen: the app plays the whole song for you so you can hear how it goes."
+  listen: "Listen: the app plays the whole song for you so you can hear how it goes.",
+  magic: "Magic: tap any key in the song's rhythm and the right notes play. Learn the timing first, then the keys. Choose Beat, Melody note or Every note in the ••• menu."
 };
-$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if (P.mode !== b.dataset.v) toast(P.instr === "guitar" && b.dataset.v === "wait" ? "Wait: the song stops at each chord until the mic hears you strum it." : MODE_HELP[b.dataset.v]); P.mode = b.dataset.v; if (P.mode !== "wait") stopGuitarMic(); else if (P.instr === "guitar") startGuitarMic(); setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+function syncMagicUI(){ $("magicSeg").hidden = !magicOn(); setSeg("magicSeg", M.level); }
+$("magicSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; M.level = b.dataset.v; store.set("dg30.magicLvl", M.level); syncMagicUI(); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
+// tap the screen in Magic mode (for playing on the phone without the piano)
+$("stage").addEventListener("pointerdown", e => { if (!magicOn() || !practiceVisible() || (typeof RV !== "undefined" && RV.on) || e.target.closest("#banner")) return; if (!$("pDrawer").hidden) return; magicTap(95); }, {capture: true});
+$("magicOk").onclick = () => $("magicDlg").close();
+$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if (P.mode !== b.dataset.v) toast(P.instr === "guitar" && b.dataset.v === "wait" ? "Wait: the song stops at each chord until the mic hears you strum it." : MODE_HELP[b.dataset.v]); P.mode = b.dataset.v; if (P.mode !== "wait") stopGuitarMic(); else if (P.instr === "guitar") startGuitarMic(); setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); syncMagicUI(); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 $("handSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; P.hands = b.dataset.v; setSeg("handSeg", P.hands); store.set("dg30.hands", P.hands); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 // Tempo in beats per minute. Each song opens at its own tempo; slower or faster choices are remembered per song.
 function setBpm(bpm){
@@ -5735,6 +5850,9 @@ function setInstrument(inst, quiet){
   $("backSeg").hidden = inst !== "guitar";
   $("gViewSeg").hidden = $("gViewSeg2").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   $("viewSeg").hidden = inst === "guitar";
+  $("magicModeBtn").hidden = inst === "guitar";
+  if (inst === "guitar" && P.mode === "magic"){ P.mode = "listen"; setSeg("modeSeg", "listen"); }
+  syncMagicUI();
   $("instBtn").innerHTML = inst === "guitar" ? "&#127928;" : "&#127929;";
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
@@ -5752,8 +5870,9 @@ const onGView = e => {
   const was = P.playing; setPlaying(false);
   G.view = b.dataset.v; store.set("dg30.gview", G.view); setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   if (G.view === "tabs") ensureTabs();
+  $("follow").hidden = !sheetView(); if (sheetView()){ FOLLOW.line = -1; buildFollow(); }
   resetRun(P.t); syncScrub();
-  toast(G.view === "tabs" ? "Tabs: pick the melody note by note" : "Chords: strum along", 1600);
+  toast(G.view === "tabs" ? "Tabs: pick the melody note by note" : G.view === "sheet" ? "Sheet music: chords on top, notes light up as they play" : "Chords: strum along", 1600);
   if (was) setPlaying(true);
 };
 $("gViewSeg").addEventListener("click", onGView); $("gViewSeg2").addEventListener("click", onGView);
@@ -5934,7 +6053,7 @@ async function showStorageInfo(){
 }
 (function boot(){
   if (!window.isSecureContext) $("secureWarn").hidden = false;
-  P.mode = store.get("dg30.mode", "wait"); setSeg("modeSeg", P.mode);
+  P.mode = store.get("dg30.mode", "wait"); setSeg("modeSeg", P.mode); syncMagicUI();
   P.hands = store.get("dg30.hands", "B"); setSeg("handSeg", P.hands);
   renderSoundLabel();
   $("setModel").value = store.get("dg30.scanModel", "claude-opus-5-5");

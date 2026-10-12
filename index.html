@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.75">
+<meta name="version" content="1.76">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +72,22 @@ button{cursor:pointer}
 .song.hasart{grid-template-columns:52px 1fr auto}
 .song .art{grid-row:1/3;width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:22px;overflow:hidden;padding:0;cursor:pointer}
 .song .art img{width:100%;height:100%;object-fit:cover;display:block}
+.song .art{position:relative}
+.song .art .prog{position:absolute;left:0;bottom:0;height:5px;background:var(--accent);box-shadow:0 0 6px var(--accent);border-radius:0 3px 0 0}
+.song .art .ptrack{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(10,8,7,.6)}
+.song .art .score{position:absolute;left:3px;top:3px;font:700 10.5px/1 var(--f-body);padding:3px 4px;border-radius:5px;background:rgba(10,8,7,.78);color:#f3ece0}
+.song .art .score.good{background:rgba(31,120,70,.9)}.song .art .score.gold{background:linear-gradient(135deg,#e2b659,#b8862e);color:#1a1205}
+.hello{margin:2px 0 0;color:var(--muted);font-size:14px}
+.compbar{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;margin-left:auto}
+.compbar .btn{min-height:40px;padding:0 13px}
+.compbar .rec i{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--bad);margin-right:7px;vertical-align:-1px}
+.compbar .rec.on{background:var(--bad);border-color:var(--bad);color:#fff}.compbar .rec.on i{border-radius:2px;background:#fff;animation:recPulse 1s ease-in-out infinite}
+.compbar [aria-pressed="false"]{opacity:.55}
+body.composing #bars > *:not(#backBtn):not(#pTitle):not(#pConn):not(#qVolBtn):not(#compBar){display:none!important}
+body.composing .scrub{display:none!important}
+.badge.orig,.badge.orig.on{color:#1a1205!important;background:linear-gradient(135deg,#e2b659,#c9973d)!important;border-color:transparent!important}.badge.orig svg{color:#1a1205!important}
+.wrrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.wrrow b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .song.hasart .meta{grid-column:2}.song.hasart .acts{grid-column:2;grid-row:3;justify-self:start;margin-top:4px}.song.hasart .art{grid-row:1/4;align-self:start}
 .artbig{width:120px;height:120px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;font-size:44px;color:var(--muted);overflow:hidden;flex:none}
 .artbig img{width:100%;height:100%;object-fit:cover}
@@ -488,7 +504,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <!-- ================= LIBRARY ================= -->
 <main id="library">
   <header class="top">
-    <div class="brand"><h1>Song Coach</h1></div>
+    <div class="brand"><h1>Song Coach</h1><p class="hello" id="hello" hidden></p></div>
     <div class="topacts">
       <button class="instchip" id="instChip" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 13v6M15 13v6" stroke-linecap="round"/><path d="M7.4 5v8h3.2V5M13.4 5v8h3.2V5" fill="currentColor" stroke="none"/></svg><span id="instName">Piano</span></button>
       <button class="ibtn conn" id="connPill" type="button" title="Connect piano"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span id="connText" class="vh">Connect piano</span></button>
@@ -505,6 +521,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <button type="button" data-v="add" aria-pressed="false">Add a song</button>
     <button type="button" data-v="playlists" aria-pressed="false">Playlists</button>
     <button type="button" data-v="recordings" aria-pressed="false">Recordings</button>
+    <button type="button" data-v="write" aria-pressed="false">Write music</button>
   </div>
 
   <section id="jobs" class="jobs" hidden aria-live="polite"></section>
@@ -529,6 +546,18 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   </section>
 
   </div>
+
+  <section id="secWrite" class="add setcard" hidden>
+    <h2 id="wrHead">Write your own music</h2>
+    <p>Play on your piano or on the keys on screen, and Song Coach writes the sheet music as you go. Save it and it joins your library as an original, signed with your name.</p>
+    <div class="field"><label class="label" for="wrTitle">Name of your piece</label><input id="wrTitle" type="text" placeholder="My first song" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
+    <div class="row" style="gap:12px">
+      <label class="label" style="display:flex;flex-direction:column;gap:4px">Tempo <select id="wrBpm"><option>60</option><option>72</option><option>80</option><option selected>90</option><option>100</option><option>110</option><option>120</option><option>140</option></select></label>
+      <label class="label" style="display:flex;flex-direction:column;gap:4px">Time <select id="wrSig"><option value="4/4" selected>4/4</option><option value="3/4">3/4 (waltz)</option><option value="6/8">6/8</option><option value="2/4">2/4</option></select></label>
+    </div>
+    <div class="row"><button class="btn primary" id="wrStart" type="button">Start writing</button></div>
+    <div id="wrList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
 
   <section id="secRecs" style="display:flex;flex-direction:column;gap:8px" hidden>
     <div class="sortrow"><label class="sortlbl"><span>Sort</span><select id="recSort" aria-label="Sort recordings"></select></label></div>
@@ -557,6 +586,10 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <h2>Main instrument</h2>
     <p>Songs open on this instrument, and the app's highlight color follows it. You can still switch inside any song.</p>
     <div class="seg" id="primSeg" role="group" aria-label="Main instrument" style="align-self:flex-start"><button type="button" data-v="piano" aria-pressed="true">Piano</button><button type="button" data-v="guitar" aria-pressed="false">Guitar</button></div>
+  </section>
+  <section class="add setcard">
+    <h2>You</h2>
+    <div class="field"><label class="label" for="setName">Your name</label><input id="setName" type="text" autocomplete="given-name" placeholder="So the app can cheer you on, and to sign songs you write" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
   </section>
   <section class="add setcard">
     <h2>App look</h2>
@@ -655,6 +688,13 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   <div id="bars" class="ctrl">
     <button class="icon" id="backBtn" type="button" aria-label="Back to songs">&#8592;</button>
     <div class="title" id="pTitle">Song</div>
+    <div class="compbar" id="compBar" hidden>
+      <button class="btn rec" id="cRec" type="button"><i></i><span>Record</span></button>
+      <button class="btn" id="cMetro" type="button" aria-pressed="true" title="Click along while you record">Click</button>
+      <button class="btn" id="cUndo" type="button" title="Take back the last recording">Undo</button>
+      <button class="btn" id="cClear" type="button">Clear</button>
+      <button class="btn primary" id="cSave" type="button">Save</button>
+    </div>
     <button class="pconn" id="pConn" type="button" title="Piano not connected. Tap to connect" aria-label="Piano not connected. Tap to connect"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><i></i></button>
     <button class="qvol" id="qVolBtn" type="button" aria-label="Volume"><span class="qspk"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path id="qWave1" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path id="qWave2" d="M18 6.8a7.5 7.5 0 0 1 0 10.4"/><path id="qX" d="m15.5 9.5 5 5m0-5-5 5" style="display:none"/></svg></span><span id="qVolPct">100%</span></button>
     <button class="icon play" id="playBtn" type="button" aria-label="Play">&#9654;</button>
@@ -698,6 +738,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" class="ptool" id="metroBtn" aria-pressed="false">Metronome</button>
       <button type="button" class="ptool" id="countBtn" aria-pressed="false">Count-in</button>
       <button type="button" class="ptool" id="trainBtn" aria-pressed="false">Speed trainer</button>
+      <button type="button" class="ptool" id="troubleBtn">Trouble spots</button>
       <button type="button" class="ptool" id="takesBtn">Your takes</button>
     </div><div class="trainset" id="trainSet" hidden>
       <label>Start <select id="trStart"><option>40</option><option>50</option><option selected>60</option><option>70</option><option>80</option></select>%</label>
@@ -851,6 +892,17 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   </div>
 </dialog>
 
+<!-- ================= SAVE A PIECE ================= -->
+<dialog id="compDlg">
+  <form class="sheet" method="dialog" id="compForm">
+    <h2>Save your piece</h2>
+    <div class="field"><label class="label" for="cTitle">Name</label><input id="cTitle" type="text" maxlength="80" required style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
+    <div class="field"><label class="label" for="cBy">Written by</label><input id="cBy" type="text" maxlength="60" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
+    <label class="row cbrow"><input id="cTidy" type="checkbox" checked><span><b>Tidy up the timing</b><small>Lines your notes up to the nearest sixteenth note, so the sheet music reads cleanly.</small></span></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="cCancel">Cancel</button><button class="btn primary" type="submit" id="cSaveGo">Save to my library</button></div>
+  </form>
+</dialog>
+
 <!-- ================= MAGIC TIP ================= -->
 <dialog id="magicDlg">
   <div class="sheet">
@@ -972,6 +1024,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <p id="resText"></p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn ghost" id="resLib" type="button">Songs</button>
+      <button class="btn" id="resTrouble" type="button" hidden>Fix trouble spots</button>
       <button class="btn primary" id="resAgain" type="button">Play again</button>
     </div>
   </div>
@@ -981,7 +1034,9 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <!-- ================= FIRST RUN: main instrument ================= -->
 <div id="splash" hidden role="dialog" aria-modal="true" aria-labelledby="spTitle">
   <div class="sp-in">
-    <header class="sp-head"><h1 id="spTitle">Song Coach</h1><p>What do you want to play?</p></header>
+    <header class="sp-head"><h1 id="spTitle">Song Coach</h1><p>What's your name?</p>
+      <input id="spName" type="text" autocomplete="given-name" placeholder="Your first name (optional)" style="min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:0 14px;max-width:320px;width:100%;margin:6px auto 14px;display:block;text-align:center">
+      <p>And what do you want to play?</p></header>
     <button class="sp-card" data-v="piano" type="button"><svg class="sp-art" viewBox="0 0 360 150" aria-hidden="true"><defs><filter id="spGlow" x="-50%" y="-20%" width="200%" height="140%"><feGaussianBlur stdDeviation="4"/></filter></defs><g class="sp-bar" style="animation-delay:200ms"><rect x="81.1" y="20" width="17.7" height="70" rx="5" fill="#9fc3d6" filter="url(#spGlow)" opacity=".7"/><rect x="81.1" y="20" width="17.7" height="70" rx="5" fill="#bfe0f0"/></g><g class="sp-bar" style="animation-delay:0ms"><rect x="132.6" y="50" width="17.7" height="40" rx="5" fill="#9fc3d6" filter="url(#spGlow)" opacity=".7"/><rect x="132.6" y="50" width="17.7" height="40" rx="5" fill="#bfe0f0"/></g><g class="sp-bar" style="animation-delay:100ms"><rect x="184.0" y="-5" width="17.7" height="95" rx="5" fill="#9fc3d6" filter="url(#spGlow)" opacity=".7"/><rect x="184.0" y="-5" width="17.7" height="95" rx="5" fill="#bfe0f0"/></g><g class="sp-bar" style="animation-delay:300ms"><rect x="261.1" y="35" width="17.7" height="55" rx="5" fill="#9fc3d6" filter="url(#spGlow)" opacity=".7"/><rect x="261.1" y="35" width="17.7" height="55" rx="5" fill="#bfe0f0"/></g><rect x="0.6" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="26.3" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="52.0" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="77.7" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect class="sp-key" x="77.7" y="92" width="24.5" height="58" rx="3" fill="#9fc3d6" opacity=".55"/><rect x="103.5" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="129.2" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect class="sp-key" x="129.2" y="92" width="24.5" height="58" rx="3" fill="#9fc3d6" opacity=".55"/><rect x="154.9" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="180.6" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect class="sp-key" x="180.6" y="92" width="24.5" height="58" rx="3" fill="#9fc3d6" opacity=".55"/><rect x="206.3" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="232.0" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="257.7" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect class="sp-key" x="257.7" y="92" width="24.5" height="58" rx="3" fill="#9fc3d6" opacity=".55"/><rect x="283.5" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="309.2" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="334.9" y="92" width="24.5" height="58" rx="3" fill="#efe7da"/><rect x="18.0" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="43.7" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="95.1" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="120.9" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="146.6" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="198.0" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="223.7" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="275.1" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="300.9" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="326.6" y="92" width="15.4" height="34" rx="2" fill="#16120f"/><rect x="0" y="88" width="360" height="5" fill="#2a2420"/></svg><span class="sp-txt"><strong>Piano</strong><small>Falling notes or sheet music, one hand or both. Connects to a digital piano over Bluetooth, or plays through your phone.</small></span></button>
     <button class="sp-card" data-v="guitar" type="button"><svg class="sp-art" viewBox="0 0 360 150" aria-hidden="true"><rect x="0" y="22" width="360" height="106" fill="#2b1d14"/><rect x="0" y="22" width="360" height="106" fill="url(#spWood)"/><defs><linearGradient id="spWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></linearGradient></defs><rect x="18" y="22" width="9" height="106" fill="#e9e1d2"/><rect x="103.5" y="22" width="3" height="106" fill="#b9b3a8"/><rect x="176.5" y="22" width="3" height="106" fill="#b9b3a8"/><rect x="244.5" y="22" width="3" height="106" fill="#b9b3a8"/><rect x="307.5" y="22" width="3" height="106" fill="#b9b3a8"/><circle cx="141.5" cy="75" r="5" fill="#d8c9b0" opacity=".5"/><circle cx="277.5" cy="75" r="5" fill="#d8c9b0" opacity=".5"/><rect class="sp-str" style="animation-delay:350ms" x="0" y="31.50" width="360" height="1.00" fill="#d9d2c4"/><rect class="sp-str" style="animation-delay:280ms" x="0" y="50.27" width="360" height="1.45" fill="#d9d2c4"/><rect class="sp-str" style="animation-delay:210ms" x="0" y="69.05" width="360" height="1.90" fill="#d9d2c4"/><rect class="sp-str" style="animation-delay:140ms" x="0" y="87.83" width="360" height="2.35" fill="#d9d2c4"/><rect class="sp-str" style="animation-delay:70ms" x="0" y="106.60" width="360" height="2.80" fill="#d9d2c4"/><rect class="sp-str" style="animation-delay:0ms" x="0" y="125.38" width="360" height="3.25" fill="#d9d2c4"/><circle cx="66.0" cy="51" r="11" fill="#e3a35c" opacity=".35"/><circle cx="66.0" cy="51" r="8" fill="#e3a35c"/><circle cx="141.5" cy="89" r="11" fill="#e3a35c" opacity=".35"/><circle cx="141.5" cy="89" r="8" fill="#e3a35c"/><circle cx="212.0" cy="108" r="11" fill="#e3a35c" opacity=".35"/><circle cx="212.0" cy="108" r="8" fill="#e3a35c"/></svg><span class="sp-txt"><strong>Guitar</strong><small>Chord shapes that scroll with the song. In Wait mode the phone's mic listens and moves on when you strum the chord.</small></span></button>
     <p class="sp-foot">You can switch any time from the top of your library.</p>
@@ -1041,7 +1096,10 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.75";
+const APP_VERSION = "1.76";
+// writing-music state (declared early: the drawing code checks it)
+const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
+  t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2655,6 +2713,7 @@ function buildSteps(notes){
   return steps;
 }
 function resetRun(fromT){
+  commitSession();
   allNotesOff();
   P.steps = buildSteps(P.notes);
   P.total = P.instr === "guitar" ? (guitarWaits() ? (tabsView() ? ensureTabs().length : (P.chords || []).length) : 0) : P.steps.filter(s => s.req.size).length;
@@ -2675,8 +2734,78 @@ function resetRun(fromT){
 }
 function allNotesOff(){ pedalOut(false); for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; try { strumAlongOff(); } catch(e){} }
 
+/* ---------------- progress, scores and trouble spots ----------------
+   While you play (Wait or Play along, on piano) the app notes which bars went well and which didn't.
+   Score = right notes ÷ (right + missed + half of the wrong keys). Progress = how far into the song you've played.
+   Bars where notes keep getting missed become "trouble spots" you can drill with one tap. */
+let SES = null;
+function sesNote(kind, t){
+  if (!P.song || P.instr === "guitar" || !(P.mode === "wait" || P.mode === "play") || (typeof RV !== "undefined" && RV.on)) return;
+  if (!SES || SES.id !== P.song.id){ const g = ensureGrid(); SES = {id: P.song.id, len: P.len || 1, bar0: g.bar, bl: beatLen() * g.beats, hits: [], miss: [], wrong: [], shaky: [], maxT: 0, full: false}; }
+  if (kind) SES[kind].push(t);
+  SES.maxT = Math.max(SES.maxT, P.t);
+}
+const statsOf = id => Object.assign({bars: {}, furthest: 0, plays: 0}, store.get("dg30.stats." + id, {}));
+function commitSession(){
+  const s = SES; SES = null; if (!s) return;
+  const good = s.hits.length + s.shaky.length, n = good + s.miss.length; if (!n && !s.wrong.length) return;
+  const st = statsOf(s.id); st.bl = s.bl; st.bar0 = s.bar0;
+  const barOf = t => Math.max(0, Math.floor((t - s.bar0) / s.bl));
+  const now = {};
+  const add = (t, k, w) => { const b = barOf(t); (now[b] = now[b] || [0, 0, 0])[k] += w; };
+  s.hits.forEach(t => add(t, 1, 1)); s.miss.forEach(t => add(t, 0, 1)); s.shaky.forEach(t => { add(t, 0, 0.75); add(t, 1, 0.25); }); s.wrong.forEach(t => add(t, 2, 0.2));
+  for (const [b, [e, o, w]] of Object.entries(now)){
+    const old = st.bars[b] || [0, 0];                            // older mistakes fade as you play the bar again, so improvement shows
+    st.bars[b] = [+(old[0] * 0.55 + e + Math.min(0.6, w)).toFixed(2), +(old[1] * 0.55 + o).toFixed(2)];
+  }
+  st.furthest = Math.max(st.furthest || 0, Math.min(1, s.maxT / s.len));
+  if (n >= 12){
+    const sc = Math.max(0, Math.min(100, Math.round(100 * good / (n + 0.5 * s.wrong.length))));
+    st.last = sc; st.plays = (st.plays || 0) + 1; st.lastAt = Date.now();
+    if (s.full || s.maxT / s.len > 0.9) st.best = Math.max(st.best || 0, sc);
+  }
+  store.set("dg30.stats." + s.id, st);
+}
+// bars that keep going wrong, joined into short sections (with a bar of run-up), worst first
+function troubleSpots(id){
+  const st = statsOf(id); if (!st.bl) return [];
+  const bad = Object.entries(st.bars).map(([b, v]) => ({b: +b, e: v[0], o: v[1]})).filter(x => x.e >= 1.2 && x.e / (x.e + x.o) >= 0.2).sort((a, b) => a.b - b.b);
+  const secs = [];
+  for (const x of bad){ const l = secs[secs.length - 1]; if (l && x.b - l.to <= 2){ l.to = x.b; l.err += x.e; } else secs.push({from: x.b, to: x.b, err: x.e}); }
+  return secs.sort((a, b) => b.err - a.err).slice(0, 6).map(x => ({a: Math.max(0, st.bar0 + (x.from - 1) * st.bl), b: st.bar0 + (x.to + 1) * st.bl, from: x.from, to: x.to, err: x.err}));
+}
+const TS = { on: false, list: [], i: 0, clean: 0, id: null };
+function startTrouble(){
+  const list = troubleSpots(P.song.id);
+  if (!list.length){ toast("No trouble spots on this song yet. Play it in Wait or Play along and they'll show up here.", 2600); return; }
+  if (P.instr === "guitar") setInstrument("piano", true);
+  if (P.mode !== "wait" && P.mode !== "play"){ P.mode = "wait"; setSeg("modeSeg", "wait"); store.set("dg30.mode", "wait"); try { syncMagicUI(); } catch(e){} }
+  Object.assign(TS, {on: true, list: list.sort((a, b) => a.a - b.a), i: 0, clean: 0, id: P.song.id});
+  goTrouble();
+}
+function goTrouble(){
+  const sp = TS.list[TS.i]; setLoop(true, sp.a, sp.b); PT.fromA = true;
+  const was = P.playing; setPlaying(false); resetRun(sp.a); syncScrub(); setPlaying(true); startCountIn(); void was;
+  toast(`Trouble spot ${TS.i + 1} of ${TS.list.length}: play it clean twice in a row`, 2400);
+}
+function troublePass(clean){
+  if (!TS.on) return false;
+  if (!clean){ TS.clean = 0; return false; }
+  TS.clean++;
+  if (TS.clean < 2){ toast("Clean! Once more", 1300); return false; }
+  // fixed: ease that section's record so it stops coming up, then move on
+  const st = statsOf(TS.id), sp = TS.list[TS.i];
+  for (let b = sp.from; b <= sp.to; b++) if (st.bars[b]) st.bars[b][0] = +(st.bars[b][0] * 0.3).toFixed(2);
+  store.set("dg30.stats." + TS.id, st);
+  TS.i++; TS.clean = 0;
+  if (TS.i >= TS.list.length){ TS.on = false; setLoop(false); setPlaying(false); toast(`All trouble spots cleaned up${userName() ? ", " + userName() : ""}! 🎉`, 2800); return true; }
+  setTimeout(goTrouble, 50); return true;
+}
+const userName = () => String(store.get("dg30.name", "") || "").trim();
+
 function resolveStep(s, ok){
   s.done = true; s.ok = ok; P.stepIdx++;
+  if (s.req.size) sesNote(!ok ? "miss" : s.bad ? "shaky" : "hits", s.t);   // right in the end, but after wrong keys = shaky
   if (s.req.size){ if (ok){ P.correct++; P.streak++; P.bestStreak = Math.max(P.bestStreak || 0, P.streak); } else P.streak = 0; }
   P.waiting = false; updateStats();
 }
@@ -2690,6 +2819,10 @@ function currentStep(){
 }
 function onKeyDown(p, v, fromMic){
   P.pressed.set(p, {t:performance.now(), state:"neutral"});
+  if (typeof COMP !== "undefined" && COMP.on){                 // writing music: just sound it and write it down
+    if (conn.kind !== "mic" && conn.outMode === "phone" && !(conn.midiOut || conn.bleChar)) synthOn(p, v);
+    if (!fromMic) compKey(p, v, true); return;
+  }
   if (magicOn() && practiceVisible() && !(typeof RV !== "undefined" && RV.on)){ if (!fromMic){ P.pressed.get(p).state = "good"; magicTap(v); } return; }   // any key plays the right notes
   if (practiceVisible() && conn.kind !== "mic" && conn.outMode === "phone" && !(conn.midiOut || conn.bleChar)) synthOn(p, v);
   if (!P.playing || P.mode === "listen" || P.instr === "guitar") return;
@@ -2704,10 +2837,12 @@ function onKeyDown(p, v, fromMic){
       return;
     }
   }
-  P.wrong++; P.streak = 0; P.pressed.get(p).state = "bad"; updateStats();
+  P.wrong++; P.streak = 0; P.pressed.get(p).state = "bad"; updateStats(); sesNote("wrong", P.t);
+  { const cs = currentStep(); if (cs && cs.t - P.t < 1.5) cs.bad = (cs.bad || 0) + 1; }
 }
 function onKeyUp(p){
   const k = P.pressed.get(p); if (k){ P.flashes.push({p, state:k.state, t:performance.now()}); P.pressed.delete(p); }
+  if (typeof COMP !== "undefined" && COMP.on) compKey(p, 0, false);
   if (magicOn()) return;
   if (conn.outMode === "phone" && !(conn.midiOut || conn.bleChar) && conn.kind !== "mic") synthOff(p);
 }
@@ -2785,6 +2920,7 @@ window.addEventListener("pagehide", () => { if (M.linkOff){ try { sendMidi([0xB0
 document.addEventListener("visibilitychange", () => syncMagicLocal());
 
 function step(now){
+  if (typeof COMP !== "undefined" && COMP.on && practiceVisible()){ P.lastFrame = now; compStep(now); draw(); requestAnimationFrame(step); return; }
   const dt = Math.min(0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
   syncMagicLocal();
   if (P.playing && countInTick()){ draw(); requestAnimationFrame(step); return; }      // counting in: the music waits
@@ -2811,6 +2947,7 @@ function step(now){
     }
     if (P.mode === "listen"){ while (P.stepIdx < P.steps.length && P.steps[P.stepIdx].t <= P.t){ P.steps[P.stepIdx].done = true; P.stepIdx++; } }
     if (P.t > P.len + 1 && !currentStep()) finish();
+    if (SES) SES.maxT = Math.max(SES.maxT, P.t);
     syncScrub();
   }
   draw();
@@ -2845,6 +2982,17 @@ function setPlaying(on){
   if (!on) allNotesOff(); else audioCtx();
   keepAwake();
 }
+function finishPiano(acc){
+  const key = "dg30.best." + P.song.id, best = store.get(key, 0), nm = userName();
+  if (acc > best) store.set(key, acc);
+  const spots = troubleSpots(P.song.id).length;
+  $("resAcc").textContent = acc + "%";
+  const cheer = acc >= 95 ? "Amazing" : acc >= 85 ? "Great playing" : acc >= 70 ? "Nice work" : "Good effort";
+  $("resText").textContent = `${cheer}${nm ? ", " + nm : ""}! ${P.correct} of ${P.total} notes and chords right, ${P.wrong} wrong key${P.wrong === 1 ? "" : "s"}, longest streak ${P.bestStreak || 0}. ` +
+    (acc > best ? "That's your best on this song." : `Your best is ${best}%.`) + (spots ? ` ${spots} trouble spot${spots === 1 ? "" : "s"} to work on.` : "");
+  $("resTrouble").hidden = !spots;
+  $("resDlg").showModal();
+}
 function finish(){
   if (PT.loop.on) return;
   setPlaying(false);
@@ -2856,6 +3004,9 @@ function finish(){
     $("resText").textContent = `Timing: ${P.correct} of ${P.total} taps were right in rhythm, longest steady run ${P.bestStreak || 0}. When the rhythm feels easy, try Every note, then Wait mode to learn the keys.`;
     $("resDlg").showModal(); return;
   }
+  if (SES) SES.full = true;
+  commitSession();
+  if (P.instr !== "guitar"){ const a2 = Math.round(100 * P.correct / (P.total + 0.5 * P.wrong)); if (isFinite(a2)) return finishPiano(a2); }
   const key = "dg30.best." + P.song.id, best = store.get(key, 0);
   if (acc > best) store.set(key, acc);
   $("resAcc").textContent = acc + "%";
@@ -2911,6 +3062,7 @@ function layout(){
   for (const n of P.notes){ if (n.p < lo) lo = n.p; if (n.p > hi) hi = n.p; }
   if (lo > hi){ lo = 48; hi = 72; }
   lo -= 2; hi += 2;
+  if (COMP.on){ const whites = Math.max(15, Math.min(36, Math.floor(W / 30))), span = Math.round(whites * 12 / 7); lo = Math.max(21, 60 - Math.round(span / 2)); hi = Math.min(108, lo + span); }   // writing: a steady keyboard around middle C
   while (hi - lo < 24){ lo--; hi++; }
   lo = Math.max(21, lo); hi = Math.min(108, hi);
   while (isBlack(lo)) lo--; while (isBlack(hi)) hi++;
@@ -3518,14 +3670,15 @@ function drawBg(now){
 /* ---------------- follow along on sheet music ----------------
    Shows the song as printed music in place of the falling bars. The bar you're in is lit up and a red line
    moves through it in time with the song; the page scrolls by itself. */
-const sheetView = () => P.instr === "guitar" ? G.view === "sheet" : store.get("dg30.view", "bars") === "sheet";
+const sheetView = () => (typeof COMP !== "undefined" && COMP.on) || (P.instr === "guitar" ? G.view === "sheet" : store.get("dg30.view", "bars") === "sheet");
 // the sheet music fills the space above the keyboard, or above the guitar neck
 const followH = () => P.instr === "guitar" ? (L.gStrumY || L.H * 0.62) : L.hitY;
 const FOLLOW = { key: null, boxes: [], starts: [], lens: [], line: -1, busy: false };
 async function buildFollow(){
   if (!sheetView() || !P.song || !L) return;
-  const key = [P.song.id, P.transpose, Math.round(L.W), Math.round(followH()), P.baseBpm, P.words ? 1 : 0].join("|");
+  const key = [P.song.id, P.transpose, Math.round(L.W), Math.round(followH()), P.baseBpm, P.words ? 1 : 0, COMP.on ? COMP.ver : 0].join("|");
   const box = $("follow"); box.hidden = false; box.style.height = followH() + "px";
+  if (COMP.on && !P.notes.length){ FOLLOW.key = key; FOLLOW.boxes = []; $("followSvg").innerHTML = '<p class="msg">' + (COMP.rec ? "Listening… play something!" : "Press <b>Record</b> and start playing.<br>Your notes appear here as sheet music.") + "</p>"; return; }
   if (FOLLOW.key === key) return;
   if (FOLLOW.busy){ FOLLOW.again = true; return; }
   FOLLOW.busy = true; const svgBox = $("followSvg");
@@ -3549,7 +3702,7 @@ async function buildFollow(){
         chords: o.ms.chords.map(c => ({b: c.b, c: transposeChordName(c.c, k, flats)}))}));
       starts = built.timeline.map(o => o.sec - shift);
     } else {
-      ms = timedToMeasures(notes, lyrics, chords, bpm, beats, d && d.timeLabel);
+      ms = timedToMeasures(notes, lyrics, chords, bpm, beats, (d && d.timeLabel) || meta.timeLabel);
       starts = ms.map((m, i) => i * beats * 60 / bpm - shift);
     }
     const keyStr = $("keyOut").textContent.replace("♯", "#").replace("♭", "b");
@@ -3643,6 +3796,7 @@ $("viewSeg").addEventListener("click", e => { const b = e.target.closest("button
 
 function drawBanner(){
   const b = $("banner"), cur = P.steps[P.stepIdx];
+  if (COMP.on){ b.hidden = true; return; }
   if (typeof RV !== "undefined" && RV.on){ b.hidden = true; return; }
   let msg = "";
   const needPiano = conn.outMode === "piano" && !pianoReady() && conn.kind !== "mic";
@@ -3680,6 +3834,7 @@ function songById(id){
 }
 let libTab = ["mine", "samples"].includes(store.get("dg30.libTab", null)) ? store.get("dg30.libTab", null) : null;
 function renderLibrary(){
+  try { renderHello(); } catch(e){}
   try { renderPlaylists(); } catch(e){}
   const box = $("songs"); box.textContent = "";
   const mine = store.get("dg30.songs", []);
@@ -3689,7 +3844,8 @@ function renderLibrary(){
   setSeg("libSeg", tab);
   $("secAdd").hidden = tab !== "add"; $("secPlaylists").hidden = tab !== "playlists"; $("secSongs").hidden = tab !== "mine" && tab !== "samples";
   $("secRecs").hidden = tab !== "recordings"; if (tab === "recordings") renderRecs();
-  if (tab === "add" || tab === "playlists" || tab === "recordings"){ box.textContent = ""; return; }
+  $("secWrite").hidden = tab !== "write"; if (tab === "write") renderWrite();
+  if (tab === "add" || tab === "playlists" || tab === "recordings" || tab === "write"){ box.textContent = ""; return; }
   const list = allSongs().filter(s => tab === "samples" ? s.demo : !s.demo);
   $("libEmpty").hidden = !(tab === "mine" && !list.length);
   const q = libQuery.trim().toLowerCase();
@@ -3709,12 +3865,16 @@ function renderLibrary(){
     if (src){ const im = document.createElement("img"); im.alt = ""; im.loading = "lazy"; im.src = src; art.appendChild(im); } else art.textContent = "♫";
     const h = document.createElement("h3"); h.textContent = s.title;
     const meta = document.createElement("div"); meta.className = "meta";
-    meta.textContent = [s.artist || s.by, s.genre, fmt(len), best != null ? `best ${best}%` : ""].filter(Boolean).join(" · ");
+    meta.textContent = [s.artist || s.by, s.genre, fmt(len)].filter(Boolean).join(" · ");
+    { const st = store.get("dg30.stats." + s.id, null), sc = st && (st.best || st.last) || best;
+      if (st && st.furthest){ const tr = document.createElement("i"); tr.className = "ptrack"; art.appendChild(tr); const pr = document.createElement("i"); pr.className = "prog"; pr.style.width = Math.round(100 * Math.min(1, st.furthest)) + "%"; pr.title = `Played ${Math.round(100 * st.furthest)}% of the song`; art.appendChild(pr); }
+      if (sc != null){ const b = document.createElement("b"); b.className = "score" + (sc >= 90 ? " gold" : sc >= 75 ? " good" : ""); b.textContent = sc + "%"; b.title = st && st.best ? "Your best score" : "Your score"; art.appendChild(b); } }
     const f = songFeatures(s), bd = document.createElement("div"); bd.className = "badges";
     const badge = (icon, label, on, extra, title) => { const b = document.createElement("span"); b.className = "badge" + (on ? " on" : "") + (extra ? " " + extra : ""); b.innerHTML = ICONS[icon]; b.append(label); if (title) b.title = title; bd.appendChild(b); };
     badge("piano", "Piano", prim === "piano");
     badge("guitar", "Guitar", prim === "guitar", f.chords ? "" : "auto", f.chords ? "Has a chord chart" : "Chords worked out from the notes");
     if (f.lyrics) badge("lyrics", "Lyrics", false);
+    if (s.composed) badge("edit", "Original", true, "orig", "A piece you wrote");
     const more = document.createElement("button"); more.type = "button"; more.className = "more"; more.innerHTML = ICONS.more; more.setAttribute("aria-label", "More for " + s.title);
     more.onclick = e => { e.stopPropagation(); openRowMenu(s); };
     el.onclick = () => openPractice(s.id);
@@ -3799,6 +3959,7 @@ function openRowMenu(s){
   item("piano", "Play on piano", "", playOn("piano"), true);
   { const on = isFav(s.id); const b = document.createElement("button"); b.type = "button"; b.innerHTML = on ? HEART : HEART_O; b.querySelector("svg").style.color = on ? "#ff5d7a" : ""; const tx = document.createElement("span"); tx.textContent = on ? "Remove from favorites" : "Add to favorites"; b.appendChild(tx); b.onclick = () => { $("rowDlg").close(); toggleFav(s.id, s.title); renderLibrary(); }; acts.appendChild(b); }
   item("guitar", "Play on guitar", f.chords ? "" : "Chords worked out from the notes", playOn("guitar"), true);
+  { const ts = troubleSpots(s.id).length; if (ts) item("piano", `Work on trouble spots (${ts})`, "Loops the bars you miss most until they're clean", () => { openPractice(s.id, "piano"); setTimeout(startTrouble, 300); }, true); }
   const nTakes = takeList().filter(t => t.songId === s.id).length;
   if (nTakes) item("piano", `Your takes (${nTakes})`, "Recordings of your playing", () => openTakes(s.id));
   if (s.demo) item("sheet", "Sheet music", "View, print or save as PDF", () => openSheet(s.id));
@@ -3845,7 +4006,9 @@ $("instChip").onclick = () => setPrimary(primaryInstr() === "guitar" ? "piano" :
 $("primSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setPrimary(b.dataset.v, false); });
 function showSplash(){
   const sp = $("splash"); sp.hidden = false; sp.classList.remove("out");
+  $("spName").value = userName();
   sp.querySelectorAll(".sp-card").forEach(c => c.onclick = () => {
+    { const nm = $("spName").value.trim().slice(0, 40); if (nm){ store.set("dg30.name", nm); $("setName").value = nm; try { renderHello(); } catch(e){} } }
     setPrimary(c.dataset.v, false);
     sp.classList.add("out"); setTimeout(() => { sp.hidden = true; }, 380);
   });
@@ -5555,6 +5718,9 @@ function openPractice(id, inst){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
+  TS.on = false;
+  if (COMP.on){ COMP.on = false; COMP.rec = false; document.body.classList.remove("composing"); $("compBar").hidden = true; $("countNum").hidden = true; }
+  commitSession();
   setDrawer(false);
   if (typeof RV !== "undefined" && RV.on) stopReview(true);
   if (REC.on) recStop();
@@ -5565,7 +5731,10 @@ function closePractice(){
   try { screen.orientation?.unlock?.(); } catch(e){}
   exitFullscreen();
 }
-$("backBtn").onclick = closePractice;
+$("backBtn").onclick = () => {
+  if (COMP.on && COMP.notes.length && COMP.dirty && !COMP.leaveArm){ COMP.leaveArm = true; setTimeout(() => COMP.leaveArm = false, 3000); toast("Your piece isn't saved yet. Tap Save, or tap ← again to leave without saving.", 2800); return; }
+  closePractice();
+};
 
 
 /* ---------------- practice tools ----------------
@@ -5643,7 +5812,7 @@ function setLoop(on, a, b){
     PT.loop = {on:true, a, b};
     if (P.t < a - 0.05 || P.t > b){ const was = P.playing; setPlaying(false); resetRun(a); syncScrub(); if (was){ setPlaying(true); } }
     if (PT.trainer.on) trainerStart();
-  } else PT.loop.on = false;
+  } else { PT.loop.on = false; TS.on = false; }
   loopUI();
 }
 $("loopBtn").onclick = () => {
@@ -5655,6 +5824,7 @@ $("loopBtn").onclick = () => {
 function loopPass(){
   // judge the pass, let the speed trainer react, then go round again (with the count-in)
   const exp = loopExpected(), clean = P.mode !== "listen" && exp > 0 && P.wrong === 0 && P.correct >= Math.ceil(exp * 0.9);
+  if (TS.on && PT.fromA && troublePass(clean)) return;
   if (PT.trainer.on && P.mode !== "listen" && PT.fromA){
     const pct = PT.trainer.cur || Math.round(100 * P.tempo), tgt = PT.trainer.target;
     if (clean && pct < tgt){ const np = Math.min(tgt, pct + PT.trainer.step); PT.trainer.cur = np; setBpm(P.baseBpm * np / 100); toast(np >= tgt ? `Clean! Now at full target speed, ${np}%` : `Clean! Speeding up to ${np}%`, 1600); }
@@ -6270,6 +6440,7 @@ function setInstrument(inst, quiet){
   syncMagicAvail(); syncMagicUI();
   $("instBtn").innerHTML = inst === "guitar" ? "&#127928;" : "&#127929;";
   $("tunerBtn").hidden = inst !== "guitar";
+  try { $("troubleBtn").hidden = inst === "guitar"; } catch(e){}
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
   resetRun(P.t); syncScrub(); if (practiceVisible()) layout();   // carry on from the same spot in the song
@@ -6329,6 +6500,8 @@ $("pedalSel").addEventListener("change", e => { store.set("dg30.pedalMode", e.ta
 $("seek").addEventListener("input", e => { const [w0, w1] = seekWindow(); const was = P.playing; setPlaying(false); resetRun(w0 + (w1 - w0) * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
 $("resAgain").onclick = () => { $("resDlg").close(); resetRun(); setPlaying(true); };
 $("resLib").onclick = () => { $("resDlg").close(); closePractice(); };
+$("resTrouble").onclick = () => { $("resDlg").close(); startTrouble(); };
+$("troubleBtn").onclick = () => { setDrawer(false); if (TS.on){ TS.on = false; setLoop(false); toast("Trouble spots off", 1200); } else startTrouble(); };
 
 /* ---------------- connect sheet ---------------- */
 $("connPill").onclick = () => $("connDlg").showModal();
@@ -6413,6 +6586,136 @@ function touchKeysTip(){
   setTimeout(() => toast("No piano connected: tap the keys on the screen to play along", 2600), 900);
 }
 
+/* ---------------- write your own music ----------------
+   Opens the playing screen in writing mode: sheet music on top, keyboard below. Press Record, a one-bar count-in clicks,
+   then everything you play (on the piano or the screen keys) is written into the score as you go. */
+const compBarLen = () => COMP.beats * 60 / COMP.bpm;
+const compGrid = () => 60 / COMP.bpm / 4;
+function compNow(){ return COMP.offset + (performance.now() - COMP.t0) / 1000; }
+function compRefresh(){
+  // what the score shows: notes lined up to sixteenths, hands split at middle C
+  const g = compGrid(), now = COMP.rec ? compNow() : 0;
+  const out = COMP.notes.map(n => {
+    const d = n.d != null ? n.d : Math.max(g, now - n.t);
+    const t = Math.max(0, Math.round(n.t / g) * g);
+    return {t, d: Math.max(g, Math.round(d / g) * g), p: n.p, v: n.v, h: n.p >= 60 ? "R" : "L"};
+  }).sort((a, b) => a.t - b.t || b.p - a.p);
+  P.origNotes = out; P.notes = out; P.steps = []; P.stepIdx = 0;
+  const last = out[out.length - 1]; P.len = last ? last.t + last.d : 0;
+  COMP.ver++;
+}
+function openCompose(fromId){
+  const ex = fromId ? songById(fromId) : null;
+  COMP.title = ex ? ex.title : ($("wrTitle").value.trim() || `My song ${store.get("dg30.songs", []).filter(x => x.composed).length + 1}`);
+  COMP.sig = ex ? (ex.timeLabel || "4/4") : $("wrSig").value;
+  COMP.beats = {"4/4": 4, "3/4": 3, "6/8": 3, "2/4": 2}[COMP.sig] || 4;
+  COMP.bpm = ex ? (ex.bpm || 90) : +$("wrBpm").value || 90;
+  COMP.notes = ex ? loadNotes(fromId).map(n => ({t: n.t, d: n.d, p: n.p, v: n.v || 80})) : [];
+  COMP.held.clear(); COMP.takes = []; COMP.rec = false; COMP.dirty = false; COMP.savedId = ex ? fromId : null; COMP.on = true;
+  P.song = {id: "compose", title: COMP.title, bpm: COMP.bpm, beats: COMP.beats, timeLabel: COMP.sig};
+  P.origChords = []; P.chords = []; P.lyricLines = []; P.words = false; P.transpose = 0; P.origKey = {root: 0, minor: false}; P.key = P.origKey;
+  P.baseBpm = COMP.bpm; P.tempo = 1; P.pressed.clear(); P.flashes = [];
+  compRefresh();
+  setInstrument("piano", true);
+  document.body.classList.add("composing"); $("compBar").hidden = false; syncCompBar();
+  $("pTitle").textContent = "✎ " + COMP.title; $("keyOut").textContent = "C";
+  PT.loop.on = false; PT.gridFor = null; loopUI();
+  $("library").hidden = true; $("practice").hidden = false;
+  readColors(); P.playing = false; P.t = P.len; layout(); FOLLOW.line = -1; FOLLOW.key = null; buildFollow();
+  keepAwake();
+  if (!pianoReady()) setTimeout(() => toast("No piano connected: play the keys on the screen", 2200), 500);
+}
+function syncCompBar(){
+  $("cRec").classList.toggle("on", COMP.rec || COMP.countUntil > performance.now());
+  $("cRec").querySelector("span").textContent = COMP.rec ? "Stop" : COMP.countUntil > performance.now() ? "Get ready…" : COMP.notes.length ? "Record more" : "Record";
+  $("cMetro").setAttribute("aria-pressed", String(COMP.metro));
+  $("cUndo").disabled = !COMP.takes.length; $("cSave").disabled = !COMP.notes.length;
+}
+function compStartRec(){
+  audioCtx();
+  const bl = compBarLen(), last = COMP.notes.reduce((m, n) => Math.max(m, n.t + (n.d || 0)), 0);
+  COMP.offset = COMP.notes.length ? Math.ceil((last + 0.05) / bl) * bl : 0;   // keep writing from the next bar
+  COMP.takes.push(COMP.notes.length);
+  // one bar of clicks, then go
+  const beat = 60 / COMP.bpm, a = audioCtx(), t0 = a.currentTime + 0.08;
+  for (let j = 0; j < COMP.beats; j++) click(j === 0, t0 + j * beat);
+  COMP.countStart = performance.now() + 80; COMP.countUntil = COMP.countStart + COMP.beats * beat * 1000;
+  syncCompBar();
+}
+function compStopRec(){
+  if (!COMP.rec && COMP.countUntil > performance.now()){ COMP.countUntil = 0; COMP.takes.pop(); $("countNum").hidden = true; syncCompBar(); return; }
+  const now = compNow();
+  for (const [p, n] of COMP.held){ n.d = Math.max(0.05, now - n.t); }
+  COMP.held.clear(); COMP.rec = false;
+  if (COMP.takes.length && COMP.notes.length === COMP.takes[COMP.takes.length - 1]) COMP.takes.pop();   // nothing was played
+  compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar();
+}
+function compKey(p, v, down){
+  if (!COMP.rec) return;
+  const t = compNow();
+  if (down){ const n = {t, d: null, p, v: Math.max(30, Math.min(127, v || 80))}; COMP.notes.push(n); COMP.held.set(p, n); COMP.dirty = true; }
+  else { const n = COMP.held.get(p); if (n){ n.d = Math.max(0.05, t - n.t); COMP.held.delete(p); } }
+}
+function compStep(now){
+  // count-in
+  if (COMP.countUntil){
+    const el = $("countNum");
+    if (now < COMP.countUntil){ const j = Math.floor((now - COMP.countStart) / (60000 / COMP.bpm)); el.textContent = String(Math.max(1, COMP.beats - Math.max(0, j))); el.hidden = false; return; }
+    el.hidden = true; COMP.countUntil = 0; COMP.rec = true; COMP.t0 = now; COMP.lastBeat = 0; syncCompBar(); FOLLOW.key = null; buildFollow();
+  }
+  if (!COMP.rec) return;
+  const t = compNow(); P.t = t;
+  // the click keeps going while you record
+  const beat = 60 / COMP.bpm, k = Math.floor((t - COMP.offset) / beat + 1e-6);
+  if (k !== COMP.lastBeat){ COMP.lastBeat = k; if (COMP.metro && k > 0) click(k % COMP.beats === 0); }
+  // redraw the score a few times a second (and right away when notes are added)
+  if (now - COMP.lastBuild > 450 && (COMP.held.size || COMP.notes.length !== COMP.shown)){ COMP.lastBuild = now; COMP.shown = COMP.notes.length; compRefresh(); buildFollow(); }
+}
+$("cRec").onclick = () => { if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
+$("cMetro").onclick = () => { COMP.metro = !COMP.metro; store.set("dg30.compMetro", COMP.metro); syncCompBar(); };
+$("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; COMP.notes.length = k; COMP.dirty = true; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last recording", 1400); };
+$("cClear").onclick = () => {
+  const b = $("cClear"); if (!b.dataset.arm){ b.dataset.arm = "1"; b.textContent = "Sure?"; setTimeout(() => { delete b.dataset.arm; b.textContent = "Clear"; }, 2500); return; }
+  delete b.dataset.arm; b.textContent = "Clear"; if (COMP.rec) compStopRec();
+  COMP.notes = []; COMP.takes = []; COMP.dirty = true; compRefresh(); P.t = 0; FOLLOW.key = null; buildFollow(); syncCompBar();
+};
+$("cSave").onclick = () => { if (COMP.rec) compStopRec(); if (!COMP.notes.length) return; $("cTitle").value = COMP.title; $("cBy").value = userName() || ""; $("compDlg").showModal(); };
+$("cCancel").onclick = () => $("compDlg").close();
+$("compForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const title = $("cTitle").value.trim() || COMP.title, by = $("cBy").value.trim();
+  if (by && !userName()){ store.set("dg30.name", by); $("setName").value = by; }
+  const g = compGrid(), tidy = $("cTidy").checked;
+  const notes = COMP.notes.filter(n => n.d != null).map(n => {
+    const t = tidy ? Math.round(n.t / g) * g : n.t, d = tidy ? Math.max(g, Math.round(n.d / g) * g) : n.d;
+    return {t: Math.max(0, t), d, p: n.p, v: n.v, h: n.p >= 60 ? "R" : "L"};
+  }).sort((a, b) => a.t - b.t || b.p - a.p);
+  if (!notes.length){ $("compDlg").close(); return; }
+  const last = notes[notes.length - 1], id = COMP.savedId || newSongId(), old = COMP.savedId ? songById(COMP.savedId) : null;
+  const meta = {id, title, artist: by || "Me", composed: true, level: "full", src: "compose", bpm: COMP.bpm, key: "", beats: COMP.beats, timeLabel: COMP.sig,
+    count: notes.length, len: +(last.t + last.d).toFixed(2), added: old ? old.added : Date.now(), rev: Date.now(), genre: "Original"};
+  if (!saveSong(meta, notes)){ toast(storageProblem()); return; }
+  COMP.savedId = id; COMP.title = title; COMP.dirty = false; $("pTitle").textContent = "✎ " + title;
+  $("compDlg").close(); toast(`Saved “${title}” to your library${by ? " by " + by : ""} 🎼`, 2400);
+});
+function renderWrite(){
+  const nm = userName(); $("wrHead").textContent = nm ? `Write your own music, ${nm}` : "Write your own music";
+  const box = $("wrList"); box.textContent = "";
+  const mine = store.get("dg30.songs", []).filter(s => s.composed);
+  if (!mine.length) return;
+  const h = document.createElement("span"); h.className = "label"; h.textContent = "Your originals"; box.appendChild(h);
+  for (const s of mine){
+    const r = document.createElement("div"); r.className = "wrrow";
+    const t = document.createElement("b"); t.textContent = s.title;
+    const play = document.createElement("button"); play.className = "btn"; play.type = "button"; play.textContent = "Play";
+    play.onclick = () => openPractice(s.id, "piano");
+    const more = document.createElement("button"); more.className = "btn"; more.type = "button"; more.textContent = "Keep writing";
+    more.onclick = () => openCompose(s.id);
+    r.append(t, play, more); box.appendChild(r);
+  }
+}
+$("wrStart").onclick = () => openCompose(null);
+
 /* ---------------- staying up to date ----------------
    Looks for a newer version on GitHub when the app opens, when you come back to it, and every 30 minutes.
    It never interrupts: the update waits until you're moving around the app with nothing going on (not practicing,
@@ -6472,6 +6775,17 @@ function showTab(name){
   try { sessionStorage.setItem("dg30.tab", name); } catch(e){}
 }
 $("tabBtnSongs").onclick = () => showTab("songs");
+function renderHello(){
+  const nm = userName(), el = $("hello"); if (!el) return;
+  const all = store.get("dg30.songs", []).concat(SAMPLE_CATALOG);
+  let mastered = 0; for (const s of all){ const st = store.get("dg30.stats." + s.id, null); if (st && st.best >= 90) mastered++; }
+  const h = new Date().getHours(), part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  el.textContent = nm ? `${part}, ${nm}` + (mastered ? ` · ${mastered} song${mastered === 1 ? "" : "s"} mastered` : "") : mastered ? `${mastered} song${mastered === 1 ? "" : "s"} mastered` : "";
+  el.hidden = !el.textContent;
+}
+$("setName").value = userName();
+$("setName").addEventListener("change", e => { store.set("dg30.name", e.target.value.trim().slice(0, 40)); renderHello(); });
+setTimeout(renderHello, 0);
 $("updBtn").onclick = () => checkForUpdate(true);
 $("tabBtnSettings").onclick = () => { showTab($("tabSettings").hidden ? "settings" : "songs"); window.scrollTo(0, 0); };
 $("setConnBtn").onclick = () => $("connDlg").showModal();

@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.56">
+<meta name="version" content="1.57">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -788,7 +788,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div>
     <div class="row" style="gap:10px;flex-wrap:nowrap">
       <div class="field" style="flex:1;min-width:0"><label class="label" for="barSel">Falling note colors</label>
-        <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand</option></select></div>
+        <label class="row" style="gap:8px;font-size:14px;margin:4px 0 8px"><input id="lhStripes" type="checkbox"> Mark the left-hand bars with a white outline and stripes (tells the hands apart without relying on color)</label>
+        <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand (color-blind friendly)</option></select></div>
       <div class="field" style="flex:1;min-width:0"><label class="label" for="backSel">Background</label>
         <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option></select></div>
     </div>
@@ -971,7 +972,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.56";
+const APP_VERSION = "1.57";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2628,6 +2629,17 @@ function drawPiano(now){
     if (fx && active){ cx.shadowColor = col; cx.shadowBlur = sounding ? 26 : 14; }
     cx.fillStyle = col; rr(k.x + 1.5, y0, k.w - 3, yb - y0, r); cx.fill();
     cx.shadowBlur = 0;
+    // left hand: diagonal stripes, so the hands differ by pattern and not just color (stops above the note name)
+    if (n.h === "L" && leftStripes() && yb - y0 > 10){
+      const top = y0, bot = (k.w >= 13 && yb - y0 >= 16 && y1 > 14) ? yb - 17 : yb;
+      if (bot - top > 3){
+        const pat = stripePattern(); try { pat.setTransform(new DOMMatrix().translate(k.x, top)); } catch(e){}
+        cx.save(); rr(k.x + 1.5, top, k.w - 3, bot - top, r); cx.clip(); cx.fillStyle = pat; cx.fillRect(k.x, top, k.w, bot - top); cx.restore();
+      }
+    }
+    if (n.h === "L" && leftStripes() && yb - y0 > 6){          // and a white outline, which shows even on short notes
+      cx.strokeStyle = "rgba(255,255,255,0.92)"; cx.lineWidth = 2; rr(k.x + 2.5, y0 + 1, k.w - 5, yb - y0 - 2, Math.max(1, r - 1)); cx.stroke();
+    }
     if (fx && active && yb - y0 > 6){
       const g = cx.createLinearGradient(k.x, 0, k.x + k.w, 0);
       g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, sounding ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.22)"); g.addColorStop(1, "rgba(255,255,255,0)");
@@ -2669,6 +2681,13 @@ function drawPiano(now){
   for (const [p, k] of keys) if (k.black){
     cx.fillStyle = keyFill(p, k); rr(k.x, hitY, k.w, kbH * 0.62, 3); cx.fill();
   }
+  // which hand plays the lit key, in letters, for anyone who can't tell the colors apart
+  if (expect.size && kbH > 40){
+    cx.font = `700 ${Math.round(Math.min(14, kbH * 0.16))}px ${css("--f-body")}`; cx.textAlign = "center"; cx.textBaseline = "middle";
+    for (const [p, h] of expect){ if (h !== "L" && h !== "R" || P.pressed.has(p)) continue; const k = keys.get(p); if (!k) continue;
+      const y = k.black ? hitY + kbH * 0.62 - 12 : hitY + kbH - 24;
+      cx.fillStyle = k.black ? "#fff" : "#16120f"; cx.fillText(h, k.x + k.w / 2, y); }
+  }
   if (showHands() && !P.words) drawHands(now);
   if (sheetView()) updateFollow();
   P.flashes = P.flashes.filter(f => now - f.t < 300);
@@ -2683,12 +2702,13 @@ function sparkle(x, y, w, col){
 function drawSparks(now){
   const dt = Math.min(0.05, (now - (drawSparks.last || now)) / 1000); drawSparks.last = now;
   if (!SPARKS.length) return;
-  cx.save(); cx.globalCompositeOperation = "lighter";
+  cx.save();
   for (let i = SPARKS.length - 1; i >= 0; i--){
     const s = SPARKS[i]; s.x += s.vx * dt * 60; s.y += s.vy * dt * 60; s.vx += (Math.random() - 0.5) * 0.2; s.life -= dt * 1.4;
     if (s.life <= 0 || s.y < 0){ SPARKS.splice(i, 1); continue; }
-    cx.globalAlpha = s.life * 0.9; cx.fillStyle = s.col; cx.shadowColor = s.col; cx.shadowBlur = 6;
-    cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, Math.PI * 2); cx.fill();
+    cx.globalAlpha = Math.min(1, s.life * 1.25); cx.shadowColor = s.col; cx.shadowBlur = 8;
+    cx.fillStyle = s.col; cx.beginPath(); cx.arc(s.x, s.y, s.r * 1.25, 0, Math.PI * 2); cx.fill();
+    cx.shadowBlur = 0; cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s.x, s.y, s.r * 0.6, 0, Math.PI * 2); cx.fill();   // white-hot center
   }
   cx.restore();
 }
@@ -2850,9 +2870,17 @@ function drawHand(hand, dir, st, press, dim, KB, palmH, ww, kbH){
 /* ---------------- colors and backdrops ---------------- */
 const barStyle = () => store.get("dg30.barColors", "rainbow");
 const backStyle = () => { const v = store.get("dg30.backdrop", "black"); return ["black", "mood", "aurora", "nebula", "silk"].includes(v) ? v : "mood"; };
+const leftStripes = () => store.get("dg30.lhStripes", true);
+function stripePattern(){
+  if (stripePattern.p) return stripePattern.p;
+  const c = document.createElement("canvas"); c.width = c.height = 10; const g = c.getContext("2d");
+  g.strokeStyle = "rgba(10,8,7,0.42)"; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(-2, 12); g.lineTo(12, -2); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(8, 12); g.lineTo(12, 8); g.stroke();
+  return (stripePattern.p = cx.createPattern(c, "repeat"));
+}
 function noteColor(p, h){
   const st = barStyle();
-  if (st === "hands") return h === "L" ? C.L : C.R;
+  if (st === "hands") return h === "L" ? "#56b4e9" : "#e69f00";      // sky blue and orange: tell apart with most kinds of color blindness
   if (st === "neon") return h === "L" ? "#00e5ff" : "#ff3df2";
   const hue = (p % 12) * 30;                                    // rainbow: every note name has its own color
   return `hsl(${hue},${h === "L" ? 75 : 90}%,${h === "L" ? 55 : 62}%)`;
@@ -5105,7 +5133,7 @@ function recStart(){
   stopTake();
   REC.on = true; REC.t0 = performance.now(); REC.ev = []; REC.songT = P.t;
   REC.timer = setInterval(recUI, 500); recUI();
-  REC.clock = setInterval(() => REC.ev.push([Math.round(performance.now() - REC.t0), 3, 0, 0, +P.t.toFixed(3)]), 100);   // where the song was, for the review
+  REC.clock = setInterval(() => REC.ev.push([Math.round(performance.now() - REC.t0), 3, 0, 0, +P.t.toFixed(3)]), 50);   // where the song was, for the review
   toast("Recording. Play when you're ready.", 1600);
 }
 async function recStop(){
@@ -5238,8 +5266,9 @@ $("takesBtn").onclick = () => { setDrawer(false); openTakes(P.song ? P.song.id :
 const RV = { on:false };
 function takeClock(t, ev){
   // song position at any moment of the take: from the positions saved while recording, or estimated for older takes
-  const pts = ev.filter(e => e.length >= 5 && e[4] != null).map(e => [e[0], e[4]]);
+  let pts = ev.filter(e => e.length >= 5 && e[4] != null).map(e => [e[0], e[4]]);
   const tempo = t.tempo || 1;
+  if (pts.length < 2) pts = rebuildClock(t, ev);
   if (pts.length < 2) return ms => (t.songT || 0) + ms / 1000 * tempo;
   return ms => {
     if (ms <= pts[0][0]) return pts[0][1] - (pts[0][0] - ms) / 1000 * tempo;
@@ -5248,6 +5277,30 @@ function takeClock(t, ev){
     while (hi - lo > 1){ const mid = (lo + hi) >> 1; if (pts[mid][0] <= ms) lo = mid; else hi = mid; }
     const a = pts[lo], b = pts[hi]; return a[1] + (b[1] - a[1]) * (ms - a[0]) / Math.max(1, b[0] - a[0]);
   };
+}
+// takes made before the song position was saved: each right key you pressed tells where the song was.
+// The song moves to that note at its own speed, then waits there until the moment you pressed it (Wait mode).
+function rebuildClock(t, ev){
+  const shift = t.transpose != null ? t.transpose : (P.transpose || 0), tempo = t.tempo || 1;
+  const notes = (P.origNotes || []).map(n => ({t:n.t, p:n.p + shift})).sort((a, b) => a.t - b.t);
+  let j = notes.findIndex(n => n.t >= (t.songT || 0) - 0.5); if (j < 0) return [];
+  const pts = []; let curMs = 0, curT = t.songT || 0;
+  pts.push([0, curT]);
+  for (const e of ev){
+    if (e[1] !== 0) continue;
+    let hit = -1;
+    for (let k = j; k < Math.min(notes.length, j + 12); k++) if (notes[k].p === e[2] && notes[k].t >= curT - 0.3){ hit = k; break; }
+    if (hit < 0) continue;                                   // a wrong key: the song didn't move for it
+    const target = notes[hit].t;
+    if (target > curT){
+      const arrive = curMs + (target - curT) / tempo * 1000;
+      if (arrive < e[0]) pts.push([arrive, target]);           // reached the note, then waited for you
+      pts.push([e[0], target]);
+      curT = target;
+    } else pts.push([e[0], curT]);
+    curMs = e[0]; j = hit + 1;
+  }
+  return pts;
 }
 // right or wrong for each key you pressed: the song has that note close to that moment
 function judgeTake(t, ev, clock){
@@ -5582,6 +5635,7 @@ $("strumSel").onchange = e => {
 };
 showStrumNote();
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
+$("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
 $("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
 $("gtrAlongBtn").onclick = () => {

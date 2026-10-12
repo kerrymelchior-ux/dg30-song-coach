@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.51">
+<meta name="version" content="1.53">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -326,6 +326,22 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .ptool[aria-pressed="true"]{background:var(--ivory);border-color:var(--ivory);color:var(--lacquer)}
 .trainset{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:4px}
 .trainset select{min-height:32px;padding:0 6px;margin:0 3px}
+/* recording */
+.recbtn{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 10px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px;color:var(--ivory);font-variant-numeric:tabular-nums}
+.recbtn i{width:11px;height:11px;border-radius:50%;background:var(--bad)}
+.recbtn[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.recbtn[aria-pressed="true"] i{border-radius:2px;background:#fff;animation:recPulse 1s ease-in-out infinite}
+@keyframes recPulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.recbtn[aria-pressed="true"] i{animation:none}}
+.takes{display:flex;flex-direction:column;max-height:52vh;overflow-y:auto}
+.take{display:grid;grid-template-columns:48px 1fr auto;gap:2px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.take .tplay{grid-row:1/3;width:48px;height:48px;border-radius:50%;border:0;background:var(--accent);color:var(--lacquer);font-size:18px;display:grid;place-items:center;padding:0}
+.take .tplay.on{background:var(--bad);color:#fff}
+.take b{font-weight:600}
+.take small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.take .tacts{grid-row:1/3;grid-column:3;display:flex;gap:6px}
+.take .tacts button{min-height:38px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-size:12.5px;font-weight:600}
+.take.fresh{background:color-mix(in srgb,var(--accent) 10%,transparent)}
 /* practice toolbar: slim bar, everything else in a drawer */
 .lyrbtn,#wordsBtn.lyrbtn{flex:none;font:600 15px/1 var(--f-body)!important;width:auto;height:auto}
 .lyrbtn[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
@@ -354,6 +370,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .vctl input[type=range]::-webkit-slider-thumb{width:30px;height:30px}
 .vpresets{display:flex;gap:8px;flex-wrap:wrap}
 .vpresets button{min-height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px}
+@media (max-width:520px){ .loopbtn span,.recbtn span{display:none} .loopbtn,.recbtn{padding:0 9px} }
 @media (max-height:520px) and (max-width:1000px){ .qvol input{width:62px} .qvol{padding-right:8px} #bars .seg button{padding:0 7px} #bars{gap:5px} .tkchip{padding:0 8px} }
 #practice{position:fixed}
 .tkchip{flex:none;height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ivory);white-space:nowrap}
@@ -578,8 +595,9 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     </div></div>
     <div class="dgrp"><span class="dlbl">Practice</span><div class="ptools">
       <button type="button" class="ptool" id="metroBtn" aria-pressed="false">Metronome</button>
-      <button type="button" class="ptool" id="countBtn" aria-pressed="true">Count-in</button>
+      <button type="button" class="ptool" id="countBtn" aria-pressed="false">Count-in</button>
       <button type="button" class="ptool" id="trainBtn" aria-pressed="false">Speed trainer</button>
+      <button type="button" class="ptool" id="takesBtn">Your takes</button>
     </div><div class="trainset" id="trainSet" hidden>
       <label>Start <select id="trStart"><option>40</option><option>50</option><option selected>60</option><option>70</option><option>80</option></select>%</label>
       <label>Up <select id="trStep"><option>2</option><option selected>5</option><option>10</option></select>% each clean pass</label>
@@ -609,7 +627,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
   <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
-  <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
+  <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
 <!-- ================= CONNECT SHEET ================= -->
@@ -856,6 +874,15 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </div>
 
+<dialog id="takesDlg" aria-labelledby="takesH">
+  <div class="sheet">
+    <h2 id="takesH">Your takes</h2>
+    <p id="takesSub"></p>
+    <div id="takesList" class="takes"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn primary" id="takesDone" type="button">Done</button></div>
+  </div>
+</dialog>
+
 <dialog id="volDlg" aria-labelledby="volH">
   <div class="sheet">
     <h2 id="volH">Volume</h2>
@@ -900,7 +927,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.51";
+const APP_VERSION = "1.53";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -917,7 +944,7 @@ const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + String(Ma
 /* ---------------- storage (per-device) ---------------- */
 /* Small settings live in localStorage (about 5 MB in total). Song data (notes, words, chords, reader results)
    lives in IndexedDB, which can hold hundreds of MB, with an in-memory copy so reads stay instant. */
-const BIG = /^dg30\.(song|lyrics|chords|scan|pedal|art)\./;
+const BIG = /^dg30\.(song|lyrics|chords|scan|pedal|art|rec)\./;
 const big = { cache: new Map(), ok: false, warned: false };
 const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
@@ -969,6 +996,7 @@ function loadNotes(id){
 }
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
+  try { const keep = store.get("dg30.recs", []).filter(t => { if (t.songId === id){ store.del("dg30.rec." + t.id); return false; } return true; }); store.set("dg30.recs", keep); } catch(e){}
   store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id);
 }
 
@@ -1357,6 +1385,7 @@ function parseBleMidi(d, emit){
 }
 function handleMidi(status, d1, d2){
   const hi = status & 0xF0;
+  if (REC.on) recEvent(hi, d1, d2);
   if (hi === 0xB0 && d1 === 32){ soundState.pendingBank = d2; return; }
   if (hi === 0xC0){ onProgramFromPiano(d1); return; }
   if (hi === 0x90 && d2 > 0) onKeyDown(d1, d2);
@@ -3103,6 +3132,8 @@ function openRowMenu(s){
   const playOn = inst => () => openPractice(s.id, inst);
   item("piano", "Play on piano", "", playOn("piano"), true);
   item("guitar", "Play on guitar", f.chords ? "" : "Chords worked out from the notes", playOn("guitar"), true);
+  const nTakes = takeList().filter(t => t.songId === s.id).length;
+  if (nTakes) item("piano", `Your takes (${nTakes})`, "Recordings of your playing", () => openTakes(s.id));
   if (s.demo) item("sheet", "Sheet music", "View, print or save as PDF", () => openSheet(s.id));
   else {
     item("edit", "Edit details", "Name, artist, picture, key and tempo", () => openEdit(s.id));
@@ -4832,6 +4863,7 @@ function openPractice(id, inst){
 }
 function closePractice(){
   setDrawer(false);
+  if (REC.on) recStop();
   stopGuitarMic();
   PL.playing = null; updatePlaylistBar();
   setPlaying(false);
@@ -4848,7 +4880,7 @@ $("backBtn").onclick = closePractice;
 const PT = {
   loop: {on:false, a:0, b:0},
   trainer: Object.assign({on:false, start:60, step:5, target:100}, store.get("dg30.trainer", {})),
-  metro: store.get("dg30.metro", false), countIn: store.get("dg30.countIn", true),
+  metro: store.get("dg30.metro", false), countIn: store.get("dg30.countIn2", false),       // off unless you turn it on
   countUntil: 0, countShown: 0, lastBeat: null, gridFor: null, grid: {phase:0, bar:0}
 };
 PT.trainer.on = false;                                   // the trainer starts off each time
@@ -4967,10 +4999,21 @@ function syncTools(){
   $("trStart").value = PT.trainer.start; $("trStep").value = PT.trainer.step; $("trTarget").value = PT.trainer.target;
 }
 $("metroBtn").onclick = () => { PT.metro = !PT.metro; store.set("dg30.metro", PT.metro); PT.lastBeat = null; syncTools(); };
-$("countBtn").onclick = () => { PT.countIn = !PT.countIn; store.set("dg30.countIn", PT.countIn); syncTools(); };
+$("countBtn").onclick = () => { PT.countIn = !PT.countIn; store.set("dg30.countIn2", PT.countIn); syncTools(); };
 $("trainBtn").onclick = () => {
   PT.trainer.on = !PT.trainer.on; syncTools();
-  if (!PT.trainer.on) return;
+  if (!PT.trainer.on){
+    // back to how the song was before the trainer: same mode, same speed, and no loop if the trainer made it
+    const pv = PT.trainer.prev || {}; PT.trainer.prev = null;
+    const was = P.playing; setPlaying(false);
+    if (pv.mode && pv.mode !== P.mode){ P.mode = pv.mode; setSeg("modeSeg", P.mode); store.set("dg30.mode", P.mode); if (P.mode !== "wait") stopGuitarMic(); }
+    if (pv.bpm) setBpm(pv.bpm);
+    if (pv.madeLoop) setLoop(false);
+    resetRun(P.t); syncScrub(); if (was) setPlaying(true);
+    toast(`Speed trainer off. Back to ${({wait:"Wait", play:"Play along", listen:"Listen"})[P.mode]} at ${Math.round(100 * P.tempo)}%`, 1800);
+    return;
+  }
+  PT.trainer.prev = {mode: P.mode, bpm: Math.round(P.tempo * (P.baseBpm || 100)), madeLoop: !PT.loop.on};
   if (!PT.loop.on){ const g = ensureGrid(), bar = beatLen() * g.beats, a = Math.max(0, barStartAt(Math.max(P.t, P.notes[0] ? P.notes[0].t : 0))); setLoop(true, a, a + 2 * bar); }
   else trainerStart();
   if (P.mode === "listen"){ P.mode = "wait"; setSeg("modeSeg", "wait"); store.set("dg30.mode", "wait"); toast("Speed trainer: switched to Wait mode so it can hear you", 2200); }
@@ -4980,6 +5023,123 @@ $("trStart").onchange = e => { PT.trainer.start = +e.target.value; saveTrainer()
 $("trStep").onchange = e => { PT.trainer.step = +e.target.value; saveTrainer(); };
 $("trTarget").onchange = e => { PT.trainer.target = +e.target.value; saveTrainer(); };
 syncTools();
+
+
+/* ---------------- record yourself (MIDI) ----------------
+   Every key and pedal press from the piano, with exact timing, saved on this device as a "take" for the song.
+   Takes play back through the piano (or the phone), export as .mid files, and go along in backups. */
+const REC = { on:false, t0:0, ev:[], songT:0, timer:0 };
+const TP = { take:null, timer:0, i:0, start:0, held:new Set() };
+function recEvent(hi, d1, d2){
+  const ms = Math.round(performance.now() - REC.t0);
+  if (hi === 0x90 && d2 > 0) REC.ev.push([ms, 0, d1, d2]);
+  else if (hi === 0x80 || (hi === 0x90 && d2 === 0)) REC.ev.push([ms, 1, d1, 0]);
+  else if (hi === 0xB0 && d1 === 64) REC.ev.push([ms, 2, d2, 0]);
+}
+const takeList = () => store.get("dg30.recs", []);
+function recUI(){
+  const b = $("recBtn"); b.setAttribute("aria-pressed", String(REC.on));
+  $("recTxt").textContent = REC.on ? "Stop " + fmt((performance.now() - REC.t0) / 1000) : "Rec";
+  b.title = REC.on ? "Stop recording" : "Record your playing";
+}
+function recStart(){
+  if (!pianoReady() && conn.kind !== "midi" && conn.kind !== "ble"){ toast("Connect your piano to record your playing", 2200); $("connDlg").showModal(); return; }
+  stopTake();
+  REC.on = true; REC.t0 = performance.now(); REC.ev = []; REC.songT = P.t;
+  REC.timer = setInterval(recUI, 500); recUI();
+  toast("Recording. Play when you're ready.", 1600);
+}
+async function recStop(){
+  REC.on = false; clearInterval(REC.timer); recUI();
+  const ev = REC.ev.slice(); REC.ev = [];
+  // trim silence before the first and after the last key
+  const firstOn = ev.findIndex(e => e[1] === 0);
+  if (firstOn < 0){ toast("Nothing was played, so no take was saved", 2000); return; }
+  const off = Math.max(0, ev[firstOn][0] - 300), out = ev.map(e => [e[0] - off, e[1], e[2], e[3]]).filter(e => e[0] >= 0);
+  const dur = out.length ? out[out.length - 1][0] + 500 : 0;
+  const m = P.song || {}; const list = takeList();
+  const n = list.filter(t => t.songId === m.id).length + 1;
+  const take = {id: "t" + Date.now().toString(36), songId: m.id || "", songTitle: m.title || "Free play", name: `Take ${n}`, at: Date.now(), dur, notes: out.filter(e => e[1] === 0).length, songT: +(REC.songT + off / 1000 * (P.tempo || 1)).toFixed(2), tempo: P.tempo || 1};
+  if (!(await store.setAsync("dg30.rec." + take.id, out))){ toast(storageProblem()); return; }
+  list.push(take); store.set("dg30.recs", list);
+  openTakes(m.id, take.id);
+}
+$("recBtn").onclick = () => { if (REC.on) recStop(); else recStart(); };
+// playback
+function takeOut(type, a, b){
+  if (type === 2){ pedalOut(a >= 64); return; }
+  if (conn.outMode === "piano" && pianoReady()){ sendMidi(type === 0 ? [0x90, a, b] : [0x80, a, 0]); }
+  else if (type === 0) synthOn(a, b); else synthOff(a);
+  if (type === 0) TP.held.add(a); else TP.held.delete(a);
+}
+function stopTake(){
+  clearInterval(TP.timer); TP.timer = 0;
+  for (const p of TP.held) takeOut(1, p, 0); TP.held.clear(); pedalOut(false);
+  const was = TP.take; TP.take = null; if (was) renderTakes();
+}
+function playTake(t){
+  stopTake();
+  const ev = store.get("dg30.rec." + t.id, null); if (!ev || !ev.length){ toast("That take couldn't be found on this phone"); return; }
+  if (P.playing) setPlaying(false);
+  audioCtx(); TP.take = t; TP.ev = ev; TP.i = 0; TP.start = performance.now();
+  TP.timer = setInterval(() => {
+    const now = performance.now() - TP.start;
+    while (TP.i < TP.ev.length && TP.ev[TP.i][0] <= now){ const e = TP.ev[TP.i++]; takeOut(e[1], e[2], e[3]); }
+    if (TP.i >= TP.ev.length && now > (TP.take ? TP.take.dur : 0)) stopTake();
+    else updateTakeTimer();
+  }, 8);
+  renderTakes();
+}
+function updateTakeTimer(){ const el = document.querySelector(".take.playing small.tpos"); if (el && TP.take) el.textContent = fmt((performance.now() - TP.start) / 1000) + " / " + fmt(TP.take.dur / 1000); }
+// export as a .mid file
+function exportTake(t){
+  const ev = store.get("dg30.rec." + t.id, null); const MidiCls = window.Midi && (window.Midi.Midi || window.Midi);
+  if (!ev || !MidiCls){ toast("Couldn't make the MIDI file. Check the connection and try again."); return; }
+  const m = new MidiCls(); m.header.name = `${t.songTitle} – ${t.name}`; const tr = m.addTrack(); tr.name = "Piano";
+  const open = new Map();
+  for (const e of ev){
+    const s = e[0] / 1000;
+    if (e[1] === 0){ if (open.has(e[2])){ const o = open.get(e[2]); tr.addNote({midi:e[2], time:o.t, duration:Math.max(0.02, s - o.t), velocity:o.v / 127}); } open.set(e[2], {t:s, v:e[3]}); }
+    else if (e[1] === 1){ const o = open.get(e[2]); if (o){ tr.addNote({midi:e[2], time:o.t, duration:Math.max(0.02, s - o.t), velocity:o.v / 127}); open.delete(e[2]); } }
+    else tr.addCC({number:64, value:e[2] / 127, time:s});
+  }
+  for (const [p, o] of open) tr.addNote({midi:p, time:o.t, duration:0.5, velocity:o.v / 127});
+  const file = new File([m.toArray()], `${t.songTitle} - ${t.name}.mid`.replace(/[\\/:*?"<>|]+/g, ""), {type:"audio/midi"});
+  let ok = false; try { ok = !!(navigator.canShare && navigator.canShare({files:[file]})); } catch(e){}
+  if (ok) navigator.share({files:[file], title:file.name}).catch(() => {});
+  else { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); toast("Saved to your Downloads"); }
+}
+function deleteTake(t){
+  stopTake(); store.del("dg30.rec." + t.id);
+  store.set("dg30.recs", takeList().filter(x => x.id !== t.id)); renderTakes(); toast("Take deleted", 1200);
+}
+let takesFor = null, takesFresh = null;
+function openTakes(songId, fresh){ takesFor = songId; takesFresh = fresh || null; renderTakes(); if (!$("takesDlg").open) $("takesDlg").showModal(); }
+function renderTakes(){
+  const box = $("takesList"); if (!box) return; box.textContent = "";
+  const m = takesFor ? songById(takesFor) : null;
+  const list = takeList().filter(t => !takesFor || t.songId === takesFor).sort((a, b) => b.at - a.at);
+  $("takesSub").textContent = list.length ? (m ? `${m.title}: ` : "") + "tap play to hear a take through the piano, or the phone when it isn't connected." : "No takes yet. In a song, tap Rec at the bottom, play, then tap Stop.";
+  for (const t of list){
+    const row = document.createElement("div"); row.className = "take" + (t.id === takesFresh ? " fresh" : "") + (TP.take && TP.take.id === t.id ? " playing" : "");
+    const pl = document.createElement("button"); pl.type = "button"; pl.className = "tplay" + (TP.take && TP.take.id === t.id ? " on" : "");
+    pl.textContent = TP.take && TP.take.id === t.id ? "■" : "▶"; pl.setAttribute("aria-label", (TP.take && TP.take.id === t.id ? "Stop " : "Play ") + t.name);
+    pl.onclick = () => TP.take && TP.take.id === t.id ? stopTake() : playTake(t);
+    const name = document.createElement("b"); name.textContent = t.name + (takesFor ? "" : " · " + t.songTitle);
+    const info = document.createElement("small"); info.className = "tpos";
+    const when = new Date(t.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+    info.textContent = `${fmt(t.dur / 1000)} · ${t.notes} notes · ${when}`;
+    const acts = document.createElement("div"); acts.className = "tacts";
+    const ren = document.createElement("button"); ren.type = "button"; ren.textContent = "Rename"; ren.onclick = () => { const v = prompt("Name this take", t.name); if (v && v.trim()){ const l = takeList(); const x = l.find(y => y.id === t.id); if (x){ x.name = v.trim().slice(0, 60); store.set("dg30.recs", l); renderTakes(); } } };
+    const ex = document.createElement("button"); ex.type = "button"; ex.textContent = "Export"; ex.onclick = () => exportTake(t);
+    const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
+    del.onclick = () => { if (del.dataset.sure){ deleteTake(t); } else { del.dataset.sure = "1"; del.textContent = "Sure?"; setTimeout(() => { del.dataset.sure = ""; del.textContent = "Delete"; }, 2500); } };
+    acts.append(ren, ex, del); row.append(pl, name, acts, info); box.appendChild(row);
+  }
+}
+$("takesDone").onclick = () => { stopTake(); $("takesDlg").close(); };
+$("takesDlg").addEventListener("close", stopTake);
+$("takesBtn").onclick = () => { setDrawer(false); openTakes(P.song ? P.song.id : null); };
 
 /* connection light in the practice bar: green = piano connected, amber = listening with the mic, red = not connected */
 function syncPConn(){

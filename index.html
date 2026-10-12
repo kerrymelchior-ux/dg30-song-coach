@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.44">
+<meta name="version" content="1.45">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -321,12 +321,21 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 @keyframes pconnBlink{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.pconn.busy i{animation:none}}
 @media (max-height:520px){ .pconn{width:36px;height:36px} }
-.qvol{display:flex;align-items:center;gap:2px;flex:none;height:42px;padding:0 10px 0 2px;border:1px solid var(--line);border-radius:10px;background:var(--lacquer)}
-.qvol button{width:36px;height:40px;border:0;background:none;padding:0;display:grid;place-items:center;color:var(--ivory)}
-.qvol input{width:110px;accent-color:var(--accent)}
-.qvol.muted button{color:var(--muted)}
-@media (max-width:520px){ .qvol input{width:74px} }
-@media (max-height:520px){ .qvol{height:36px} .qvol button{height:34px} }
+.qvol{display:flex;align-items:center;gap:6px;flex:none;height:42px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--lacquer);color:var(--ivory);font:600 13px var(--f-mono);font-variant-numeric:tabular-nums}
+.qvol .qspk{display:grid;place-items:center}
+.qvol.muted{color:var(--muted)}
+@media (max-height:520px){ .qvol{height:36px} }
+/* volume pop-up: big, fine-grained */
+#volDlg .sheet{gap:18px}
+.vrow{display:flex;flex-direction:column;gap:10px}
+.vhead{display:flex;align-items:baseline;justify-content:space-between}
+.vhead b{font:700 34px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ivory)}
+.vctl{display:flex;align-items:center;gap:10px}
+.vctl button{flex:none;width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--lacquer);font-size:24px;font-weight:600}
+.vctl input[type=range]{flex:1;height:44px;accent-color:var(--accent)}
+.vctl input[type=range]::-webkit-slider-thumb{width:30px;height:30px}
+.vpresets{display:flex;gap:8px;flex-wrap:wrap}
+.vpresets button{min-height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px}
 @media (max-height:520px) and (max-width:1000px){ .qvol input{width:62px} .qvol{padding-right:8px} #bars .seg button{padding:0 7px} #bars{gap:5px} .tkchip{padding:0 8px} }
 #practice{position:fixed}
 .tkchip{flex:none;height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ivory);white-space:nowrap}
@@ -518,10 +527,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <button class="icon" id="backBtn" type="button" aria-label="Back to songs">&#8592;</button>
     <div class="title" id="pTitle">Song</div>
     <button class="pconn" id="pConn" type="button" title="Piano not connected. Tap to connect" aria-label="Piano not connected. Tap to connect"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><i></i></button>
-    <div class="qvol" role="group" aria-label="Piano volume">
-      <button type="button" id="qMute" aria-label="Mute" title="Mute or unmute"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path id="qWave1" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path id="qWave2" d="M18 6.8a7.5 7.5 0 0 1 0 10.4"/><path id="qX" d="m15.5 9.5 5 5m0-5-5 5" style="display:none"/></svg></button>
-      <input id="qVol" type="range" min="0" max="100" step="5" value="100" aria-label="Piano volume">
-    </div>
+    <button class="qvol" id="qVolBtn" type="button" aria-label="Volume"><span class="qspk"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path id="qWave1" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path id="qWave2" d="M18 6.8a7.5 7.5 0 0 1 0 10.4"/><path id="qX" d="m15.5 9.5 5 5m0-5-5 5" style="display:none"/></svg></span><span id="qVolPct">100%</span></button>
     <button class="icon play" id="playBtn" type="button" aria-label="Play">&#9654;</button>
     <button class="icon" id="restartBtn" type="button" aria-label="Start over">&#8634;</button>
     <button class="btn instr" id="instrBtn" type="button" hidden aria-label="Switch between piano and guitar">Guitar</button>
@@ -670,9 +676,9 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="status connmsg" id="soundStatus" aria-live="polite"></div>
     <div class="field">
       <label class="label" for="volPiano">Piano volume <output id="volPianoOut" class="volout">100%</output></label>
-      <input id="volPiano" type="range" min="0" max="100" step="5" value="100">
+      <input id="volPiano" type="range" min="0" max="100" step="1" value="100">
       <label class="label" for="volSong">Song playback, compared with your playing <output id="volSongOut" class="volout">100%</output></label>
-      <input id="volSong" type="range" min="10" max="100" step="5" value="100">
+      <input id="volSong" type="range" min="10" max="100" step="1" value="100">
       <small style="color:var(--muted)">Turn the song down to hear your own playing over it in Listen mode or while practicing one hand.</small>
     </div>
     <div class="field">
@@ -822,10 +828,26 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 </div>
 
+<dialog id="volDlg" aria-labelledby="volH">
+  <div class="sheet">
+    <h2 id="volH">Volume</h2>
+    <div class="vrow">
+      <div class="vhead"><span class="label">Piano</span><b id="vPianoOut">100%</b></div>
+      <div class="vctl"><button type="button" id="vPianoDn" aria-label="Piano 1% quieter">−</button><input type="range" id="vPiano" min="0" max="100" step="1" aria-label="Piano volume"><button type="button" id="vPianoUp" aria-label="Piano 1% louder">+</button></div>
+      <div class="vpresets"><button type="button" id="vMute">Mute</button><button type="button" data-v="25">25%</button><button type="button" data-v="50">50%</button><button type="button" data-v="75">75%</button><button type="button" data-v="100">100%</button></div>
+    </div>
+    <div class="vrow">
+      <div class="vhead"><span class="label">Song playback, compared with your playing</span><b id="vSongOut">100%</b></div>
+      <div class="vctl"><button type="button" id="vSongDn" aria-label="Song 1% quieter">−</button><input type="range" id="vSong" min="10" max="100" step="1" aria-label="Song playback volume"><button type="button" id="vSongUp" aria-label="Song 1% louder">+</button></div>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="btn primary" id="volDone" type="button">Done</button></div>
+  </div>
+</dialog>
+
 <dialog id="lyrDlg" aria-labelledby="lyrH">
   <div class="sheet">
     <h2 id="lyrH">Lyrics timing</h2>
-    <p><span id="lyrTitle"></span>: the words come from the original recording, so they can drift from this arrangement. Shift them if they're early or late all the way through; stretch them if they start right but drift by the end.</p>
+    <p><span id="lyrTitle"></span>: the words are lined up with the melody note by note. If they're early or late all the way through, shift them. If whole lines land in the wrong place, stretch moves the lines' starting guide.</p>
     <div class="row" style="justify-content:space-between"><span class="label">Shift</span><div class="seg"><button type="button" id="lyrShiftDn" aria-label="Earlier">Earlier</button><button type="button" id="lyrShift" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrShiftUp" aria-label="Later">Later</button></div></div>
     <div class="row" style="justify-content:space-between"><span class="label">Stretch</span><div class="seg"><button type="button" id="lyrStrDn">Shorter</button><button type="button" id="lyrStretch" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrStrUp">Longer</button></div></div>
     <div class="row" style="justify-content:space-between"><button class="btn ghost" id="lyrRemove" type="button">Remove lyrics</button><span class="row"><button class="btn" id="lyrCancel" type="button">Cancel</button><button class="btn primary" id="lyrSave" type="button">Save</button></span></div>
@@ -850,7 +872,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.44";
+const APP_VERSION = "1.45";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -4514,24 +4536,93 @@ async function lookupLyrics(m, songLen){
   return {lines, dur: x.duration || songLen, synced: !!x.syncedLyrics, name: x.trackName || x.name, artist: x.artistName || x.artist};
 }
 // turn recording-timed lines into word timings for this song
+/* Lyrics are timed to the original recording, but an arrangement has its own intro, tempo and section lengths.
+   So the words are lined up with the arrangement's MELODY instead: lyric lines are matched, in order, to the
+   melody's phrases (counting syllables against notes, with the recording's timing as a loose guide), and then
+   each syllable lands on its own melody note. */
+function syllables(w){
+  const x = String(w).toLowerCase().replace(/[^a-z']/g, "");
+  if (!x) return /\d/.test(w) ? Math.max(1, String(w).replace(/\D/g, "").length) : 0;
+  let n = (x.match(/[aeiouy]+/g) || []).length;
+  if (n > 1 && /[^aeiouy]e$/.test(x) && !/[^aeiouy]le$/.test(x)) n--;     // silent e
+  if (/(ed)$/.test(x) && n > 1 && !/[td]ed$/.test(x)) n--;                 // "loved"
+  return Math.max(1, n);
+}
+function melodyOf(notes){
+  const src = notes.filter(n => n.h === "R"); const use = src.length > 12 ? src : notes;
+  const sorted = use.slice().sort((a, b) => a.t - b.t || b.p - a.p), mel = [];
+  for (const n of sorted){ const l = mel[mel.length - 1]; if (l && n.t - l.t < 0.035) continue; mel.push(n); }
+  return mel;
+}
 function placeLyrics(id, raw, shift, stretch){
-  const notes = loadNotes(id).sort((a, b) => a.t - b.t); if (!notes.length) return [];
+  const notes = loadNotes(id).sort((a, b) => a.t - b.t); if (!notes.length || !raw || !raw.lines) return [];
   const end = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
-  const scale = (end / (raw.dur || end)) * (stretch || 1);
-  const mel = notes.filter(n => n.h === "R").map(n => n.t); const ons = mel.length > 20 ? mel : notes.map(n => n.t);
-  const snap = (t, lo, hi) => { let best = t, bd = 0.35; for (let i = 0; i < ons.length; i++){ const o = ons[i]; if (o < lo) continue; if (o > hi) break; const d = Math.abs(o - t); if (d < bd){ bd = d; best = o; } } return best; };
-  const out = [], L = raw.lines;
-  for (let i = 0; i < L.length; i++){
-    const text = L[i][1]; if (!text) continue;
-    const t0 = L[i][0] * scale + (shift || 0), next = i + 1 < L.length ? L[i + 1][0] * scale + (shift || 0) : t0 + 4;
-    const span = Math.min(Math.max(0.6, (next - t0) * 0.85), 7 * scale);
-    const words = text.split(/\s+/).filter(Boolean); let last = t0 - 0.01;
-    words.forEach((w, k) => {
-      let t = snap(t0 + span * k / words.length, last + 0.05, next - 0.05);
-      if (t <= last) t = last + 0.05;
-      out.push([+Math.max(0, t).toFixed(3), w, k === 0 ? 1 : 0]); last = t;
-    });
+  const scale = (end / (raw.dur || end)) * (stretch || 1), sh = shift || 0;
+  const mel = melodyOf(notes), m = mel.length;
+  const lines = raw.lines.filter(l => l[1] && l[1].trim()).map(l => {
+    const words = l[1].trim().split(/\s+/).filter(Boolean);
+    const syl = words.map(syllables);
+    return {tau: l[0] * scale, words, syl, n: Math.max(1, syl.reduce((a, b) => a + b, 0))};
+  });
+  const n = lines.length; if (!n) return [];
+  const out = [];
+  if (m < 8){                                       // too few notes to align: fall back to the recording's timing
+    lines.forEach((ln, i) => { const nx = lines[i + 1] ? lines[i + 1].tau : ln.tau + 4, span = Math.max(0.6, (nx - ln.tau) * 0.85);
+      ln.words.forEach((w, k) => out.push([+(Math.max(0, ln.tau + sh + span * k / ln.words.length)).toFixed(3), w, k === 0 ? 1 : 0])); });
+    return out;
   }
+  const phr = mel.map((x, k) => k === 0 || x.t - (mel[k - 1].t + mel[k - 1].d) > 0.22 || x.t - mel[k - 1].t > 1.1);
+  // first find the overall offset and tempo difference between the recording and this arrangement:
+  // the stretch and shift that put the most line starts on the start of a melody phrase
+  const PS = mel.filter((x, k) => phr[k]).map(x => x.t);
+  const near = t => { let lo = 0, hi = PS.length - 1; while (lo < hi){ const mid = (lo + hi) >> 1; if (PS[mid] < t) lo = mid + 1; else hi = mid; } return Math.min(Math.abs(PS[lo] - t), lo ? Math.abs(PS[lo - 1] - t) : 1e9); };
+  // a few candidate stretch/shift pairs that put line starts on phrase starts...
+  const cands = [];
+  for (let a = 0.8; a <= 1.25001; a += 0.0125) for (let b = -40; b <= 40; b += 0.25){
+    let c = 0; for (const ln of lines) c += Math.min(1, near(a * ln.tau + b));
+    cands.push([c, a, b]);
+  }
+  cands.sort((x, y) => x[0] - y[0]);
+  const picks = [];
+  for (const c of cands){ if (picks.length >= 8) break; if (picks.every(p => Math.abs(p[2] - c[2]) > 1.5 || Math.abs(p[1] - c[1]) > 0.03)) picks.push(c); }
+  // ...then the full syllable-to-note match for each, keeping the one where the words fit the notes best
+  const fit = (have, need) => have < need ? (need - have) * 0.6 : (have - need) * 0.05;
+  const runDP = (A, B) => {
+    const tau = lines.map(ln => A * ln.tau + B);
+    const startCost = (i, k) => 0.15 * Math.abs(mel[k].t - tau[i]) + (phr[k] ? 0 : 0.7);
+    const INF = 1e18, dp = [], bp = [];
+    dp[0] = new Float64Array(m); bp[0] = new Int32Array(m).fill(-1);
+    for (let k = 0; k < m; k++) dp[0][k] = startCost(0, k);
+    for (let i = 1; i < n; i++){
+      const prev = dp[i - 1], need = lines[i - 1].n, win = need * 3 + 90;
+      const cur = dp[i] = new Float64Array(m).fill(INF), back = bp[i] = new Int32Array(m).fill(-1);
+      for (let k = 1; k < m; k++){
+        let best = INF, arg = -1;
+        for (let j = Math.max(0, k - win); j < k; j++){ if (prev[j] >= INF) continue; const v = prev[j] + fit(k - j, need); if (v < best){ best = v; arg = j; } }
+        if (arg >= 0){ cur[k] = best + startCost(i, k); back[k] = arg; }
+      }
+    }
+    let k = 0, best = INF;
+    for (let j = 0; j < m; j++){ const v = dp[n - 1][j] + fit(m - j, lines[n - 1].n); if (v < best){ best = v; k = j; } }
+    const starts = new Array(n);
+    for (let i = n - 1; i >= 0; i--){ starts[i] = k; k = bp[i][k]; }
+    return {cost: best, starts};
+  };
+  let bestRun = null;
+  for (const [, A, B] of picks){ const r = runDP(A, B); if (!bestRun || r.cost < bestRun.cost){ bestRun = r; } }
+  const starts = bestRun.starts;
+  let last = -1;
+  lines.forEach((ln, i) => {
+    const a0 = starts[i], avail = Math.max(1, (i + 1 < n ? starts[i + 1] : m) - a0);
+    let sylIdx = 0;
+    ln.words.forEach((w, wi) => {
+      const noteIdx = a0 + (avail >= ln.n ? sylIdx : Math.floor(sylIdx * avail / ln.n));
+      let t = mel[Math.min(m - 1, noteIdx)].t + sh;
+      if (t <= last) t = last + 0.04;
+      out.push([+Math.max(0, t).toFixed(3), w, wi === 0 ? 1 : 0]); last = t;
+      sylIdx += ln.syl[wi] || 1;
+    });
+  });
   return out;
 }
 function setSongMeta(id, patch){
@@ -4546,7 +4637,7 @@ async function findLyricsFor(m){
   if (!raw) return "none";
   if (raw.instrumental){ store.set("dg30.lyrraw." + m.id, {instrumental:true}); return "instrumental"; }
   const adj = {shift:0, stretch:1};
-  store.set("dg30.lyrraw." + m.id, {...raw, ...adj});
+  store.set("dg30.lyrraw." + m.id, {...raw, ...adj, v:2});
   const words = placeLyrics(m.id, raw, 0, 1);
   if (!words.length || !(await store.setAsync("dg30.lyrics." + m.id, words))) return "none";
   setSongMeta(m.id, {words:true});
@@ -4557,6 +4648,12 @@ async function autoLyrics(quiet, force){
   lyricsRunning = true; const tally = {added:0, instrumental:0, none:0}; let err = null;
   try {
     for (const m of store.get("dg30.songs", [])){
+      const raw = store.get("dg30.lyrraw." + m.id, null);
+      if (raw && raw.lines && raw.v !== 2){                 // lyrics placed the old way: line them up with the melody now
+        const words = placeLyrics(m.id, raw, 0, 1);
+        if (words.length && await store.setAsync("dg30.lyrics." + m.id, words)) store.set("dg30.lyrraw." + m.id, {...raw, shift:0, stretch:1, v:2});
+        continue;
+      }
       if (store.get("dg30.lyrics." + m.id, []).length) continue;
       if (!force && store.get("dg30.lyrtried." + m.id, null)) continue;
       try { tally[await findLyricsFor(m)]++; renderLibrary(); }
@@ -4580,7 +4677,7 @@ function openLyricTiming(s){
   $("lyrStrDn").onclick = () => { stretch = Math.max(0.5, Math.round((stretch - 0.02) * 100) / 100); show(); };
   $("lyrStrUp").onclick = () => { stretch = Math.min(1.5, Math.round((stretch + 0.02) * 100) / 100); show(); };
   $("lyrSave").onclick = async () => {
-    store.set("dg30.lyrraw." + s.id, {...raw, shift, stretch});
+    store.set("dg30.lyrraw." + s.id, {...raw, shift, stretch, v:2});
     await store.setAsync("dg30.lyrics." + s.id, placeLyrics(s.id, raw, shift, stretch));
     $("lyrDlg").close(); toast("Lyrics timing saved");
   };
@@ -4802,11 +4899,23 @@ $("setSoundBtn").onclick = openSounds;
 $("soundClose").onclick = () => $("soundDlg").close();
 $("soundSearch").addEventListener("input", renderSoundList);
 $("soundAll").addEventListener("change", renderSoundList);
-const showVol = () => { const m = vol.piano === 0; $("qVol").value = vol.piano; $("qVol").title = "Piano volume " + vol.piano + "%"; document.querySelector(".qvol").classList.toggle("muted", m); $("qX").style.display = m ? "" : "none"; $("qWave1").style.display = m ? "none" : ""; $("qWave2").style.display = m || vol.piano < 50 ? "none" : ""; $("qMute").setAttribute("aria-label", m ? "Unmute" : "Mute"); $("volPiano").value = vol.piano; $("volPianoOut").textContent = vol.piano + "%"; $("volSong").value = vol.song; $("volSongOut").textContent = vol.song + "%"; };
+const showVol = () => { const m = vol.piano === 0; $("qVolPct").textContent = vol.piano + "%"; $("qVolBtn").classList.toggle("muted", m); $("qVolBtn").setAttribute("aria-label", "Volume " + vol.piano + "%. Tap to change"); $("qX").style.display = m ? "" : "none"; $("qWave1").style.display = m ? "none" : ""; $("qWave2").style.display = m || vol.piano < 50 ? "none" : ""; $("vPiano").value = vol.piano; $("vPianoOut").textContent = vol.piano + "%"; $("vSong").value = vol.song; $("vSongOut").textContent = vol.song + "%"; $("vMute").textContent = m ? "Unmute" : "Mute"; $("volPiano").value = vol.piano; $("volPianoOut").textContent = vol.piano + "%"; $("volSong").value = vol.song; $("volSongOut").textContent = vol.song + "%"; };
 showVol();
 $("volPiano").addEventListener("input", e => { vol.piano = +e.target.value; store.set("dg30.vol", vol.piano); showVol(); applyVolume(); });
-$("qVol").addEventListener("input", e => { vol.piano = +e.target.value; store.set("dg30.vol", vol.piano); showVol(); applyVolume(); });
-$("qMute").onclick = () => { if (vol.piano > 0){ vol.unmuteTo = vol.piano; vol.piano = 0; } else vol.piano = vol.unmuteTo || 80; store.set("dg30.vol", vol.piano); showVol(); applyVolume(); };
+const setPianoVol = v => { vol.piano = Math.max(0, Math.min(100, Math.round(v))); store.set("dg30.vol", vol.piano); showVol(); applyVolume(); };
+const setSongVol = v => { vol.song = Math.max(10, Math.min(100, Math.round(v))); store.set("dg30.songVol", vol.song); showVol(); };
+$("qVolBtn").onclick = () => { showVol(); $("volDlg").showModal(); };
+$("vPiano").addEventListener("input", e => setPianoVol(+e.target.value));
+$("vSong").addEventListener("input", e => setSongVol(+e.target.value));
+// hold − or + to keep stepping 1% at a time
+const holdVol = (btn, fn) => { let tm = 0, iv = 0; const stop = () => { clearTimeout(tm); clearInterval(iv); };
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); fn(); tm = setTimeout(() => { iv = setInterval(fn, 70); }, 380); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => btn.addEventListener(ev, stop)); };
+holdVol($("vPianoDn"), () => setPianoVol(vol.piano - 1)); holdVol($("vPianoUp"), () => setPianoVol(vol.piano + 1));
+holdVol($("vSongDn"), () => setSongVol(vol.song - 1)); holdVol($("vSongUp"), () => setSongVol(vol.song + 1));
+$("vMute").onclick = () => { if (vol.piano > 0){ vol.unmuteTo = vol.piano; setPianoVol(0); } else setPianoVol(vol.unmuteTo || 80); };
+document.querySelectorAll("#volDlg .vpresets button[data-v]").forEach(b => b.onclick = () => setPianoVol(+b.dataset.v));
+$("volDone").onclick = () => $("volDlg").close();
 $("volSong").addEventListener("input", e => { vol.song = +e.target.value; store.set("dg30.songVol", vol.song); showVol(); });
 $("pedalSel").value = store.get("dg30.pedalMode", "auto");
 $("pedalSel").addEventListener("change", e => { store.set("dg30.pedalMode", e.target.value); if (P.song){ buildPedalEvents(); pedalSeek(P.t); } });

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.71">
+<meta name="version" content="1.72">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -718,6 +718,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
     </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords, tabs or sheet music" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button><button type="button" data-v="sheet" aria-pressed="false">Sheet</button></div></div>
     <div class="dgrp dicons">
+    <div class="dcap"><button class="icon" id="tunerBtn" type="button" hidden aria-label="Guitar tuner" title="Tune your guitar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-6"/><circle cx="12" cy="16" r="1.6" fill="currentColor"/><path d="M6.5 11.5l1 1M17.5 11.5l-1 1M12 8.5V10"/></svg></button><span>Tuner</span></div>
     <div class="dcap"><button class="icon" id="instBtn" type="button" aria-label="Instrument" title="Instrument">&#127929;</button><span>Instrument</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
     </div><button id="fsBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
@@ -1039,7 +1040,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.71";
+const APP_VERSION = "1.72";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -3955,6 +3956,8 @@ $("plForm").addEventListener("submit", e => {
 });
 $("plNext").onclick = () => playlistAdvance();
 $("tunerOpen").onclick = openTuner;
+// in guitar mode the tuner is in the ••• menu: the song pauses and the guitar's listening mic is let go first
+$("tunerBtn").onclick = () => { if (P.playing) setPlaying(false); try { stopGuitarMic(); } catch(e){} setDrawer(false); openTuner(); };
 $("tunerClose").onclick = closeTuner;
 $("tunerDlg").addEventListener("close", () => { cancelAnimationFrame(TUNER.raf); if (TUNER.stream){ TUNER.stream.getTracks().forEach(t => t.stop()); TUNER.stream = null; } });
 $("tunerA4").addEventListener("change", e => { const v = +e.target.value; if (v >= 415 && v <= 466){ TUNER.a4 = v; store.set("dg30.a4", v); } });
@@ -6216,6 +6219,7 @@ function setInstrument(inst, quiet){
   if (inst === "guitar" && P.mode === "magic"){ P.mode = "listen"; setSeg("modeSeg", "listen"); }
   syncMagicAvail(); syncMagicUI();
   $("instBtn").innerHTML = inst === "guitar" ? "&#127928;" : "&#127929;";
+  $("tunerBtn").hidden = inst !== "guitar";
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
   resetRun(P.t); syncScrub(); if (practiceVisible()) layout();   // carry on from the same spot in the song

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.69">
+<meta name="version" content="1.70">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -90,6 +90,24 @@ button{cursor:pointer}
 
 /* ---------- Library (v1.36): accent follows the main instrument ---------- */
 :root{--accent:var(--chrome);--amber:#e3a35c}
+html[data-theme="light"]{--lacquer:#faf6ef;--panel:#ffffff;--line:#e3d9c9;--ivory:#1d1915;--muted:#6e6257;--chrome:#2f7fa6;--amber:#c46a12;--right:#c98a14;--left:#2e8f7c;--good:#2f9e4a;--bad:#d64533;color-scheme:light}
+html[data-theme="neon"]{--lacquer:#0b0820;--panel:#161033;--line:#2e2560;--ivory:#f4f0ff;--muted:#a49bd0;--chrome:#00e5ff;--amber:#ff3df2;--right:#ff3df2;--left:#00e5ff;--good:#5cffa1;--bad:#ff5c7a;color-scheme:dark}
+html[data-theme="sunset"]{--lacquer:#1f0f1d;--panel:#2e1629;--line:#4d2742;--ivory:#fff1ea;--muted:#d6a9b3;--chrome:#ff8a5c;--amber:#ffd166;--right:#ffb35c;--left:#ff6fa5;--good:#8be38f;--bad:#ff5f5f;color-scheme:dark}
+html[data-theme="ocean"]{--lacquer:#e9f6fb;--panel:#ffffff;--line:#c7e3ee;--ivory:#0d2a3a;--muted:#4f7487;--chrome:#0a8fc4;--amber:#f28c28;--right:#f28c28;--left:#0a8fc4;--good:#1f9d55;--bad:#d9443a;color-scheme:light}
+html[data-theme="candy"]{--lacquer:#fff0f6;--panel:#ffffff;--line:#f6cfe0;--ivory:#3a1030;--muted:#8f5b7a;--chrome:#e0438a;--amber:#7b5cff;--right:#e0438a;--left:#7b5cff;--good:#2e9e5b;--bad:#d63a3a;color-scheme:light}
+html[data-theme="forest"]{--lacquer:#0f1a14;--panel:#16261d;--line:#2a4434;--ivory:#eef6ea;--muted:#9fb8a5;--chrome:#7fd18b;--amber:#f2c14e;--right:#f2c14e;--left:#7fd18b;--good:#9be08f;--bad:#ef6a5a;color-scheme:dark}
+html[data-theme="gold"]{--lacquer:#0d0b08;--panel:#19150e;--line:#3b3020;--ivory:#f6ecd6;--muted:#b9a681;--chrome:#e2b659;--amber:#ff9f43;--right:#e2b659;--left:#9fc3d6;--good:#7fd18b;--bad:#ef6a5a;color-scheme:dark}
+/* the playing area keeps its dark stage in every theme, so the glowing notes always pop */
+#stage{--lacquer:#14110f;--panel:#1f1a17;--line:#3a322c;--ivory:#f3ece0;--muted:#a89c8e;--chrome:#9fc3d6;--right:#e8b04a;--left:#6fb8a8;--good:#7fd18b;--bad:#ef6a5a;color:var(--ivory);background:var(--lacquer);color-scheme:dark}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.thm{position:relative;display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--panel);text-align:left;cursor:pointer}
+.thm[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.thm .sw{height:58px;border-radius:9px;position:relative;overflow:hidden;border:1px solid rgba(127,127,127,.25)}
+.thm .sw i{position:absolute;bottom:9px;width:10px;border-radius:3px}
+.thm .sw b{position:absolute;left:10px;top:9px;right:30px;height:9px;border-radius:5px;opacity:.9}
+.thm .sw u{position:absolute;left:10px;top:24px;width:50%;height:6px;border-radius:4px;opacity:.5}
+.thm span{font-weight:600;font-size:14px}.thm small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+
 body[data-instr="guitar"]{--accent:var(--amber)}
 :focus-visible{outline-color:var(--accent)}
 #library{gap:18px}
@@ -169,7 +187,7 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .rowacts button.go svg{color:var(--accent)}
 .rowacts small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
 /* ---------- First-run splash: pick the main instrument ---------- */
-#splash{position:fixed;inset:0;z-index:50;background:radial-gradient(120% 70% at 50% 0%,#221c18 0%,var(--lacquer) 60%);overflow-y:auto;transition:opacity .35s ease}
+#splash{position:fixed;inset:0;z-index:50;background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--accent) 14%,var(--panel)) 0%,var(--lacquer) 60%);overflow-y:auto;transition:opacity .35s ease}
 #splash.out{opacity:0;pointer-events:none}
 .sp-in{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:14px;padding:calc(env(safe-area-inset-top,0px) + 40px) 16px calc(env(safe-area-inset-bottom,0px) + 24px)}
 .sp-head h1{font:700 44px/1 var(--f-display);margin:0}
@@ -538,6 +556,11 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <h2>Main instrument</h2>
     <p>Songs open on this instrument, and the app's highlight color follows it. You can still switch inside any song.</p>
     <div class="seg" id="primSeg" role="group" aria-label="Main instrument" style="align-self:flex-start"><button type="button" data-v="piano" aria-pressed="true">Piano</button><button type="button" data-v="guitar" aria-pressed="false">Guitar</button></div>
+  </section>
+  <section class="add setcard">
+    <h2>App look</h2>
+    <p>Pick the colors for the app. The playing screen stays dark in every look so the glowing notes stand out.</p>
+    <div class="themes" id="themeGrid"></div>
   </section>
   <section class="add setcard" id="settings">
     <h2>Piano</h2>
@@ -1015,7 +1038,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.69";
+const APP_VERSION = "1.70";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2873,7 +2896,8 @@ function layout(){
 function rr(x, y, w, h, r){ if (!(w > 0 && h > 0)){ cx.beginPath(); return; } r = Math.max(0, Math.min(r, w/2, h/2)); cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r); cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath(); }
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 let C = {};
-function readColors(){ C = {bg:css("--lacquer"), panel:css("--panel"), line:css("--line"), ivory:css("--ivory"), muted:css("--muted"), chrome:css("--chrome"), R:css("--right"), L:css("--left"), good:css("--good"), bad:css("--bad")}; }
+const stageCss = n => getComputedStyle($("stage") || document.documentElement).getPropertyValue(n).trim();
+function readColors(){ const css = stageCss; C = {bg:css("--lacquer"), panel:css("--panel"), line:css("--line"), ivory:css("--ivory"), muted:css("--muted"), chrome:css("--chrome"), R:css("--right"), L:css("--left"), good:css("--good"), bad:css("--bad")}; }
 
 function draw(){
   if (!practiceVisible() || !L) return;
@@ -6007,6 +6031,47 @@ async function autoGenres(){
   } finally { genresRunning = false; }
 }
 
+
+/* ---------------- app look (themes) ---------------- */
+const THEMES = [
+  ["system", "Match my phone", "Light or dark, like your phone"],
+  ["dark", "Studio night", "The classic dark look"],
+  ["light", "Daylight", "Bright and clean"],
+  ["neon", "Neon arcade", "Electric blue and hot pink"],
+  ["sunset", "Sunset pop", "Warm coral and gold"],
+  ["ocean", "Ocean breeze", "Fresh blues, light"],
+  ["candy", "Bubblegum", "Playful pink and purple"],
+  ["forest", "Forest", "Calm greens"],
+  ["gold", "Grand stage", "Black and gold, like a concert hall"]];
+const THEME_SW = {dark: ["#14110f","#1f1a17","#9fc3d6","#f3ece0"], light: ["#faf6ef","#ffffff","#2f7fa6","#1d1915"], neon: ["#0b0820","#161033","#00e5ff","#ff3df2"],
+  sunset: ["#1f0f1d","#2e1629","#ff8a5c","#ffd166"], ocean: ["#e9f6fb","#ffffff","#0a8fc4","#f28c28"], candy: ["#fff0f6","#ffffff","#e0438a","#7b5cff"],
+  forest: ["#0f1a14","#16261d","#7fd18b","#f2c14e"], gold: ["#0d0b08","#19150e","#e2b659","#ff9f43"]};
+const themePref = () => { const v = store.get("dg30.theme", "dark"); return THEMES.some(t => t[0] === v) ? v : "dark"; };
+const darkMQ = matchMedia("(prefers-color-scheme: dark)");
+function applyTheme(){
+  const pref = themePref(), t = pref === "system" ? (darkMQ.matches ? "dark" : "light") : pref;
+  if (t === "dark") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--lacquer").trim() || "#14110f");
+  try { readColors(); } catch(e){}
+  renderThemes();
+}
+function renderThemes(){
+  const box = $("themeGrid"); if (!box) return; box.textContent = "";
+  const pref = themePref();
+  for (const [k, name, desc] of THEMES){
+    const b = document.createElement("button"); b.type = "button"; b.className = "thm"; b.setAttribute("aria-pressed", String(k === pref));
+    const sw = document.createElement("div"); sw.className = "sw";
+    const c = k === "system" ? null : THEME_SW[k];
+    if (c){ sw.style.background = `linear-gradient(135deg, ${c[0]} 0 60%, ${c[1]} 60%)`; sw.innerHTML = `<b style="background:${c[2]}"></b><u style="background:${c[3]}"></u>` + [0,1,2,3].map(i => `<i style="left:${10 + i * 16}px;height:${14 + (i % 2) * 10}px;background:${i % 2 ? c[3] : c[2]}"></i>`).join(""); }
+    else { const d = THEME_SW.dark, l = THEME_SW.light; sw.style.background = `linear-gradient(90deg, ${l[0]} 0 50%, ${d[0]} 50%)`; sw.innerHTML = `<b style="background:${l[2]};right:50%"></b><b style="background:${d[2]};left:55%;right:10px"></b>`; }
+    const tx = document.createElement("span"); tx.textContent = name; const sm = document.createElement("small"); sm.textContent = desc; tx.appendChild(sm);
+    b.append(sw, tx);
+    b.onclick = () => { store.set("dg30.theme", k); applyTheme(); };
+    box.appendChild(b);
+  }
+}
+darkMQ.addEventListener ? darkMQ.addEventListener("change", () => { if (themePref() === "system") applyTheme(); }) : darkMQ.addListener(() => { if (themePref() === "system") applyTheme(); });
+applyTheme();
 
 /* every search box gets an × that clears it in one tap */
 function addClearButton(input){

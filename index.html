@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.65">
+<meta name="version" content="1.66">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -154,6 +154,7 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .setcard label.row input{margin-top:4px;flex:none}
 .sethead{display:flex;align-items:center;gap:12px}
 .sethead h2{margin:0;font:700 26px/1.1 var(--f-display)}
+.verchip{margin-left:auto;font:600 13px/1 var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 11px;white-space:nowrap}
 /* song menu */
 .rowhead{display:flex;gap:14px;align-items:center}
 .rowhead .art{width:64px;height:64px;border-radius:12px;overflow:hidden;background:var(--lacquer);border:1px solid var(--line);flex:none;display:grid;place-items:center;color:var(--muted);font-size:24px}
@@ -529,7 +530,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   </div>
 
   <div id="tabSettings" class="tabpanel" role="region" aria-label="Settings" hidden style="display:flex;flex-direction:column;gap:16px">
-  <div class="sethead"><button class="ibtn" id="tabBtnSongs" type="button" aria-label="Back to songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg></button><h2>Settings</h2></div>
+  <div class="sethead"><button class="ibtn" id="tabBtnSongs" type="button" aria-label="Back to songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg></button><h2>Settings</h2><span class="verchip" id="verTop"></span></div>
   <section class="add setcard">
     <h2>Main instrument</h2>
     <p>Songs open on this instrument, and the app's highlight color follows it. You can still switch inside any song.</p>
@@ -603,6 +604,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div>Songs with chord symbols get a <b>Guitar</b> button: chords scroll down with finger positions on the neck, and Listen strums them.</div>
     <div>Turn your phone sideways for the widest keyboard.</div>
     <div class="label" style="margin-top:10px" id="verLabel"></div>
+    <small style="color:var(--muted)">Sounds: grand piano from the Salamander Grand Piano by Alexander Holm (CC BY 3.0). Guitars and the other phone pianos from the FluidR3 GM sound set by Frank Wen (CC BY 3.0), via midi-js-soundfonts by Benjamin Gleitzman. Sheet music drawn with abcjs.</small>
   </section>
   </div>
 </main>
@@ -633,7 +635,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" data-v="wait" aria-pressed="true">Wait</button>
       <button type="button" data-v="play" aria-pressed="false" aria-label="Play along">Play<span class="pa"> along</span></button>
       <button type="button" data-v="listen" aria-pressed="false">Listen</button>
-      <button type="button" data-v="magic" aria-pressed="false" id="magicModeBtn" title="Tap any key in rhythm and the right notes play">Magic</button>
+      <button type="button" data-v="magic" aria-pressed="false" id="magicModeBtn" hidden title="Tap any key in rhythm and the right notes play">Magic</button>
     </div>
     <div class="seg" id="gViewSeg" role="group" aria-label="Chords, tabs or sheet music" hidden>
       <button type="button" data-v="chords" aria-pressed="true" title="Chord shapes to strum">Chords</button>
@@ -799,7 +801,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="field"><label class="label" for="barSel">Falling note colors</label>
       <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand (color-blind friendly colors)</option></select></div>
     <label class="row cbrow"><input id="lhStripes" type="checkbox"><span><b>Color-blind mode</b><small>Left-hand bars get a white outline and stripes, so you can tell the hands apart without relying on color.</small></span></label>
-    <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="glowChk"> Glowing notes and sparkles (turn off if the phone feels slow)</label>
+    <div class="field"><label class="label" for="fxSel">Glowing notes and effects</label>
+      <select id="fxSel"><option value="sparkles">Sparkles</option><option value="flames">Flames</option><option value="stars">Twinkling stars</option><option value="bubbles">Bubbles</option><option value="electric">Electric sparks</option><option value="off">Off (plain notes, best if the phone feels slow)</option></select></div>
     <div class="field"><label class="label" for="backSel">Background</label>
       <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option></select></div>
     <div class="field">
@@ -1004,7 +1007,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.65";
+const APP_VERSION = "1.66";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1436,6 +1439,7 @@ const bleQueue = { pending:[], busy:false };
 function setConnected(kind, name){
   conn.kind = kind; conn.name = name;
   try { renderSoundLabel(); } catch(e){}
+  try { syncMagicAvail(); } catch(e){}
   if (kind === "ble" || kind === "midi") setTimeout(applyVolume, 300);
   $("connPill").classList.toggle("on", !!kind); syncPConn();
   $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano"; $("connPill").title = $("connText").textContent;
@@ -2924,18 +2928,69 @@ function drawPiano(now){
   P.flashes = P.flashes.filter(f => now - f.t < 300);
 }
 /* ---------------- light effects: halos, sparks ---------------- */
-const glowOn = () => store.get("dg30.glow", true);
+// which effect plays where the notes land: sparkles, flames, stars, bubbles, electric sparks, or off
+const FX_KINDS = ["sparkles", "flames", "stars", "bubbles", "electric", "off"];
+const FX = { kind: (() => { const v = store.get("dg30.fx", null); if (FX_KINDS.includes(v)) return v; return store.get("dg30.glow", true) === false ? "off" : "sparkles"; })() };
+const glowOn = () => FX.kind !== "off";
 const SPARKS = [];
 function sparkle(x, y, w, col){
-  if (SPARKS.length > 260) return;
-  for (let i = 0; i < 2; i++) SPARKS.push({x: x + (Math.random() - 0.5) * w * 0.8, y: y - 2, vx: (Math.random() - 0.5) * 0.6, vy: -(0.6 + Math.random() * 1.6), life: 1, col, r: 0.8 + Math.random() * 1.6});
+  const k = FX.kind, r = Math.random;
+  if (k === "flames"){
+    if (SPARKS.length > 420) return;
+    for (let i = 0; i < 2; i++) SPARKS.push({k, x: x + (r() - 0.5) * w * 0.6, y: y - 4, vx: (r() - 0.5) * 0.35, vy: -(1.6 + r() * 2.2), life: 1, dec: 1.7 + r() * 1.2, col, r: Math.max(2, w * (0.1 + r() * 0.13))});
+  } else if (k === "stars"){
+    if (SPARKS.length > 200 || r() < 0.55) return;
+    SPARKS.push({k, x: x + (r() - 0.5) * w, y: y - 2, vx: (r() - 0.5) * 0.7, vy: -(0.5 + r() * 1.1), life: 1, dec: 0.9 + r() * 0.5, col, r: 3 + r() * 3.5, rot: r() * 6, spin: (r() - 0.5) * 0.2});
+  } else if (k === "bubbles"){
+    if (SPARKS.length > 160 || r() < 0.7) return;
+    SPARKS.push({k, x: x + (r() - 0.5) * w * 0.6, y: y - 2, vx: 0, vy: -(0.6 + r() * 0.9), life: 1, dec: 0.6 + r() * 0.4, col, r: 2.5 + r() * Math.max(3, w * 0.25), ph: r() * 6});
+  } else if (k === "electric"){
+    if (SPARKS.length > 90 || r() < 0.6) return;
+    const pts = [[x + (r() - 0.5) * w * 0.4, y]]; let px = pts[0][0], py = y; const len = 18 + r() * 40;
+    while (y - py < len){ py -= 4 + r() * 7; px += (r() - 0.5) * 12; pts.push([px, py]); }
+    SPARKS.push({k, pts, life: 1, dec: 4 + r() * 3, col, x: px, y: py, vx: 0, vy: 0});
+  } else {
+    if (SPARKS.length > 260) return;
+    for (let i = 0; i < 2; i++) SPARKS.push({x: x + (r() - 0.5) * w * 0.8, y: y - 2, vx: (r() - 0.5) * 0.6, vy: -(0.6 + r() * 1.6), life: 1, col, r: 0.8 + r() * 1.6});
+  }
 }
+const FLAME_COL = l => l > 0.8 ? "255,232,150" : l > 0.58 ? "255,190,60" : l > 0.36 ? "255,112,24" : "190,40,20";
 function drawSparks(now){
   const dt = Math.min(0.05, (now - (drawSparks.last || now)) / 1000); drawSparks.last = now;
   if (!SPARKS.length) return;
   cx.save();
   for (let i = SPARKS.length - 1; i >= 0; i--){
-    const s = SPARKS[i]; s.x += s.vx * dt * 60; s.y += s.vy * dt * 60; s.vx += (Math.random() - 0.5) * 0.2; s.life -= dt * 1.4;
+    const s = SPARKS[i];
+    if (s.k){
+      s.x += s.vx * dt * 60; s.y += s.vy * dt * 60; s.life -= dt * s.dec;
+      if (s.life <= 0 || s.y < -10){ SPARKS.splice(i, 1); continue; }
+      const l = s.life;
+      if (s.k === "flames"){
+        s.vx += (Math.random() - 0.5) * 0.25; s.vy *= 0.995;
+        cx.globalCompositeOperation = "lighter";
+        const rad = s.r * (0.35 + l * 0.85);
+        cx.fillStyle = `rgba(${FLAME_COL(l)},${0.1 * l})`; cx.beginPath(); cx.ellipse(s.x, s.y, rad * 1.6, rad * 2.2, 0, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = `rgba(${FLAME_COL(l)},${0.45 * l})`; cx.beginPath(); cx.ellipse(s.x, s.y, rad * 0.8, rad * 1.3, 0, 0, Math.PI * 2); cx.fill();
+        cx.globalCompositeOperation = "source-over";
+      } else if (s.k === "stars"){
+        s.rot += s.spin; const tw = 0.6 + 0.4 * Math.sin(now / 90 + s.rot * 5), R = s.r * (0.5 + l * 0.6) * tw;
+        cx.globalAlpha = Math.min(1, l * 1.4); cx.fillStyle = s.col; cx.shadowColor = s.col; cx.shadowBlur = 10;
+        cx.beginPath(); for (let j = 0; j < 8; j++){ const a = s.rot + j * Math.PI / 4, rr2 = j % 2 ? R * 0.28 : R; cx.lineTo(s.x + Math.cos(a) * rr2, s.y + Math.sin(a) * rr2); } cx.closePath(); cx.fill();
+        cx.shadowBlur = 0; cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s.x, s.y, R * 0.18, 0, Math.PI * 2); cx.fill(); cx.globalAlpha = 1;
+      } else if (s.k === "bubbles"){
+        s.ph += dt * 4; const bx = s.x + Math.sin(s.ph) * 3, R = s.r * (1 + (1 - l) * 0.35);
+        cx.globalAlpha = Math.min(1, l * 1.3); cx.strokeStyle = s.col; cx.lineWidth = 1.4; cx.beginPath(); cx.arc(bx, s.y, R, 0, Math.PI * 2); cx.stroke();
+        cx.fillStyle = "rgba(255,255,255,.75)"; cx.beginPath(); cx.arc(bx - R * 0.35, s.y - R * 0.35, Math.max(0.8, R * 0.22), 0, Math.PI * 2); cx.fill(); cx.globalAlpha = 1;
+      } else if (s.k === "electric"){
+        cx.globalCompositeOperation = "lighter"; cx.globalAlpha = l; cx.lineJoin = "round";
+        cx.strokeStyle = s.col; cx.lineWidth = 4; cx.shadowColor = s.col; cx.shadowBlur = 12;
+        cx.beginPath(); s.pts.forEach(([px, py], j) => j ? cx.lineTo(px, py) : cx.moveTo(px, py)); cx.stroke();
+        cx.shadowBlur = 0; cx.strokeStyle = "#fff"; cx.lineWidth = 1.4; cx.stroke();
+        cx.globalAlpha = 1; cx.globalCompositeOperation = "source-over";
+      }
+      continue;
+    }
+    s.x += s.vx * dt * 60; s.y += s.vy * dt * 60; s.vx += (Math.random() - 0.5) * 0.2; s.life -= dt * 1.4;
     if (s.life <= 0 || s.y < 0){ SPARKS.splice(i, 1); continue; }
     cx.globalAlpha = Math.min(1, s.life * 1.25); cx.shadowColor = s.col; cx.shadowBlur = 8;
     cx.fillStyle = s.col; cx.beginPath(); cx.arc(s.x, s.y, s.r * 1.25, 0, Math.PI * 2); cx.fill();
@@ -3382,8 +3437,7 @@ function drawBanner(){
     b.hidden = !msg; b.textContent = msg; return;
   }
   if (magicOn()){
-    msg = conn.kind === "mic" ? "Magic needs the piano connected by Bluetooth, or tap the screen in rhythm"
-      : !P.playing ? "Magic: tap any key in rhythm (or tap the screen). The right notes play."
+    msg = !P.playing ? "Magic: tap any key in rhythm. The right notes play."
       : P.waiting && M.ci === 0 ? "Tap any key to start" : "";
     b.hidden = !msg; b.textContent = msg; return;
   }
@@ -3450,7 +3504,66 @@ function renderLibrary(){
   }
   if (q && !shown.length){ const p = document.createElement("p"); p.className = "sheetnote"; p.textContent = `No songs match “${libQuery.trim()}”.`; box.appendChild(p); }
 }
-function songArt(s){ return s.demo ? sampleCover(DEMOS[s.id]) : store.get("dg30.art." + s.id, null); }
+function songArt(s){ return s.demo ? sampleCover(DEMOS[s.id]) : store.get("dg30.art." + s.id, null) || titleCover(s); }
+/* a simple drawn cover for songs with no picture: a symbol picked from words in the title, colors from the name */
+const C_ = (c, a) => ({
+  moon: `<path d="M138 46a62 62 0 1 0 0 120a50 50 0 1 1 0-120z" fill="${c}"/><circle cx="170" cy="64" r="5" fill="${a}"/><circle cx="186" cy="104" r="3.5" fill="${a}"/><circle cx="158" cy="134" r="3" fill="${a}"/>`,
+  sun: `<circle cx="120" cy="106" r="32" fill="${c}"/><g stroke="${c}" stroke-width="8" stroke-linecap="round">${Array.from({length: 12}, (_, i) => { const r = i * Math.PI / 6, x = Math.cos(r), y = Math.sin(r); return `<line x1="${120 + x * 46}" y1="${106 + y * 46}" x2="${120 + x * 64}" y2="${106 + y * 64}"/>`; }).join("")}</g>`,
+  heart: `<path d="M120 164C70 128 52 104 52 80a32 32 0 0 1 68-14a32 32 0 0 1 68 14c0 24-18 48-68 84z" fill="${c}"/>`,
+  bell: `<path d="M120 52c-30 0-44 26-44 56v24l-16 20h120l-16-20v-24c0-30-14-56-44-56z" fill="${c}"/><circle cx="120" cy="160" r="11" fill="${a}"/><circle cx="120" cy="46" r="8" fill="none" stroke="${c}" stroke-width="6"/>`,
+  snow: `<g stroke="${c}" stroke-width="7" stroke-linecap="round">${[0, 60, 120].map(d => `<g transform="rotate(${d} 120 106)"><line x1="120" y1="40" x2="120" y2="172"/><path d="M104 54l16 14l16-14M104 158l16-14l16 14" fill="none"/></g>`).join("")}</g>`,
+  clock: `<circle cx="120" cy="106" r="60" fill="none" stroke="${c}" stroke-width="9"/><g stroke="${c}" stroke-width="9" stroke-linecap="round"><line x1="120" y1="106" x2="120" y2="70"/><line x1="120" y1="106" x2="146" y2="120"/></g><circle cx="120" cy="106" r="7" fill="${a}"/>`,
+  waves: `<g fill="none" stroke="${c}" stroke-width="8" stroke-linecap="round">${[78, 106, 134].map(y => `<path d="M48 ${y}q18-18 36 0t36 0t36 0t36 0"/>`).join("")}</g>`,
+  bird: `<g fill="none" stroke="${c}" stroke-width="8" stroke-linecap="round"><path d="M56 104q32-34 64 0q32-34 64 0"/><path d="M128 64q14-14 28 0q14-14 28 0" stroke-width="6"/></g>`,
+  flower: `${Array.from({length: 6}, (_, i) => { const r = i * Math.PI / 3; return `<circle cx="${120 + Math.cos(r) * 30}" cy="${96 + Math.sin(r) * 30}" r="22" fill="${c}"/>`; }).join("")}<circle cx="120" cy="96" r="16" fill="${a}"/><path d="M120 128v48" stroke="${c}" stroke-width="7" stroke-linecap="round"/>`,
+  globe: `<g fill="none" stroke="${c}" stroke-width="7"><circle cx="120" cy="106" r="60"/><ellipse cx="120" cy="106" rx="26" ry="60"/><line x1="60" y1="106" x2="180" y2="106"/><path d="M68 76h104M68 136h104"/></g>`,
+  flame: `<path d="M120 46c10 30 44 46 44 82a44 44 0 0 1-88 0c0-20 12-32 20-40c2 14 8 22 16 24c-4-24 2-46 8-66z" fill="${c}"/><path d="M120 120c6 12 18 18 18 32a18 18 0 0 1-36 0c0-12 10-18 18-32z" fill="${a}"/>`,
+  crown: `<path d="M56 150l-6-82l40 34l30-50l30 50l40-34l-6 82z" fill="${c}"/><rect x="56" y="156" width="128" height="14" rx="4" fill="${c}"/><circle cx="120" cy="126" r="9" fill="${a}"/>`,
+  road: `<path d="M98 50h44l46 126H52z" fill="${c}"/><g stroke="${a}" stroke-width="6" stroke-linecap="round"><line x1="120" y1="60" x2="120" y2="76"/><line x1="120" y1="94" x2="120" y2="114"/><line x1="120" y1="134" x2="120" y2="164"/></g>`,
+  notes: `<g fill="${c}"><ellipse cx="84" cy="150" rx="20" ry="14" transform="rotate(-20 84 150)"/><ellipse cx="156" cy="134" rx="20" ry="14" transform="rotate(-20 156 134)"/><rect x="98" y="58" width="9" height="92"/><rect x="170" y="44" width="9" height="90"/><path d="M98 58l81-14v22l-81 14z"/></g>`,
+  cloud: `<path d="M74 146a30 30 0 0 1 4-60a42 42 0 0 1 80-8a34 34 0 0 1 10 68z" fill="${c}"/><g fill="${a}"><circle cx="96" cy="170" r="4"/><circle cx="124" cy="176" r="4"/><circle cx="152" cy="170" r="4"/></g>`,
+  atom: `<g fill="none" stroke="${c}" stroke-width="6">${[0, 60, 120].map(d => `<ellipse cx="120" cy="106" rx="66" ry="24" transform="rotate(${d} 120 106)"/>`).join("")}</g><circle cx="120" cy="106" r="12" fill="${a}"/>`,
+  infinity: `<path d="M120 106c-20-30-66-30-66 0s46 30 66 0s66-30 66 0s-46 30-66 0z" fill="none" stroke="${c}" stroke-width="12"/>`,
+  balloons: `<g stroke="${c}" stroke-width="2.5" fill="none"><path d="M90 116q6 30 30 62M150 112q-6 30-30 66M120 98v80"/></g><ellipse cx="88" cy="88" rx="26" ry="32" fill="${c}"/><ellipse cx="152" cy="84" rx="26" ry="32" fill="${a}"/><ellipse cx="120" cy="64" rx="26" ry="32" fill="${c}" opacity=".85"/>`,
+  carousel: `<path d="M52 82l68-36l68 36z" fill="${c}"/><rect x="52" y="82" width="136" height="10" fill="${c}"/><g stroke="${c}" stroke-width="5">${[70, 100, 140, 170].map(x => `<line x1="${x}" y1="92" x2="${x}" y2="160"/>`).join("")}</g><rect x="46" y="160" width="148" height="12" rx="4" fill="${c}"/><circle cx="100" cy="128" r="10" fill="${a}"/><circle cx="140" cy="118" r="10" fill="${a}"/>`,
+  hat: `<rect x="80" y="54" width="80" height="84" rx="6" fill="${c}"/><rect x="80" y="118" width="80" height="14" fill="${a}"/><rect x="48" y="136" width="144" height="16" rx="8" fill="${c}"/>`,
+  star: `<path d="M150 50l11 28h30l-24 18l9 29l-26-17l-26 17l9-29l-24-18h30z" fill="${c}"/><g stroke="${a}" stroke-width="6" stroke-linecap="round"><line x1="120" y1="112" x2="66" y2="166"/><line x1="138" y1="126" x2="102" y2="168"/><line x1="104" y1="98" x2="58" y2="132"/></g>`,
+  planet: `<circle cx="120" cy="106" r="40" fill="${c}"/><ellipse cx="120" cy="106" rx="76" ry="18" fill="none" stroke="${a}" stroke-width="6" transform="rotate(-18 120 106)"/><g fill="${c}"><circle cx="54" cy="52" r="4"/><circle cx="190" cy="160" r="4"/><circle cx="196" cy="60" r="3"/></g>`,
+  halo: `<ellipse cx="120" cy="70" rx="44" ry="12" fill="none" stroke="${a}" stroke-width="7"/><path d="M120 92c-40 0-70 30-74 70c24-16 48-22 74-22s50 6 74 22c-4-40-34-70-74-70z" fill="${c}"/>`,
+  pine: `<path d="M120 42l46 62h-22l32 44h-112l32-44h-22z" fill="${c}"/><rect x="112" y="148" width="16" height="24" fill="${a}"/>`,
+  candle: `<rect x="100" y="96" width="40" height="80" rx="4" fill="${c}"/><path d="M120 50c10 16 16 24 16 34a16 16 0 0 1-32 0c0-10 6-18 16-34z" fill="${a}"/>`,
+  ship: `<path d="M50 136h140l-22 30h-96z" fill="${c}"/><path d="M118 50v80h-50zM126 62v68h40z" fill="${a}"/>`,
+  keys: `${Array.from({length: 7}, (_, i) => `<rect x="${44 + i * 22}" y="70" width="20" height="90" rx="3" fill="${c}"/>`).join("")}${[0, 1, 3, 4, 5].map(i => `<rect x="${58 + i * 22}" y="70" width="12" height="54" rx="2" fill="${a}"/>`).join("")}`,
+  wave: `<g fill="${c}">${Array.from({length: 13}, (_, i) => { const h = 18 + Math.abs(Math.sin(i * 1.3)) * 80; return `<rect x="${46 + i * 12}" y="${106 - h / 2}" width="8" height="${h}" rx="4"/>`; }).join("")}</g>`
+});
+const COVER_WORDS = [
+  [/\bup\b|balloon/i, "balloons"], [/moon|lune|nocturne|night|midnight/i, "moon"], [/skyfall|falling star|shooting/i, "star"],
+  [/interstellar|space|galax|universe|planet|cosmic|astro/i, "planet"], [/star|stella/i, "star"],
+  [/sun|summer|golden|sunshine|daylight|morning/i, "sun"], [/titanic|ship|sail|boat|my heart will/i, "ship"], [/falls|forest|pine|tree|wood/i, "pine"], [/heart|love|amour|all of me|someone like|lovely|loved|married|mariage|marriage|kiss|valentine/i, "heart"],
+  [/bell|carol|jingle|noel|holiday/i, "bell"], [/christmas|snow|winter|december|frozen|lawrence/i, "snow"],
+  [/clock|time|years|hour|minute|tick/i, "clock"], [/rain|tear|cry|storm|sea|ocean|water|wave|barque|river|tide/i, "waves"],
+  [/fly|bird|wing|sky|flight|eagle|dove/i, "bird"], [/flower|rose|dance|garden|bloom|blossom|petal/i, "flower"],
+  [/world|earth|globe/i, "globe"], [/fire|burn|flame|light my/i, "flame"], [/king|queen|crown|viva|vida|winner|royal|prince|bohemian/i, "crown"],
+  [/road|runaway|run\b|journey|believ|travel|highway|home/i, "road"], [/imagine|dream|cloud|heaven/i, "cloud"],
+  [/scientist|atom|science|gravity|physics/i, "atom"], [/forever|always|thousand|eternal|infinit/i, "infinity"],
+  [/merry.go|carousel|circus|waltz/i, "carousel"], [/entertainer|rag\b|ragtime|show|cabaret/i, "hat"],
+  [/hallelujah|angel|church|hymn|grace|amen/i, "halo"],
+  [/schindler|memorial|prayer|candle|requiem/i, "candle"],
+  [/melody|song|music|rhapsody|sonata|ballade|etude|concerto|suite|theme|tune|five|jazz|blues/i, "notes"]
+];
+const titleCoverCache = new Map();
+function titleCover(s){
+  const key = (s.id || "") + "|" + (s.title || "") + "|" + (s.artist || "");
+  if (titleCoverCache.has(key)) return titleCoverCache.get(key);
+  let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) % 3600;
+  const hue = h % 360, hue2 = (hue + 40 + (h % 60)) % 360, title = String(s.title || ""), hit = COVER_WORDS.find(([re]) => re.test(title));
+  const motif = C_(`hsl(${(hue + 180) % 360},70%,86%)`, `hsl(${(hue + 150) % 360},85%,64%)`)[hit ? hit[1] : (h % 2 ? "keys" : "wave")];
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const short = title.replace(/\s*\(.*?\)\s*/g, " ").trim(), fs = short.length > 22 ? 15 : short.length > 14 ? 18 : 22;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,34%)"/><stop offset="1" stop-color="hsl(${hue2},60%,13%)"/></linearGradient><radialGradient id="r" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="hsl(${hue2},90%,70%)" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs><rect width="240" height="240" fill="url(#g)"/><rect width="240" height="240" fill="url(#r)"/>${motif}<text x="120" y="212" text-anchor="middle" font-family="Georgia,serif" font-size="${fs}" fill="#fff4e0">${esc(short.slice(0, 30))}</text>${s.artist ? `<text x="120" y="230" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="11" fill="#fff4e0" opacity=".7">${esc(String(s.artist).slice(0, 34))}</text>` : ""}</svg>`;
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  titleCoverCache.set(key, url); return url;
+}
 function songFeatures(s){
   if (s.demo){ const d = DEMOS[s.id] || {}; return {chords: !!d.chords, lyrics: !!(d.lyrics || d.words)}; }
   return {chords: !!s.guitar || store.get("dg30.chords." + s.id, []).length > 0, lyrics: !!s.words || store.get("dg30.lyrics." + s.id, []).length > 0};
@@ -5666,8 +5779,8 @@ function favButton(id, label, after){
   return b;
 }
 const SORTS = {
-  mine: [["recent","Recently added"],["played","Recently played"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
-  samples: [["recent","Default order"],["played","Recently played"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  mine: [["recent","Recently added"],["played","Recently played"],["unplayed","Not played lately"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  samples: [["recent","Default order"],["played","Recently played"],["unplayed","Not played lately"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   recordings: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   playlists: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["size","Most songs"]]
 };
@@ -5693,6 +5806,11 @@ function sortItems(list, mode, get){
     items.sort((a, b) => (when(b) - when(a)) || cmpText(title(a), title(b)));
     key = x => { const t = when(x); if (!t) return "Not played yet"; const d = new Date(); d.setHours(0,0,0,0);
       return t >= d.getTime() ? "Today" : t >= d.getTime() - day ? "Yesterday" : t >= now - 7 * day ? "This week" : t >= now - 30 * day ? "This month" : "Earlier"; };
+  }
+  else if (mode === "unplayed"){
+    const pl = store.get("dg30.played", {}), when = x => pl[g(x).id] || 0, now = Date.now(), day = 864e5;
+    items.sort((a, b) => (when(a) - when(b)) || cmpText(title(a), title(b)));
+    key = x => { const t = when(x); return !t ? "Never played" : t < now - 30 * day ? "Over a month ago" : t < now - 7 * day ? "Over a week ago" : "This week"; };
   }
   else if (mode === "size") items.sort((a, b) => (b.songs || []).length - (a.songs || []).length);
   if (!key) return items.map(item => ({item}));
@@ -5783,6 +5901,17 @@ const MODE_HELP = {
   magic: "Magic: tap any key in the song's rhythm and the right notes play. Learn the timing first, then the keys. Choose Beat, Melody note or Every note in the ••• menu."
 };
 function syncMagicUI(){ $("magicSeg").hidden = !magicOn(); setSeg("magicSeg", M.level); }
+// Magic needs a connected piano (any key you press plays the right notes), so it only shows when one is connected
+function syncMagicAvail(){
+  const ok = pianoReady() && P.instr !== "guitar";
+  $("magicModeBtn").hidden = !ok;
+  if (!ok && P.mode === "magic"){
+    const was = P.playing; setPlaying(false);
+    P.mode = "wait"; setSeg("modeSeg", "wait"); syncMagicUI();
+    if (practiceVisible()){ resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); toast("Magic needs the piano connected, so you're back in Wait mode."); }
+    void was;
+  }
+}
 $("magicSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; M.level = b.dataset.v; store.set("dg30.magicLvl", M.level); syncMagicUI(); const was = P.playing; setPlaying(false); resetRun(Math.max(P.t, (P.notes[0]?.t ?? 0) - 2)); if (was) setPlaying(true); });
 // tap the screen in Magic mode (for playing on the phone without the piano)
 $("stage").addEventListener("pointerdown", e => { if (!magicOn() || !practiceVisible() || (typeof RV !== "undefined" && RV.on) || e.target.closest("#banner")) return; if (!$("pDrawer").hidden) return; magicTap(95); }, {capture: true});
@@ -5850,9 +5979,8 @@ function setInstrument(inst, quiet){
   $("backSeg").hidden = inst !== "guitar";
   $("gViewSeg").hidden = $("gViewSeg2").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   $("viewSeg").hidden = inst === "guitar";
-  $("magicModeBtn").hidden = inst === "guitar";
   if (inst === "guitar" && P.mode === "magic"){ P.mode = "listen"; setSeg("modeSeg", "listen"); }
-  syncMagicUI();
+  syncMagicAvail(); syncMagicUI();
   $("instBtn").innerHTML = inst === "guitar" ? "&#127928;" : "&#127929;";
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
@@ -5927,7 +6055,7 @@ function showPhoneSound(){ instStatus(); }
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
 $("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
-$("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
+$("fxSel").value = FX.kind; $("fxSel").onchange = e => { FX.kind = e.target.value; store.set("dg30.fx", FX.kind); SPARKS.length = 0; };
 $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
 
 /* small toast via the banner on library */
@@ -6053,12 +6181,13 @@ async function showStorageInfo(){
 }
 (function boot(){
   if (!window.isSecureContext) $("secureWarn").hidden = false;
-  P.mode = store.get("dg30.mode", "wait"); setSeg("modeSeg", P.mode); syncMagicUI();
+  P.mode = store.get("dg30.mode", "wait"); if (P.mode === "magic" && !pianoReady()) P.mode = "wait"; setSeg("modeSeg", P.mode); syncMagicAvail(); syncMagicUI();
   P.hands = store.get("dg30.hands", "B"); setSeg("handSeg", P.hands);
   renderSoundLabel();
   $("setModel").value = store.get("dg30.scanModel", "claude-opus-5-5");
   $("setModel").onchange = e => store.set("dg30.scanModel", e.target.value);
   $("verLabel").textContent = "Song Coach · version " + APP_VERSION;
+  $("verTop").textContent = "v" + APP_VERSION;
   $("verMini").textContent = "v" + APP_VERSION;
   const k = store.get("dg30.apikey", ""); $("setKey").value = k; $("setKeyStatus").textContent = k ? "Key saved" : "";
   $("setKeySave").onclick = () => {

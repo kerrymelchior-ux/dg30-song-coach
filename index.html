@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.67">
+<meta name="version" content="1.68">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -711,6 +711,10 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   <div class="sheet">
     <h2>Connect your piano</h2>
     <div class="status connmsg" id="connStatus" aria-live="polite"></div>
+    <div class="opt" id="autoBox">
+      <label class="row cbrow"><input id="autoRc" type="checkbox"><span><b>Reconnect to my piano automatically</b><small>When the piano you used last is turned on, the app connects to it by itself. The Bluetooth light blinks while it looks.</small></span></label>
+      <div class="row" id="rcRow" hidden style="justify-content:space-between"><span id="rcText" style="color:var(--muted);font-size:14px">Looking for your piano…</span><button class="btn" id="rcStop" type="button">Stop searching</button></div>
+    </div>
     <p>Use one option. Bluetooth MIDI is the most accurate: the piano tells the app exactly which keys you press, including chords.</p>
     <div class="opt">
       <strong>Bluetooth MIDI (recommended)</strong>
@@ -1011,7 +1015,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.67";
+const APP_VERSION = "1.68";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1511,8 +1515,8 @@ async function attachBle(dev){
     dev._dg30Wired = true;
     dev.addEventListener("gattserverdisconnected", () => {
       if (conn.bleDev !== dev) return;
-      conn.bleChar = null; setConnected(null); toast("Piano disconnected. Reconnecting…");
-      setTimeout(() => autoReconnect(true), 1500);
+      conn.bleChar = null; setConnected(null); toast("Piano disconnected", 1600);
+      RC.paused = false; setTimeout(() => autoReconnect(true), 1500);
     });
   }
   ch.addEventListener("characteristicvaluechanged", e => {
@@ -1524,30 +1528,41 @@ async function attachBle(dev){
 }
 // Reconnect to the piano chosen before, without the device list (Chrome on Android/desktop)
 let reconnecting = false;
+// auto-reconnect: on by default; "Stop searching" pauses it until the app is opened again or the piano drops
+const RC = { on: store.get("dg30.autoRc", true), paused: false, ac: null };
+function syncRcUI(){
+  const box = $("autoRc"); if (!box) return;
+  box.checked = RC.on; $("rcRow").hidden = !reconnecting;
+  try { syncPConn(); } catch(e){}
+}
 async function autoReconnect(announce){
-  if (reconnecting || conn.bleChar || conn.midiOut || conn.kind === "mic" || !navigator.bluetooth?.getDevices) return;
-  reconnecting = true;
+  if (!RC.on || RC.paused || reconnecting || conn.bleChar || conn.midiOut || conn.kind === "mic" || !navigator.bluetooth?.getDevices) return;
+  reconnecting = true; syncRcUI();
   try {
     const devs = await navigator.bluetooth.getDevices();
     const want = store.get("dg30.bleId", null);
     const dev = devs.find(d => d.id === want) || (devs.length === 1 ? devs[0] : null);
     if (!dev) return;
-    for (let i = 0; i < 3 && !conn.bleChar; i++){
+    for (let i = 0; i < 3 && !conn.bleChar && !RC.paused && RC.on; i++){
       try {
         if (!dev.gatt.connected && dev.watchAdvertisements){
-          const ac = new AbortController();
+          const ac = new AbortController(); RC.ac = ac;
           await new Promise((res, rej) => {
             const t = setTimeout(() => { ac.abort(); res(); }, 6000);
+            ac.signal.addEventListener("abort", () => { clearTimeout(t); res(); });
             dev.addEventListener("advertisementreceived", () => { clearTimeout(t); ac.abort(); res(); }, {once:true});
             dev.watchAdvertisements({signal: ac.signal}).catch(() => { clearTimeout(t); res(); });
           });
         }
+        if (RC.paused || !RC.on) break;
         await attachBle(dev);
-        if (announce) toast("Piano reconnected");
+        if (announce) toast("Piano connected", 1600);
       } catch(e){ await new Promise(r => setTimeout(r, 1500)); }
     }
-  } catch(e){} finally { reconnecting = false; }
+  } catch(e){} finally { reconnecting = false; RC.ac = null; syncRcUI(); }
 }
+// keep looking quietly in the background (every 20 seconds) while it's on and nothing is connected
+setInterval(() => { if (!document.hidden) autoReconnect(true); }, 20000);
 function pianoReady(){ return !!(conn.midiOut || conn.bleChar); }
 function bleSend(bytes){
   if (!conn.bleChar) return;
@@ -3550,7 +3565,6 @@ function drawBanner(){
   let msg = "";
   const needPiano = conn.outMode === "piano" && !pianoReady() && conn.kind !== "mic";
   b.classList.toggle("tap", needPiano);
-  if (needPiano && reconnecting){ b.hidden = false; b.textContent = "Reconnecting to the piano…"; return; }
   if (P.instr === "guitar"){
     if (!P.playing && tabsView()) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then pick each note. The mic listens for it.") : "Press play";
     else if (P.playing && tabsView()) msg = P.waiting && P.waitTab ? `Play string ${["E","A","D","G","B","e"][P.waitTab.s]}, ${P.waitTab.f ? "fret " + P.waitTab.f : "open"}` + (GM.starting ? " · starting the mic…" : "") : "";
@@ -5996,6 +6010,12 @@ function syncPConn(){
   b.title = t; b.setAttribute("aria-label", t);
 }
 $("pConn").onclick = () => $("connDlg").showModal();
+$("autoRc").checked = RC.on;
+$("autoRc").onchange = e => { RC.on = e.target.checked; store.set("dg30.autoRc", RC.on); if (RC.on){ RC.paused = false; autoReconnect(true); } else { RC.paused = true; try { RC.ac && RC.ac.abort(); } catch(x){} } syncRcUI(); };
+$("rcStop").onclick = () => { RC.paused = true; try { RC.ac && RC.ac.abort(); } catch(x){} toast("Stopped looking for the piano. Tap Find my piano to connect.", 2200); setTimeout(syncRcUI, 50); };
+$("connDlg").addEventListener("toggle", syncRcUI); setInterval(() => { if ($("connDlg").open) syncRcUI(); }, 700);
+// a manual connect brings auto-reconnect back
+["bleBtn", "bleAllBtn", "midiBtn"].forEach(id => $(id).addEventListener("click", () => { RC.paused = false; }));
 setInterval(syncPConn, 1500);
 $("playBtn").onclick = () => { if (RV.on) stopReview(true); if (!P.playing && P.t > P.len + 0.5) resetRun(PT.loop.on ? PT.loop.a : null); setPlaying(!P.playing); if (P.playing){ setDrawer(false); PT.lastBeat = null; PT.fromA = PT.loop.on && P.t <= PT.loop.a + 0.05; startCountIn(); } else { PT.countUntil = 0; $("countNum").hidden = true; } };
 /* ---------- practice drawer: tempo, key, view, words, strum, sound, full screen ---------- */

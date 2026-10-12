@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.59">
+<meta name="version" content="1.61">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -327,7 +327,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .volout{float:right;font:500 12px var(--f-mono);color:var(--ivory);letter-spacing:0}
 /* Sound picker */
 #soundList{display:flex;flex-direction:column;gap:4px;max-height:52vh;overflow-y:auto}
-@media (max-height:520px){#soundDlg .sheet{gap:10px;padding:14px}#soundDlg h2{font-size:18px}#soundList{max-height:44vh}}
+@media (max-height:520px){#soundDlg .sheet,#instDlg .sheet{gap:10px;padding:14px}#soundDlg h2,#instDlg h2{font-size:18px}#soundList{max-height:44vh}}
 .sgroup{margin-top:10px}
 .snd{text-align:left;min-height:42px;padding:0 12px;border-radius:9px;border:1px solid transparent;background:transparent;font-weight:500}
 .snd:hover{background:var(--lacquer)}
@@ -422,6 +422,14 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 @media (prefers-reduced-motion:reduce){.pdrawer{animation:none}}
 .dgrp{display:flex;flex-direction:column;gap:5px}
 .dgrp.dicons{flex-direction:row;gap:10px;align-items:flex-start}
+.icards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.icards[hidden],#instPianoBox[hidden]{display:none!important}
+.icard{position:relative;text-align:left;display:flex;flex-direction:column;gap:3px;padding:12px 48px 12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--lacquer);color:var(--ivory);min-height:76px;font:inherit;cursor:pointer}
+.icard[aria-pressed="true"]{border-color:var(--ivory);box-shadow:inset 0 0 0 1px var(--ivory);background:color-mix(in srgb,var(--ivory) 9%,var(--lacquer))}
+.icard .iname{font-weight:600;font-size:15px}.icard .idesc{font-size:13px;color:var(--muted)}.icard .ist{font-size:12px;color:var(--muted)}
+.icard .iplay{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;background:color-mix(in srgb,var(--ivory) 12%,transparent)}
+.icard[aria-pressed="true"] .iplay{background:var(--ivory);color:var(--lacquer);font-size:15px}
+.cbrow{gap:10px;align-items:flex-start;flex-wrap:nowrap!important}.cbrow input{margin-top:5px;flex:none}.cbrow > span{flex:1;min-width:0}.cbrow b{font-weight:600}.cbrow small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .dcap{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--muted);min-width:52px;text-align:center}
 .dcap:has(> button[hidden]){display:none}
 .dlbl{font-size:12px;font-weight:600;color:var(--muted)}
@@ -531,8 +539,12 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button class="btn" id="setConnBtn" type="button">Connect piano</button>
     </div>
     <div class="row" style="justify-content:space-between">
-      <div class="field" style="gap:2px"><span class="label">Piano sound</span><span id="setSoundName"></span></div>
-      <button class="btn" id="setSoundBtn" type="button">Sound and volume</button>
+      <div class="field" style="gap:2px"><span class="label">Instrument</span><span id="setSoundName"></span></div>
+      <button class="btn" id="setSoundBtn" type="button">Choose</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div class="field" style="gap:2px"><span class="label">Volume, note colors and background</span></div>
+      <button class="btn" id="setVolBtn" type="button">Sound and volume</button>
     </div>
     <label class="row" style="gap:8px;font-size:14px"><input id="autoFs" type="checkbox"> Go full screen when practice starts (Chrome shows a short notice each time)</label>
   </section>
@@ -666,6 +678,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <button type="button" data-v="sheet" aria-pressed="false">Sheet</button>
     </div><div class="seg" id="gViewSeg2" role="group" aria-label="Chords or tabs" hidden><button type="button" data-v="chords" aria-pressed="true">Chords</button><button type="button" data-v="tabs" aria-pressed="false">Tabs</button></div></div>
     <div class="dgrp dicons">
+    <div class="dcap"><button class="icon" id="instBtn" type="button" aria-label="Instrument" title="Instrument">&#127929;</button><span>Instrument</span></div>
     <div class="dcap"><button class="icon" id="soundBtn" type="button" aria-label="Sound and volume" title="Sound and volume">&#9835;</button><span>Sound</span></div>
     </div><button id="fsBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
   </div>
@@ -766,7 +779,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <dialog id="soundDlg">
   <div class="sheet">
     <h2>Sound and volume</h2>
-    <div class="status connmsg" id="soundStatus" aria-live="polite"></div>
     <div class="field">
       <label class="label" for="volPiano">Piano volume <output id="volPianoOut" class="volout">100%</output></label>
       <input id="volPiano" type="range" min="0" max="100" step="1" value="100">
@@ -774,35 +786,12 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <input id="volSong" type="range" min="10" max="100" step="1" value="100">
       <small style="color:var(--muted)">Turn the song down to hear your own playing over it in Listen mode or while practicing one hand.</small>
     </div>
-    <div class="field">
-      <label class="label" for="phoneSoundSel">Sound on the phone speaker (when the piano isn't connected)</label>
-      <select id="phoneSoundSel">
-        <option value="grand">Grand piano (recorded)</option>
-        <option value="simple">Simple tone</option>
-      </select>
-      <small style="color:var(--muted)" id="phoneSoundNote"></small>
-    </div>
-    <div class="field">
-      <label class="label" for="gtrSoundSel">Guitar sound on the phone speaker</label>
-      <div class="row" style="flex-wrap:nowrap;gap:8px">
-        <select id="gtrSoundSel" style="flex:1;min-width:0">
-          <option value="steel">Acoustic, steel strings (recorded)</option>
-          <option value="nylon">Acoustic, nylon strings (recorded)</option>
-          <option value="twelve">12-string acoustic</option>
-          <option value="synth">Simple plucked string</option>
-        </select>
-        <button class="btn" id="gtrSoundTry" type="button" style="min-height:42px">Hear it</button>
-      </div>
-      <small style="color:var(--muted)" id="gtrSoundNote">Used for strumming and tabs on the phone. With the piano connected, the piano's own guitar sound plays instead.</small>
-    </div>
-    <div class="row" style="gap:10px;flex-wrap:nowrap">
-      <div class="field" style="flex:1;min-width:0"><label class="label" for="barSel">Falling note colors</label>
-        <label class="row" style="gap:8px;font-size:14px;margin:4px 0 8px"><input id="lhStripes" type="checkbox"> Mark the left-hand bars with a white outline and stripes (tells the hands apart without relying on color)</label>
-        <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand (color-blind friendly)</option></select></div>
-      <div class="field" style="flex:1;min-width:0"><label class="label" for="backSel">Background</label>
-        <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option></select></div>
-    </div>
+    <div class="field"><label class="label" for="barSel">Falling note colors</label>
+      <select id="barSel"><option value="rainbow">Rainbow (a color for each note)</option><option value="neon">Neon</option><option value="hands">Left and right hand (color-blind friendly colors)</option></select></div>
+    <label class="row cbrow"><input id="lhStripes" type="checkbox"><span><b>Color-blind mode</b><small>Left-hand bars get a white outline and stripes, so you can tell the hands apart without relying on color.</small></span></label>
     <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="glowChk"> Glowing notes and sparkles (turn off if the phone feels slow)</label>
+    <div class="field"><label class="label" for="backSel">Background</label>
+      <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option></select></div>
     <div class="field">
       <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
       <select id="pedalSel">
@@ -811,11 +800,24 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
         <option value="off">Off</option>
       </select>
     </div>
-    <span class="label">Piano sound</span>
-    <input id="soundSearch" type="text" autocomplete="off" placeholder="Search sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
-    <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
-    <div id="soundList"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
+  </div>
+</dialog>
+
+<!-- ================= INSTRUMENT ================= -->
+<dialog id="instDlg">
+  <div class="sheet">
+    <h2>Instrument</h2>
+    <div class="seg" id="instSeg" role="group" aria-label="Piano or guitar" style="align-self:flex-start"><button type="button" data-v="piano" aria-pressed="true">Piano</button><button type="button" data-v="guitar" aria-pressed="false">Guitar</button></div>
+    <small style="color:var(--muted)" id="instNote"></small>
+    <div class="icards" id="instCards"></div>
+    <div id="instPianoBox" hidden style="display:flex;flex-direction:column;gap:8px">
+      <div class="status connmsg" id="soundStatus" aria-live="polite"></div>
+      <input id="soundSearch" type="text" autocomplete="off" placeholder="Search your piano's sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
+      <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
+      <div id="soundList"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="instClose" type="button">Done</button></div>
   </div>
 </dialog>
 
@@ -981,7 +983,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.59";
+const APP_VERSION = "1.61";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1323,7 +1325,7 @@ const PIANO_SRC = [
   {base:"https://tonejs.github.io/audio/salamander/", name:(L, o) => L.replace("#", "s") + o + ".mp3"},
   {base:"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/acoustic_grand_piano-mp3/", name:(L, o) => ({"C":"C","D#":"Eb","F#":"Gb","A":"A"})[L] + o + ".mp3"}
 ];
-const grand = { want: store.get("dg30.phoneSound", "grand"), bufs: new Map(), state: "idle", loading: null, bus: null };
+const grand = { want: ["grand","bright","honky","epiano","fm","simple"].includes(store.get("dg30.phoneSound", "grand")) ? store.get("dg30.phoneSound", "grand") : "grand", bufs: new Map(), state: "idle", loading: null, bus: null };
 function grandNotes(){ const out = []; for (let p = 21; p <= 108; p += 3) out.push(p); return out.sort((a, b) => Math.abs(a - 62) - Math.abs(b - 62)); }
 function loadGrand(){
   if (grand.loading) return grand.loading;
@@ -1370,8 +1372,8 @@ function grandBus(a){
   bus.connect(dry); dry.connect(vol.master); bus.connect(rev); rev.connect(wet); wet.connect(vol.master);
   return grand.bus = bus;
 }
-function grandOn(p, v){
-  let best = null; for (const [sp, buf] of grand.bufs){ if (!best || Math.abs(sp - p) < Math.abs(best.p - p)) best = {p: sp, buf}; }
+function grandOn(p, v, bufs){
+  let best = null; for (const [sp, buf] of (bufs || grand.bufs)){ if (!best || Math.abs(sp - p) < Math.abs(best.p - p)) best = {p: sp, buf}; }
   if (!best || Math.abs(best.p - p) > 7) return false;
   const a = audioCtx(), t = a.currentTime, vel = Math.max(0.05, v / 127);
   const src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
@@ -1384,6 +1386,7 @@ function grandOn(p, v){
 }
 function synthOn(p, v){
   if (grand.want === "grand"){ if (!grand.loading) loadGrand(); if (grandOn(p, v)) return; }
+  else if (GS[grand.want]){ const g = GS[grand.want]; if (g.state === "none") loadGuitar(grand.want); if (grandOn(p, v, g.bufs)) return; }
   const a = audioCtx(), t = a.currentTime, f = 440 * Math.pow(2, (p - 69) / 12);
   const g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter();
   o1.type = "triangle"; o2.type = "sine"; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -1411,6 +1414,7 @@ const bleQueue = { pending:[], busy:false };
 
 function setConnected(kind, name){
   conn.kind = kind; conn.name = name;
+  try { renderSoundLabel(); } catch(e){}
   if (kind === "ble" || kind === "midi") setTimeout(applyVolume, 300);
   $("connPill").classList.toggle("on", !!kind); syncPConn();
   $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano"; $("connPill").title = $("connText").textContent;
@@ -1667,12 +1671,13 @@ function selectSound(i, quiet){
 }
 function onProgramFromPiano(prog){
   const i = soundState.pendingBank * 128 + prog;
-  if (SOUNDS[i]){ soundState.cur = i; store.set("dg30.sound", i); renderSoundLabel(); if ($("soundDlg").open) renderSoundList(); }
+  if (SOUNDS[i]){ soundState.cur = i; store.set("dg30.sound", i); renderSoundLabel(); if ($("instDlg").open) renderSoundList(); }
 }
 function renderSoundLabel(){
   const s = SOUNDS[soundState.cur];
   $("soundBtn").title = s ? "Sound: " + s.name : "Piano sound";
-  $("setSoundName").textContent = s ? s.name : "Not set from this app yet";
+  const ph = (PHONE_PIANOS.find(x => x[0] === grand.want) || PHONE_PIANOS[0])[1], gt = (GUITARS.find(x => x[0] === gtrSound()) || GUITARS[0])[1];
+  $("setSoundName").textContent = "Piano: " + (pianoReady() ? (s ? s.name : "your piano's sound") : ph) + " · Guitar: " + gt;
 }
 function renderSoundList(){
   const q = $("soundSearch").value.trim().toLowerCase(), box = $("soundList");
@@ -1688,7 +1693,63 @@ function renderSoundList(){
   }
   if (!box.children.length){ const p = document.createElement("p"); p.textContent = "No sounds match."; box.appendChild(p); }
 }
-function openSounds(){ $("soundStatus").textContent = conn.midiOut || conn.bleChar ? "" : "Connect the piano first to change its sound and volume."; renderSoundList(); $("soundDlg").showModal(); $("soundDlg").scrollTop = 0; $("soundSearch").blur(); }
+function openSounds(){ $("soundDlg").showModal(); $("soundDlg").scrollTop = 0; }
+/* Instrument: the phone's pianos, your piano's own sounds when it's connected, or the guitars */
+let instTab = "piano";
+function openInstrument(tab){
+  instTab = tab || (practiceVisible() ? P.instr : store.get("dg30.primary", "piano")); if (instTab !== "guitar") instTab = "piano";
+  $("soundStatus").textContent = ""; renderInstr(); $("instDlg").showModal(); $("instDlg").scrollTop = 0; $("soundSearch").blur();
+}
+const instOnPiano = () => instTab === "piano" && pianoReady() && conn.outMode === "piano";
+function renderInstr(){
+  setSeg("instSeg", instTab);
+  const onPiano = instOnPiano();
+  $("instPianoBox").hidden = !onPiano; $("instCards").hidden = onPiano;
+  $("instNote").textContent = instTab === "guitar"
+    ? "Guitars play on this phone or tablet's speaker, even with the piano connected. Tap one to hear it. Recorded guitars download once, then work offline."
+    : onPiano ? "These are the sounds built into your piano. Disconnect the piano to use the phone's pianos instead."
+    : "These play on this phone or tablet's speaker. Tap one to hear it. Connect your piano to choose from its own sounds. Recorded pianos download once, then work offline.";
+  if (onPiano){ renderSoundList(); return; }
+  const list = instTab === "guitar" ? GUITARS : PHONE_PIANOS, cur = instTab === "guitar" ? gtrSound() : grand.want, box = $("instCards");
+  box.textContent = "";
+  for (const [k, name, desc] of list){
+    const b = document.createElement("button"); b.type = "button"; b.className = "icard"; b.dataset.k = k; b.setAttribute("aria-pressed", String(k === cur));
+    for (const [c, t] of [["iname", name], ["idesc", desc], ["ist", ""], ["iplay", k === cur ? "\u2713" : "\u25B6"]]){ const sp = document.createElement("span"); sp.className = c; sp.textContent = t; if (c === "iplay") sp.setAttribute("aria-hidden", "true"); b.appendChild(sp); }
+    b.onclick = () => pickInstr(k);
+    box.appendChild(b);
+  }
+  instStatus();
+}
+function instSampler(k){ return k === "grand" ? grand : GS[k === "twelve" ? "steel" : k] || null; }
+function instStatus(){
+  const box = $("instCards"); if (!box || !$("instDlg").open) return;
+  for (const b of box.querySelectorAll(".icard")){
+    const k = b.dataset.k, g = instSampler(k), el = b.querySelector(".ist"); if (!g){ el.textContent = ""; continue; }
+    const total = k === "grand" ? 30 : g.total || (isGtrKind(k === "twelve" ? "steel" : k) ? 17 : 30);
+    el.textContent = g.state === "loading" ? `Downloading… ${Math.min(99, Math.round(g.bufs.size / total * 100))}%`
+      : g.state === "ready" ? "Downloaded, works offline" : g.state === "partial" ? "Partly downloaded" : g.state === "failed" ? "Couldn't download. Tap to try again" : "Downloads once when you pick it";
+  }
+}
+async function pickInstr(k){
+  if (instTab === "guitar"){
+    store.set("dg30.gtrSound", k); renderInstr(); renderSoundLabel();
+    if (k !== "synth") await loadGuitar(k === "twelve" ? "steel" : k);
+    if (gtrSound() !== k || !$("instDlg").open) return;
+    [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
+    setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
+  } else {
+    allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel();
+    if (k === "grand") await loadGrand(); else if (GS[k]) await loadGuitar(k);
+    if (grand.want !== k || !$("instDlg").open) return;
+    [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
+    setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
+    setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOff(p, true)), 2300);
+  }
+  instStatus();
+}
+$("instSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; instTab = b.dataset.v; renderInstr(); });
+$("instClose").onclick = () => $("instDlg").close();
+setInterval(() => { if ($("instDlg").open) instStatus(); }, 600);
 
 /* ---------------- guitar: chord symbols → shapes ---------------- */
 const STRINGS = [40, 45, 50, 55, 59, 64];   // E2 A2 D3 G3 B3 E4, low to high
@@ -1875,11 +1936,9 @@ function strum(chord, vel){
   for (const p of G.strumNotes) noteOut(p, 0, false);
   G.strumNotes = chord.pitches.slice();
   const gap = 14 / Math.max(0.4, P.tempo);
-  const onPhone = !(conn.outMode === "piano" && pianoReady());
+  // always the guitar picked under Instrument, on the phone speaker, even with the piano connected
   chord.pitches.forEach((p, i) => setTimeout(() => {
-    if (!P.playing) return;
-    if (onPhone){ if (conn.outMode !== "off") phoneGuitar(p, Math.min(1, vel / 110) * vol.song / 100, 0); }
-    else noteOut(p, vel, true);
+    if (P.playing && conn.outMode !== "off") phoneGuitar(p, Math.min(1, vel / 110) * vol.song / 100, 0);
   }, i * gap));
 }
 /* ---------------- guitar strums along with the piano ----------------
@@ -1928,17 +1987,32 @@ function gtrBuf(a, p){
 }
 /* recorded guitars for the phone speaker: steel- and nylon-string acoustic (FluidR3 GM samples, CC BY 3.0),
    loaded once and kept on the phone; the 12-string doubles each note the way a real one does. */
-const GTR_FILES = {nylon: "acoustic_guitar_nylon", steel: "acoustic_guitar_steel"};
-const GS = {nylon: {bufs: new Map(), state: "none"}, steel: {bufs: new Map(), state: "none"}};
+// recorded instruments from the FluidR3 GM sound set (CC BY 3.0): guitars, plus the extra phone pianos
+const GTR_FILES = {nylon: "acoustic_guitar_nylon", steel: "acoustic_guitar_steel", bright: "bright_acoustic_piano", honky: "honkytonk_piano", epiano: "electric_piano_1", fm: "electric_piano_2"};
+const GS = {}; for (const k in GTR_FILES) GS[k] = {bufs: new Map(), state: "none"};
+const isGtrKind = k => k === "nylon" || k === "steel";
+const PHONE_PIANOS = [
+  ["grand", "Concert grand", "A recorded Yamaha concert grand, rich and full"],
+  ["bright", "Bright grand", "A brighter, punchier grand that cuts through for pop and rock"],
+  ["honky", "Honky-tonk upright", "An old saloon upright, slightly out of tune on purpose"],
+  ["epiano", "Electric piano", "Classic tine electric piano, warm and bell-like"],
+  ["fm", "80s electric piano", "Glassy, shimmering electric piano from the 80s"],
+  ["simple", "Simple tone", "Made on the phone, no download"]];
+const GUITARS = [
+  ["steel", "Steel-string acoustic", "Bright and full, the classic strummed acoustic"],
+  ["nylon", "Nylon-string acoustic", "Soft and warm, a classical or Spanish guitar"],
+  ["twelve", "12-string acoustic", "Doubled strings with a shimmering, chorus-like ring"],
+  ["synth", "Simple plucked string", "Made on the phone, no download"]];
 const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return ["steel", "nylon", "twelve", "synth"].includes(v) ? v : "steel"; };
 function loadGuitar(kind){
   const g = GS[kind]; if (!g) return Promise.resolve();
   if (g.loading) return g.loading;
   g.state = "loading"; showGtrSound();
   g.loading = (async () => {
-    const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-guitar"); } catch(e){}
+    const gtr = isGtrKind(kind), a = audioCtx(); let cache = null; try { cache = await caches.open(gtr ? "dg30-guitar" : "dg30-piano"); } catch(e){}
     const N = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
-    const queue = []; for (let p = 40; p <= 88; p += 3) queue.push(p);
+    const queue = []; if (gtr) for (let p = 40; p <= 88; p += 3) queue.push(p); else { for (let p = 21; p <= 108; p += 3) queue.push(p); queue.sort((x, y) => Math.abs(x - 62) - Math.abs(y - 62)); }
+    g.total = queue.length;
     const bases = ["https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/", "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/"];
     const one = async p => {
       for (const base of bases){
@@ -1946,26 +2020,19 @@ function loadGuitar(kind){
         try {
           let res = cache ? await cache.match(url).catch(() => null) : null;
           if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
-          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), p < 52 ? 4.5 : 3.5));
+          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), gtr ? (p < 52 ? 4.5 : 3.5) : (p < 48 ? 7 : p < 72 ? 5.5 : 4)));
           return;
         } catch(e){}
       }
     };
     await Promise.all(Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); }));
-    g.state = g.bufs.size >= 10 ? "ready" : g.bufs.size ? "partial" : "failed";
+    g.state = g.bufs.size >= (gtr ? 10 : 24) ? "ready" : g.bufs.size ? "partial" : "failed";
     if (g.state === "failed") g.loading = null;
     showGtrSound();
   })();
   return g.loading;
 }
-function showGtrSound(){
-  const el = $("gtrSoundNote"); if (!el) return;
-  const k = gtrSound(), g = GS[k === "twelve" ? "steel" : k];
-  el.textContent = !g ? "A simple plucked-string sound made on the phone." :
-    g.state === "loading" ? "Downloading the guitar sound (once)…" :
-    g.state === "failed" ? "The guitar sound couldn't be downloaded, so a simple plucked string plays for now. It will try again next time." :
-    (k === "twelve" ? "Steel-string samples, doubled the way a 12-string is: an octave string on the four low pairs, a twin on the top two. " : "Recorded guitar. ") + "Used for strumming and tabs on the phone; with the piano connected, the piano's own guitar sound plays instead.";
-}
+function showGtrSound(){ instStatus(); }
 function nearestBuf(g, p){ let best = null, bd = 99; for (const [q, b] of g.bufs){ const d = Math.abs(q - p); if (d < bd){ bd = d; best = [q, b]; } } return best; }
 function phoneGuitar(p, vel, delay){
   vel = isFinite(vel) ? Math.max(0, Math.min(1, vel)) : 0.8; delay = isFinite(delay) ? Math.max(0, delay) : 0;
@@ -2033,8 +2100,7 @@ function guitarStep(nt){
     // Listen: hear the tab line on a guitar sound
     if (P.mode === "listen") while (G.tabIdx < tabs.length && tabs[G.tabIdx].t <= P.t){
       const n = tabs[G.tabIdx++]; if (P.t - n.t > 0.25) continue;
-      if (pianoReady() && conn.outMode === "piano"){ noteOut(n.p, 88, true); setTimeout(() => noteOut(n.p, 0, false), n.d * 1000 / Math.max(0.3, P.tempo)); }
-      else if (conn.outMode !== "off") phoneGuitar(n.p, 0.85, 0);
+      if (conn.outMode !== "off") phoneGuitar(n.p, 0.85 * vol.song / 100, 0);
     }
   }
   let idx = -1; for (let i = 0; i < ch.length; i++){ if (ch[i].t <= P.t + 0.001) idx = i; else break; }
@@ -2659,6 +2725,7 @@ function readColors(){ C = {bg:css("--lacquer"), panel:css("--panel"), line:css(
 
 function draw(){
   if (!practiceVisible() || !L) return;
+  if (cv.clientWidth && cv.clientHeight && (Math.abs(cv.clientWidth - L.W) > 1 || Math.abs(cv.clientHeight - L.H) > 1)) layout();   // screen area changed size (drawer, dialog, rotation)
   const now = performance.now();
   try { drawBg(now); } catch(e){ GFX.failed = true; }
   if (P.instr === "guitar") drawGuitar(now); else drawPiano(now);
@@ -4975,6 +5042,7 @@ function openPractice(id, inst){
     return;
   }
   const meta = songById(id); if (!meta) return;
+  try { const pl = store.get("dg30.played", {}); pl[id] = Date.now(); store.set("dg30.played", pl); } catch(e){}
   P.song = meta; P.origNotes = loadNotes(id).sort((a,b) => a.t - b.t); P.notes = P.origNotes;
   const last = P.notes[P.notes.length - 1]; P.len = last ? last.t + last.d : 0;
   const lyr = loadLyrics(id); P.lyricLines = buildLyricLines(lyr);
@@ -5470,8 +5538,8 @@ function favButton(id, label, after){
   return b;
 }
 const SORTS = {
-  mine: [["recent","Recently added"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
-  samples: [["recent","Default order"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  mine: [["recent","Recently added"],["played","Recently played"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  samples: [["recent","Default order"],["played","Recently played"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   recordings: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
   playlists: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["size","Most songs"]]
 };
@@ -5492,6 +5560,12 @@ function sortItems(list, mode, get){
   else if (mode === "fav"){ items.sort((a, b) => (isFav(b._favId || g(b).id) - isFav(a._favId || g(a).id)) || cmpText(title(a), title(b))); key = x => isFav(x._favId || g(x).id) ? "Favorites" : "Everything else"; }
   else if (mode === "artist"){ items.sort((a, b) => cmpText(artistOf(g(a)) || "~", artistOf(g(b)) || "~") || cmpText(title(a), title(b))); key = x => artistOf(g(x)) || "Unknown artist"; }
   else if (mode === "genre"){ items.sort((a, b) => cmpText(g(a).genre || "~", g(b).genre || "~") || cmpText(title(a), title(b))); key = x => g(x).genre || "No genre yet"; }
+  else if (mode === "played"){
+    const pl = store.get("dg30.played", {}), when = x => pl[g(x).id] || 0, now = Date.now(), day = 864e5;
+    items.sort((a, b) => (when(b) - when(a)) || cmpText(title(a), title(b)));
+    key = x => { const t = when(x); if (!t) return "Not played yet"; const d = new Date(); d.setHours(0,0,0,0);
+      return t >= d.getTime() ? "Today" : t >= d.getTime() - day ? "Yesterday" : t >= now - 7 * day ? "This week" : t >= now - 30 * day ? "This month" : "Earlier"; };
+  }
   else if (mode === "size") items.sort((a, b) => (b.songs || []).length - (a.songs || []).length);
   if (!key) return items.map(item => ({item}));
   const out = []; let last = null;
@@ -5534,10 +5608,15 @@ function addClearButton(input){
   else input.style.paddingRight = "44px";
   const b = document.createElement("button"); b.type = "button"; b.className = "clearx"; b.textContent = "×"; b.setAttribute("aria-label", "Clear"); b.hidden = !input.value;
   b.onclick = () => { input.value = ""; input.dispatchEvent(new Event("input", {bubbles:true})); b.hidden = true; input.focus(); };
-  input.addEventListener("input", () => { b.hidden = !input.value; });
-  host.appendChild(b);
+  const sync = () => { b.hidden = !input.value || input.disabled || input.readOnly; };
+  ["input", "change", "focus"].forEach(ev => input.addEventListener(ev, sync));
+  host.appendChild(b); CLEARS.push(sync); sync();
 }
-["libSearch", "bleFilter", "soundSearch"].forEach(id => addClearButton($(id)));
+const CLEARS = [];
+// every box you type in (not the API key, which has its own Remove button, and not tiny number boxes)
+document.querySelectorAll('input[type="text"], input[type="search"], input:not([type]), #editBpm').forEach(addClearButton);
+// boxes the app fills in itself (edit dialog, song names) show their × too
+setInterval(() => { if (!document.hidden) CLEARS.forEach(f => f()); }, 600);
 
 /* connection light in the practice bar: green = piano connected, amber = listening with the mic, red = not connected */
 function syncPConn(){
@@ -5637,6 +5716,7 @@ function setInstrument(inst, quiet){
   $("backSeg").hidden = inst !== "guitar";
   $("gViewSeg").hidden = $("gViewSeg2").hidden = inst !== "guitar"; setSeg("gViewSeg", G.view); setSeg("gViewSeg2", G.view);
   $("viewSeg").hidden = inst === "guitar";
+  $("instBtn").innerHTML = inst === "guitar" ? "&#127928;" : "&#127929;";
   setSeg("backSeg", G.backing);
   if (P.song) store.set("dg30.instr." + P.song.id, inst);
   resetRun(P.t); syncScrub(); if (practiceVisible()) layout();   // carry on from the same spot in the song
@@ -5646,9 +5726,7 @@ $("instrBtn").onclick = () => setInstrument(P.instr === "guitar" ? "piano" : "gu
 // strums use the DG30's nylon guitar sound; the piano part uses your piano sound
 function applyBackingSound(){
   const pianoOut = (conn.midiOut || conn.bleChar) && conn.outMode === "piano";
-  if (P.instr === "guitar" && G.backing === "strum"){
-    if (pianoOut && G.prevSound == null){ G.prevSound = soundState.cur ?? 0; selectSound(SOUNDS.findIndex(x => x.name === "Nylon Acoustic"), true); }
-  } else restorePianoSound();
+  void pianoOut; restorePianoSound();   // guitars now play on the phone, so the piano keeps your piano sound
 }
 const onGView = e => {
   const b = e.target.closest("button"); if (!b || b.dataset.v === G.view) return;
@@ -5668,7 +5746,9 @@ $("backSeg").addEventListener("click", e => {
   if (was) setPlaying(true);
 });
 $("soundBtn").onclick = openSounds;
-$("setSoundBtn").onclick = openSounds;
+$("setSoundBtn").onclick = () => openInstrument();
+$("setVolBtn").onclick = openSounds;
+$("instBtn").onclick = () => openInstrument();
 $("soundClose").onclick = () => $("soundDlg").close();
 $("soundSearch").addEventListener("input", renderSoundList);
 $("soundAll").addEventListener("change", renderSoundList);
@@ -5704,31 +5784,12 @@ $("bleAllBtn").onclick = () => connectBle(true);
 $("midiBtn").onclick = connectMidi;
 $("micBtn").onclick = startMic;
 $("outSel").value = conn.outMode;
-function showPhoneSound(){
-  const el = $("phoneSoundNote"); if (!el) return;
-  $("phoneSoundSel").value = grand.want;
-  el.textContent = grand.want !== "grand" ? "" :
-    grand.state === "ready" ? "Grand piano is ready, and works without internet now." :
-    grand.state === "loading" ? `Downloading the piano… ${Math.round(grand.bufs.size / 30 * 100)}%` :
-    grand.state === "partial" ? "Part of the piano downloaded. The rest will download next time you're online." :
-    grand.state === "failed" ? "Couldn't download the piano, so the simple tone is used. It will try again when you're online." :
-    "The piano downloads the first time a song plays on the phone (a few MB, once).";
-}
+function showPhoneSound(){ instStatus(); }
 
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
-$("gtrSoundSel").value = gtrSound(); showGtrSound();
-$("gtrSoundSel").onchange = e => { store.set("dg30.gtrSound", e.target.value); const k = e.target.value; if (k !== "synth") loadGuitar(k === "twelve" ? "steel" : k); showGtrSound(); };
-$("gtrSoundTry").onclick = async () => {
-  const k = gtrSound(); if (k !== "synth"){ const g = GS[k === "twelve" ? "steel" : k]; if (!g.bufs.size){ $("gtrSoundNote").textContent = "Downloading the guitar sound (once)…"; await loadGuitar(k === "twelve" ? "steel" : k); } }
-  [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
-  setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
-};
 $("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
 $("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
 $("glowChk").checked = glowOn(); $("glowChk").onchange = e => store.set("dg30.glow", e.target.checked);
-$("phoneSoundSel").onchange = e => { grand.want = e.target.value; store.set("dg30.phoneSound", grand.want); allNotesOff(); if (grand.want === "grand") loadGrand(); showPhoneSound(); };
-showPhoneSound();
-setInterval(() => { if (grand.state === "loading") showPhoneSound(); }, 700);
 $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
 
 /* small toast via the banner on library */
@@ -5874,6 +5935,8 @@ async function showStorageInfo(){
   songStoreReady = loadSongStore();
   songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true).finally(autoGenres), 4000); });
   if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
+  else if (GS[grand.want]) setTimeout(() => { try { loadGuitar(grand.want); } catch(e){} }, 2500);
+  { const gk = gtrSound(); if (gk !== "synth") setTimeout(() => { try { loadGuitar(gk === "twelve" ? "steel" : gk); } catch(e){} }, 4000); }   // ready before the first strum
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });

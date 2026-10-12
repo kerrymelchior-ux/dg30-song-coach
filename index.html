@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.54">
+<meta name="version" content="1.56">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -126,6 +126,28 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .song .more{grid-column:3;grid-row:1/4;width:40px;height:44px;border:0;background:none;border-radius:10px;display:grid;place-items:center;color:var(--muted);padding:0}
 .song .more svg{width:22px;height:22px}
 .libcount{color:var(--muted);font-size:13px;margin:2px 0 0}
+.sortrow{display:flex;gap:10px;align-items:center}
+.sortrow .search{flex:1;min-width:0}
+.sortlbl{display:flex;align-items:center;gap:6px;flex:none;color:var(--muted);font-size:13px;font-weight:600}
+.sortlbl select{height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:0 10px;font-weight:600;color:var(--ivory)}
+@media (max-width:420px){ .sortlbl span{display:none} }
+.song,.song.hasart{grid-template-columns:56px minmax(0,1fr) 36px 40px}
+.song .fav{grid-column:3;grid-row:1/4;width:36px;height:44px;border:0;background:none;padding:0;display:grid;place-items:center;color:var(--muted)}
+.song .fav svg{width:21px;height:21px}
+.song .fav[aria-pressed="true"]{color:#ff5d7a}
+.song .more{grid-column:4}
+.grouphd{margin:14px 0 2px;font:700 13px var(--f-body);color:var(--accent);letter-spacing:.02em}
+.grouphd:first-child{margin-top:0}
+.plitem{display:grid;grid-template-columns:minmax(0,1fr) 36px auto;gap:2px 10px;align-items:center;padding:12px 2px;border-bottom:1px solid color-mix(in srgb,var(--line) 65%,transparent)}
+.plitem h3{margin:0;font:600 16px/1.3 var(--f-body);grid-column:1}
+.plitem .meta{grid-column:1;color:var(--muted);font-size:13px}
+.plitem .fav{grid-column:2;grid-row:1/3;width:36px;height:44px;border:0;background:none;padding:0;display:grid;place-items:center;color:var(--muted)}
+.plitem .fav svg{width:21px;height:21px}.plitem .fav[aria-pressed="true"]{color:#ff5d7a}
+.plitem .acts{grid-column:3;grid-row:1/3;display:flex;gap:6px}
+.plitem .acts button{min-height:40px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:600}
+.plitem .acts .go{background:var(--ivory);color:var(--lacquer);border-color:var(--ivory)}
+.take .fav{border:0;background:none;padding:0 2px;color:var(--muted);display:inline-grid;place-items:center}
+.take .fav svg{width:18px;height:18px}.take .fav[aria-pressed="true"]{color:#ff5d7a}
 .label{font-size:12.5px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--muted)}
 .add{background:var(--panel)}
 .setcard label.row{flex-wrap:nowrap;align-items:flex-start}
@@ -326,6 +348,11 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .ptool[aria-pressed="true"]{background:var(--ivory);border-color:var(--ivory);color:var(--lacquer)}
 .trainset{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:4px}
 .trainset select{min-height:32px;padding:0 6px;margin:0 3px}
+/* reviewing a take */
+#reviewBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:12px;padding:6px 6px 6px 14px;border-radius:999px;background:rgba(20,17,15,.92);border:1px solid var(--line);font-size:13.5px;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#reviewBar .rvdot{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:recPulse 1.2s ease-in-out infinite}
+#reviewBar .rvok{color:var(--good)}#reviewBar .rvbad{color:var(--bad)}
+#reviewBar button{min-height:32px;padding:0 14px;border-radius:999px;border:0;background:var(--ivory);color:var(--lacquer);font-weight:700}
 /* recording */
 .recbtn{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 10px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);font-weight:600;font-size:13px;color:var(--ivory);font-variant-numeric:tabular-nums}
 .recbtn i{width:11px;height:11px;border-radius:50%;background:var(--bad)}
@@ -464,18 +491,19 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   </div>
 
   <section id="secRecs" style="display:flex;flex-direction:column;gap:8px" hidden>
+    <div class="sortrow"><label class="sortlbl"><span>Sort</span><select id="recSort" aria-label="Sort recordings"></select></label></div>
     <p class="sheetnote" id="recsEmpty">No recordings yet. Open a song, tap Rec at the bottom, play, then tap Stop. Your takes show up here.</p>
     <div id="recsList" class="takes libtakes"></div>
   </section>
 
   <section id="secPlaylists" style="display:flex;flex-direction:column;gap:8px" hidden>
-    <div class="row" style="justify-content:space-between"><div class="label">Playlists</div><button class="btn primary" id="plNew" type="button" style="min-height:36px">New playlist</button></div>
+    <div class="sortrow"><label class="sortlbl"><span>Sort</span><select id="plSort" aria-label="Sort playlists"></select></label><button class="btn primary" id="plNew" type="button" style="min-height:40px;margin-left:auto">New playlist</button></div>
     <div id="playlists" style="display:flex;flex-direction:column;gap:10px"></div>
     <p class="sheetnote" id="plEmpty">Make a playlist to play several songs one after another.</p>
   </section>
 
   <section id="secSongs" style="display:flex;flex-direction:column;gap:8px">
-    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input id="libSearch" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs"></div>
+    <div class="sortrow"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input id="libSearch" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs"></div><label class="sortlbl"><span>Sort</span><select id="libSort" aria-label="Sort songs"></select></label></div>
     <span id="verMini" hidden></span>
     <p class="sheetnote" id="libEmpty" hidden>No songs of your own yet. Open Add a song to bring one in, or try one from Samples.</p>
     <div id="songs"></div>
@@ -640,7 +668,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followSvg"></div></div></div><div id="banner" hidden></div></div>
   <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -849,6 +877,8 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
     <div class="artpick" id="artResults" hidden></div>
     <div class="field"><label class="label" for="editTitle">Title</label><input id="editTitle" type="text" maxlength="120" required></div>
     <div class="field"><label class="label" for="editArtist">Artist</label><input id="editArtist" type="text" maxlength="120" placeholder="Who sings or wrote it"></div>
+    <div class="field"><label class="label" for="editGenre">Genre</label><input id="editGenre" type="text" maxlength="40" placeholder="e.g. Pop, Rock, Soundtrack" list="genreList"></div>
+    <datalist id="genreList"><option value="Pop"><option value="Rock"><option value="Alternative"><option value="R&amp;B/Soul"><option value="Hip-Hop/Rap"><option value="Country"><option value="Jazz"><option value="Blues"><option value="Classical"><option value="Soundtrack"><option value="Singer/Songwriter"><option value="Electronic"><option value="Dance"><option value="Folk"><option value="Christian"><option value="Holiday"><option value="Anime"><option value="Reggae"><option value="Latin"><option value="New Age"><option value="Vocal"></datalist>
     <div class="row" style="gap:10px;flex-wrap:nowrap">
       <div class="field" style="flex:1;min-width:0"><label class="label" for="editKey">Key</label><input id="editKey" type="text" maxlength="4" placeholder="e.g. G, Bb, Am" list="keyList" autocapitalize="characters"></div>
       <div class="field" style="flex:1;min-width:0"><label class="label" for="editBpm">Tempo (BPM)</label><input id="editBpm" type="number" min="20" max="400" step="1" inputmode="numeric"></div>
@@ -941,7 +971,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.54";
+const APP_VERSION = "1.56";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1116,7 +1146,8 @@ Object.assign(DEMOS, Object.fromEntries(Object.entries(SAMPLE_SONGS).map(([id, o
    The notes live in samples.json next to the app and download the first time you open a sample. */
 const SAMPLE_CATALOG = [{"id":"smp-pathetique","title":"Pathétique Sonata (complete)","by":"Beethoven","key":"Cm","bpm":200,"beats":4.0,"timeLabel":"4/4","count":9980,"len":1241.92},{"id":"smp-pathetique-1","title":"Pathétique Sonata – 1st Movement","by":"Beethoven","key":"Cm","bpm":330,"beats":4.0,"timeLabel":"4/4","count":5958,"len":447.5},{"id":"smp-moonlight","title":"Moonlight Sonata (complete)","by":"Beethoven","key":"C#m","bpm":140,"beats":4.0,"timeLabel":"2/2","count":8608,"len":931.7},{"id":"smp-moonlight-3","title":"Moonlight Sonata – 3rd Movement","by":"Beethoven","key":"C#m","bpm":170,"beats":4.0,"timeLabel":"4/4","count":6413,"len":374.81},{"id":"smp-clair","title":"Clair de Lune","by":"Debussy","key":"Db","bpm":75,"beats":4.5,"timeLabel":"9/8","count":1490,"len":253.14},{"id":"smp-arabesque","title":"Arabesque No. 1","by":"Debussy","key":"E","bpm":130,"beats":4.0,"timeLabel":"4/4","count":1454,"len":226.7},{"id":"smp-fantaisie","title":"Fantaisie-Impromptu","by":"Chopin","key":"C#m","bpm":145,"beats":4.0,"timeLabel":"4/4","count":3044,"len":307.39},{"id":"smp-polonaise","title":"Heroic Polonaise","by":"Chopin","key":"Ab","bpm":82,"beats":3.0,"timeLabel":"3/4","count":6076,"len":372.07},{"id":"smp-rhapsody","title":"Rhapsody in Blue (piano solo)","by":"Gershwin","key":"Bb","bpm":120,"beats":4.0,"timeLabel":"4/4","count":10849,"len":951.3},{"id":"smp-rach2","title":"Piano Concerto No. 2 – 1st Movement","by":"Rachmaninoff","key":"Cm","bpm":132,"beats":4.0,"timeLabel":"2/2","count":8700,"len":653.71},{"id":"smp-barque","title":"Une barque sur l'océan","by":"Ravel","key":"F#m","bpm":48,"beats":2.0,"timeLabel":"2/4","count":4989,"len":420.38},{"id":"smp-carol","title":"Carol of the Bells","by":"Leontovych","key":"Gm","bpm":200,"beats":6.0,"timeLabel":"6/4","count":1568,"len":140.55},{"id":"smp-gnossienne","title":"Gnossienne No. 1","by":"Satie","key":"Fm","bpm":102,"beats":4.0,"timeLabel":"4/4","count":821,"len":192.76},{"id":"smp-moonlight-1","title":"Moonlight Sonata – 1st Movement","by":"Beethoven","key":"C#m","bpm":51,"beats":4.0,"timeLabel":"2/2","count":1146,"len":324.7},{"id":"smp-ballade1","title":"Ballade No. 1 in G minor","by":"Chopin","key":"Gm","bpm":119,"beats":4.0,"timeLabel":"4/4","count":5029,"len":528.74}];
 const SAMPLES = { notes: new Map(), loading: null, loaded: false };
-for (const m of SAMPLE_CATALOG) DEMOS[m.id] = { ...m, lazy: true, notes: () => (SAMPLES.notes.get(m.id) || []).map(n => ({...n})) };
+const SAMPLE_GENRE = {"smp-rhapsody": "Jazz", "smp-carol": "Holiday"};
+for (const m of SAMPLE_CATALOG) DEMOS[m.id] = { ...m, genre: SAMPLE_GENRE[m.id] || "Classical", lazy: true, notes: () => (SAMPLES.notes.get(m.id) || []).map(n => ({...n})) };
 function ensureSamples(){
   if (SAMPLES.loaded) return Promise.resolve();
   return SAMPLES.loading || (SAMPLES.loading = fetch("samples.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
@@ -2607,7 +2638,7 @@ function drawPiano(now){
       cx.strokeStyle = C.ivory; cx.lineWidth = 2; rr(k.x + 1.5, y0, k.w - 3, yb - y0, r); cx.stroke();
     }
     cx.globalAlpha = 1;
-    if (fx && active && sounding) sparkle(k.x + k.w / 2, hitY, k.w, col);
+    if (fx && active && sounding) sparkle(k.x + k.w / 2, hitY - (k.w >= 13 ? 20 : 2), k.w, col);   // above the note name, so the letter stays readable
     if (active && k.w >= 13 && yb - y0 >= 16 && y1 > 14){
       if (showHands() && n.fg){
         const cyy = yb - 10; cx.fillStyle = "rgba(0,0,0,0.55)"; cx.beginPath(); cx.arc(k.x + k.w / 2, cyy, Math.min(9, k.w / 2 - 1), 0, Math.PI * 2); cx.fill();
@@ -3060,6 +3091,7 @@ $("viewSeg").addEventListener("click", e => { const b = e.target.closest("button
 
 function drawBanner(){
   const b = $("banner"), cur = P.steps[P.stepIdx];
+  if (typeof RV !== "undefined" && RV.on){ b.hidden = true; return; }
   let msg = "";
   const needPiano = conn.outMode === "piano" && !pianoReady() && conn.kind !== "mic";
   b.classList.toggle("tap", needPiano);
@@ -3082,7 +3114,7 @@ function drawBanner(){
 /* ---------------- library UI ---------------- */
 function allSongs(){
   const mine = store.get("dg30.songs", []);
-  const demos = Object.entries(DEMOS).filter(([id, d]) => !d.hidden).map(([id, d]) => ({id, title:d.title, by:d.by, demo:true, count:d.count, len:d.len}));
+  const demos = Object.entries(DEMOS).filter(([id, d]) => !d.hidden).map(([id, d]) => ({id, title:d.title, by:d.by, genre:d.genre, demo:true, count:d.count, len:d.len}));
   return [...mine, ...demos];
 }
 // any song by id, including retired built-in examples (so old playlists still open)
@@ -3107,7 +3139,10 @@ function renderLibrary(){
   const q = libQuery.trim().toLowerCase();
   const shown = q ? list.filter(s => [s.title, s.artist, s.by].some(x => x && String(x).toLowerCase().includes(q))) : list;
   const prim = primaryInstr();
-  for (const s of shown){
+  const sortTab = tab === "samples" ? "samples" : "mine"; fillSort($("libSort"), sortTab);
+  for (const entry of sortItems(shown, sortOf(sortTab))){
+    if (entry.head){ box.appendChild(groupHead(entry.head)); continue; }
+    const s = entry.item;
     const notes = s.demo && s.count == null ? loadNotes(s.id) : null;
     const len = s.len ?? (notes.length ? notes[notes.length-1].t + notes[notes.length-1].d : 0);
     const best = store.get("dg30.best." + s.id, null);
@@ -3118,7 +3153,7 @@ function renderLibrary(){
     if (src){ const im = document.createElement("img"); im.alt = ""; im.loading = "lazy"; im.src = src; art.appendChild(im); } else art.textContent = "♫";
     const h = document.createElement("h3"); h.textContent = s.title;
     const meta = document.createElement("div"); meta.className = "meta";
-    meta.textContent = [s.artist || s.by, fmt(len), best != null ? `best ${best}%` : ""].filter(Boolean).join(" · ");
+    meta.textContent = [s.artist || s.by, s.genre, fmt(len), best != null ? `best ${best}%` : ""].filter(Boolean).join(" · ");
     const f = songFeatures(s), bd = document.createElement("div"); bd.className = "badges";
     const badge = (icon, label, on, extra, title) => { const b = document.createElement("span"); b.className = "badge" + (on ? " on" : "") + (extra ? " " + extra : ""); b.innerHTML = ICONS[icon]; b.append(label); if (title) b.title = title; bd.appendChild(b); };
     badge("piano", "Piano", prim === "piano");
@@ -3128,7 +3163,7 @@ function renderLibrary(){
     more.onclick = e => { e.stopPropagation(); openRowMenu(s); };
     el.onclick = () => openPractice(s.id);
     el.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target === el){ e.preventDefault(); openPractice(s.id); } };
-    el.append(art, h, meta, bd, more); box.appendChild(el);
+    el.append(art, h, meta, bd, favButton(s.id, s.title), more); box.appendChild(el);
   }
   if (q && !shown.length){ const p = document.createElement("p"); p.className = "sheetnote"; p.textContent = `No songs match “${libQuery.trim()}”.`; box.appendChild(p); }
 }
@@ -3146,6 +3181,7 @@ function openRowMenu(s){
   const item = (icon, label, sub, fn, go) => { const b = document.createElement("button"); b.type = "button"; if (go) b.className = "go"; b.innerHTML = ICONS[icon]; const t = document.createElement("span"); t.textContent = label; if (sub){ const sm = document.createElement("small"); sm.textContent = sub; t.appendChild(sm); } b.appendChild(t); b.onclick = () => { $("rowDlg").close(); fn(); }; acts.appendChild(b); };
   const playOn = inst => () => openPractice(s.id, inst);
   item("piano", "Play on piano", "", playOn("piano"), true);
+  { const on = isFav(s.id); const b = document.createElement("button"); b.type = "button"; b.innerHTML = on ? HEART : HEART_O; b.querySelector("svg").style.color = on ? "#ff5d7a" : ""; const tx = document.createElement("span"); tx.textContent = on ? "Remove from favorites" : "Add to favorites"; b.appendChild(tx); b.onclick = () => { $("rowDlg").close(); toggleFav(s.id, s.title); renderLibrary(); }; acts.appendChild(b); }
   item("guitar", "Play on guitar", f.chords ? "" : "Chords worked out from the notes", playOn("guitar"), true);
   const nTakes = takeList().filter(t => t.songId === s.id).length;
   if (nTakes) item("piano", `Your takes (${nTakes})`, "Recordings of your playing", () => openTakes(s.id));
@@ -3784,9 +3820,14 @@ function savePlaylists(){ store.set("dg30.playlists", PL.lists); }
 function renderPlaylists(){
   const box = $("playlists"); box.textContent = "";
   const songs = allSongs(), byId = new Map(songs.map(s => [s.id, s]));
-  for (const pl of PL.lists){
+  fillSort($("plSort"), "playlists");
+  const pls = PL.lists.map((p, i) => ({...p, _i: i, _favId: "pl:" + p.id, title: p.name}));
+  const ordered = sortOf("playlists") === "recent" ? pls.slice().reverse().map(item => ({item})) : sortItems(pls, sortOf("playlists"), x => ({title: x.name, id: x._favId}));
+  for (const entry of ordered){
+    if (entry.head){ box.appendChild(groupHead(entry.head)); continue; }
+    const pl = entry.item;
     const ids = pl.songs.filter(id => byId.has(id));
-    const el = document.createElement("div"); el.className = "song";
+    const el = document.createElement("div"); el.className = "plitem";
     const h = document.createElement("h3"); h.textContent = pl.name;
     const meta = document.createElement("div"); meta.className = "meta";
     const lenOf = id => byId.get(id).len || (() => { const n = loadNotes(id), l = n[n.length - 1]; return l ? l.t + l.d : 0; })();
@@ -3795,7 +3836,7 @@ function renderPlaylists(){
     const go = document.createElement("button"); go.className = "go"; go.type = "button"; go.textContent = "Play all"; go.disabled = !ids.length;
     go.onclick = () => startPlaylist(pl.id, 0);
     const ed = document.createElement("button"); ed.type = "button"; ed.textContent = "Edit"; ed.onclick = () => openPlaylistEditor(pl.id);
-    acts.append(go, ed); el.append(h, meta, acts); box.appendChild(el);
+    acts.append(go, ed); el.append(h, meta, favButton(pl._favId, pl.name, () => renderPlaylists()), acts); box.appendChild(el);
   }
   $("plEmpty").hidden = PL.lists.length > 0;
 }
@@ -4016,7 +4057,7 @@ async function restoreFrom(file){
     savePlaylists();
     renderLibrary();
     st.textContent = added ? `Added ${added} song${added === 1 ? "" : "s"} from the backup.` : "Everything in that backup is already on this device.";
-    if (added){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true).finally(() => autoLyrics(true)), 500); }
+    if (added){ libTab = "mine"; store.set("dg30.libTab", "mine"); renderLibrary(); setTimeout(() => autoCovers(true).finally(() => autoLyrics(true).finally(autoGenres)), 500); }
   } catch(e){ st.textContent = e.message || "Couldn't read that file."; }
 }
 
@@ -4484,7 +4525,7 @@ function showEditArt(src){
 function openEdit(id){
   const meta = store.get("dg30.songs", []).find(s => s.id === id); if (!meta) return;
   ED.id = id; ED.art = undefined;
-  $("editTitle").value = meta.title || ""; $("editArtist").value = meta.artist || ""; $("editKey").value = meta.key || "";
+  $("editTitle").value = meta.title || ""; $("editArtist").value = meta.artist || ""; $("editGenre").value = meta.genre || ""; $("editKey").value = meta.key || "";
   $("editBpm").value = Math.round(meta.bpm || 100); $("editBeats").value = String(meta.beats || 4);
   $("editStatus").textContent = ""; $("artResults").hidden = true; $("artResults").textContent = "";
   const del = $("editDelete"); delete del.dataset.arm; del.textContent = "Delete song";
@@ -4506,7 +4547,7 @@ $("editForm").addEventListener("submit", async e => {
   const bpm = Math.round(+$("editBpm").value);
   if (!(bpm >= 20 && bpm <= 400)){ $("editStatus").textContent = "Tempo should be between 20 and 400 BPM."; return; }
   if (Math.round(meta.bpm || 0) !== bpm) store.del("dg30.tempo." + meta.id);       // your faster/slower setting was based on the old tempo
-  meta.title = title; meta.artist = $("editArtist").value.trim() || undefined; meta.key = key; meta.bpm = bpm; meta.beats = +$("editBeats").value;
+  meta.title = title; meta.artist = $("editArtist").value.trim() || undefined; meta.genre = $("editGenre").value.trim() || undefined; meta.genreTried = true; meta.key = key; meta.bpm = bpm; meta.beats = +$("editBeats").value;
   if (ED.art !== undefined){
     if (ED.art) { if (!(await store.setAsync("dg30.art." + meta.id, ED.art))){ $("editStatus").textContent = "The picture couldn't be saved: the phone's storage is full."; return; } }
     else store.del("dg30.art." + meta.id);
@@ -4878,6 +4919,7 @@ function openPractice(id, inst){
 }
 function closePractice(){
   setDrawer(false);
+  if (typeof RV !== "undefined" && RV.on) stopReview(true);
   if (REC.on) recStop();
   stopGuitarMic();
   PL.playing = null; updatePlaylistBar();
@@ -5046,10 +5088,10 @@ syncTools();
 const REC = { on:false, t0:0, ev:[], songT:0, timer:0 };
 const TP = { take:null, timer:0, i:0, start:0, held:new Set() };
 function recEvent(hi, d1, d2){
-  const ms = Math.round(performance.now() - REC.t0);
-  if (hi === 0x90 && d2 > 0) REC.ev.push([ms, 0, d1, d2]);
-  else if (hi === 0x80 || (hi === 0x90 && d2 === 0)) REC.ev.push([ms, 1, d1, 0]);
-  else if (hi === 0xB0 && d1 === 64) REC.ev.push([ms, 2, d2, 0]);
+  const ms = Math.round(performance.now() - REC.t0), st = +P.t.toFixed(3);
+  if (hi === 0x90 && d2 > 0) REC.ev.push([ms, 0, d1, d2, st]);
+  else if (hi === 0x80 || (hi === 0x90 && d2 === 0)) REC.ev.push([ms, 1, d1, 0, st]);
+  else if (hi === 0xB0 && d1 === 64) REC.ev.push([ms, 2, d2, 0, st]);
 }
 const takeList = () => store.get("dg30.recs", []);
 function recUI(){
@@ -5058,23 +5100,27 @@ function recUI(){
   b.title = REC.on ? "Stop recording" : "Record your playing";
 }
 function recStart(){
+  if (RV.on) stopReview(true);
   if (!pianoReady() && conn.kind !== "midi" && conn.kind !== "ble"){ toast("Connect your piano to record your playing", 2200); $("connDlg").showModal(); return; }
   stopTake();
   REC.on = true; REC.t0 = performance.now(); REC.ev = []; REC.songT = P.t;
   REC.timer = setInterval(recUI, 500); recUI();
+  REC.clock = setInterval(() => REC.ev.push([Math.round(performance.now() - REC.t0), 3, 0, 0, +P.t.toFixed(3)]), 100);   // where the song was, for the review
   toast("Recording. Play when you're ready.", 1600);
 }
 async function recStop(){
-  REC.on = false; clearInterval(REC.timer); recUI();
+  REC.on = false; clearInterval(REC.timer); clearInterval(REC.clock); recUI();
   const ev = REC.ev.slice(); REC.ev = [];
   // trim silence before the first and after the last key
   const firstOn = ev.findIndex(e => e[1] === 0);
   if (firstOn < 0){ toast("Nothing was played, so no take was saved", 2000); return; }
-  const off = Math.max(0, ev[firstOn][0] - 300), out = ev.map(e => [e[0] - off, e[1], e[2], e[3]]).filter(e => e[0] >= 0);
-  const dur = out.length ? out[out.length - 1][0] + 500 : 0;
+  const off = Math.max(0, ev[firstOn][0] - 300), out = ev.map(e => [e[0] - off, e[1], e[2], e[3], e[4]]).filter(e => e[0] >= 0);
+  let lastReal = out.length - 1; while (lastReal > 0 && out[lastReal][1] === 3) lastReal--;
+  out.length = Math.min(out.length, lastReal + 6);                          // keep a moment of song clock after the last key
+  const dur = out.length ? out[lastReal][0] + 500 : 0;
   const m = P.song || {}; const list = takeList();
   const n = list.filter(t => t.songId === m.id).length + 1;
-  const take = {id: "t" + Date.now().toString(36), songId: m.id || "", songTitle: m.title || "Free play", name: `Take ${n}`, at: Date.now(), dur, notes: out.filter(e => e[1] === 0).length, songT: +(REC.songT + off / 1000 * (P.tempo || 1)).toFixed(2), tempo: P.tempo || 1};
+  const take = {id: "t" + Date.now().toString(36), songId: m.id || "", songTitle: m.title || "Free play", name: `Take ${n}`, at: Date.now(), dur, notes: out.filter(e => e[1] === 0).length, songT: +(REC.songT + off / 1000 * (P.tempo || 1)).toFixed(2), tempo: P.tempo || 1, transpose: P.transpose || 0, view: sheetView() ? "sheet" : "bars"};
   if (!(await store.setAsync("dg30.rec." + take.id, out))){ toast(storageProblem()); return; }
   list.push(take); store.set("dg30.recs", list);
   openTakes(m.id, take.id);
@@ -5082,6 +5128,7 @@ async function recStop(){
 $("recBtn").onclick = () => { if (REC.on) recStop(); else recStart(); };
 // playback
 function takeOut(type, a, b){
+  if (type === 3) return;
   if (type === 2){ pedalOut(a >= 64); return; }
   if (conn.outMode === "piano" && pianoReady()){ sendMidi(type === 0 ? [0x90, a, b] : [0x80, a, 0]); }
   else if (type === 0) synthOn(a, b); else synthOff(a);
@@ -5116,7 +5163,7 @@ function exportTake(t){
     const s = e[0] / 1000;
     if (e[1] === 0){ if (open.has(e[2])){ const o = open.get(e[2]); tr.addNote({midi:e[2], time:o.t, duration:Math.max(0.02, s - o.t), velocity:o.v / 127}); } open.set(e[2], {t:s, v:e[3]}); }
     else if (e[1] === 1){ const o = open.get(e[2]); if (o){ tr.addNote({midi:e[2], time:o.t, duration:Math.max(0.02, s - o.t), velocity:o.v / 127}); open.delete(e[2]); } }
-    else tr.addCC({number:64, value:e[2] / 127, time:s});
+    else if (e[1] === 2) tr.addCC({number:64, value:e[2] / 127, time:s});
   }
   for (const [p, o] of open) tr.addNote({midi:p, time:o.t, duration:0.5, velocity:o.v / 127});
   const file = new File([m.toArray()], `${t.songTitle} - ${t.name}.mid`.replace(/[\\/:*?"<>|]+/g, ""), {type:"audio/midi"});
@@ -5140,18 +5187,22 @@ function renderTakes(){
 }
 // the Recordings tab in the library: every take, newest first, each tied back to its song
 function renderRecs(){
+  fillSort($("recSort"), "recordings");
   const list = takeList().sort((a, b) => b.at - a.at);
   $("recsEmpty").hidden = list.length > 0;
-  takeRows($("recsList"), list, true);
+  const songOf = t => songById(t.songId) || {title: t.songTitle, id: t.songId};
+  takeRows($("recsList"), sortItems(list, sortOf("recordings"), songOf), true);
 }
 function takeRows(box, list, withSong){
   box.textContent = "";
-  for (const t of list){
+  for (const entry of list){
+    if (entry && entry.head){ box.appendChild(groupHead(entry.head)); continue; }
+    const t = entry && entry.item ? entry.item : entry;
     const playing = TP.take && TP.take.id === t.id;
     const row = document.createElement("div"); row.className = "take" + (t.id === takesFresh && !withSong ? " fresh" : "") + (playing ? " playing" : "") + (withSong ? " withsong" : "");
     const pl = document.createElement("button"); pl.type = "button"; pl.className = "tplay" + (playing ? " on" : "");
     pl.textContent = playing ? "■" : "▶"; pl.setAttribute("aria-label", (playing ? "Stop " : "Play ") + t.name);
-    pl.onclick = () => playing ? stopTake() : playTake(t);
+    pl.onclick = () => playing ? stopTake() : (songById(t.songId) ? reviewTake(t) : playTake(t));
     const head = document.createElement("div"); head.className = "thead";
     const name = document.createElement("b"); name.textContent = t.name; head.appendChild(name);
     if (withSong){
@@ -5163,6 +5214,7 @@ function takeRows(box, list, withSong){
       link.disabled = !song; link.title = song ? "Open this song" : "";
       link.onclick = () => { if (!song) return; stopTake(); if ($("takesDlg").open) $("takesDlg").close(); openPractice(song.id); };
       head.appendChild(link);
+      if (song) head.appendChild(favButton(song.id, song.title, () => { renderRecs(); renderLibrary(); }));
     }
     const info = document.createElement("small"); info.className = "tpos";
     const when = new Date(t.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
@@ -5179,6 +5231,165 @@ $("takesDone").onclick = () => { stopTake(); $("takesDlg").close(); };
 $("takesDlg").addEventListener("close", stopTake);
 $("takesBtn").onclick = () => { setDrawer(false); openTakes(P.song ? P.song.id : null); };
 
+
+/* ---------------- review a take on its song ----------------
+   The song's bars (or sheet music) move just as they did while you played, your notes play back,
+   and each key you pressed lights green when it was a right note and red when it wasn't. */
+const RV = { on:false };
+function takeClock(t, ev){
+  // song position at any moment of the take: from the positions saved while recording, or estimated for older takes
+  const pts = ev.filter(e => e.length >= 5 && e[4] != null).map(e => [e[0], e[4]]);
+  const tempo = t.tempo || 1;
+  if (pts.length < 2) return ms => (t.songT || 0) + ms / 1000 * tempo;
+  return ms => {
+    if (ms <= pts[0][0]) return pts[0][1] - (pts[0][0] - ms) / 1000 * tempo;
+    let lo = 0, hi = pts.length - 1;
+    if (ms >= pts[hi][0]) return pts[hi][1] + (ms - pts[hi][0]) / 1000 * tempo;
+    while (hi - lo > 1){ const mid = (lo + hi) >> 1; if (pts[mid][0] <= ms) lo = mid; else hi = mid; }
+    const a = pts[lo], b = pts[hi]; return a[1] + (b[1] - a[1]) * (ms - a[0]) / Math.max(1, b[0] - a[0]);
+  };
+}
+// right or wrong for each key you pressed: the song has that note close to that moment
+function judgeTake(t, ev, clock){
+  const shift = t.transpose != null ? t.transpose : (P.transpose || 0);
+  const notes = (P.origNotes || []).map(n => ({t:n.t, p:n.p + shift, used:false})).sort((a, b) => a.t - b.t);
+  const tol = 0.35 * Math.max(1, t.tempo || 1), out = new Map();
+  ev.forEach((e, i) => {
+    if (e[1] !== 0) return;
+    const st = clock(e[0]); let best = null, bd = tol;
+    for (const n of notes){ if (n.t < st - tol) continue; if (n.t > st + tol) break; if (n.used || n.p !== e[2]) continue; const d = Math.abs(n.t - st); if (d <= bd){ bd = d; best = n; } }
+    if (best) best.used = true;
+    out.set(i, best ? "good" : "bad");
+  });
+  return out;
+}
+async function reviewTake(t){
+  const song = t.songId ? songById(t.songId) : null;
+  if (!song){ playTake(t); return; }
+  const ev = store.get("dg30.rec." + t.id, null); if (!ev || !ev.length){ toast("That take couldn't be found on this phone"); return; }
+  stopTake(); stopReview(true);
+  if ($("takesDlg").open) $("takesDlg").close();
+  if (isLazySample(song.id) && !SAMPLES.loaded){ try { await ensureSamples(); } catch(e){ toast(e.message); return; } }
+  if (!P.song || P.song.id !== song.id || $("practice").hidden || P.instr !== "piano") openPractice(song.id, "piano");
+  if (P.playing) setPlaying(false);
+  if (t.view === "sheet" && !sheetView()) setView("sheet"); else if (t.view === "bars" && sheetView()) setView("bars");
+  const clock = takeClock(t, ev), verdict = judgeTake(t, ev, clock);
+  RV.prevMode = P.mode; P.mode = "listen";                 // nothing waits or scores while you watch
+  RV.prevT = P.t;
+  resetRun(clock(0) - 0.5);
+  Object.assign(RV, {on:true, take:t, ev, clock, verdict, i:0, ok:0, bad:0, start:performance.now() + 600});
+  P.pressed.clear(); audioCtx();
+  $("reviewBar").hidden = false; reviewBarText();
+  RV.timer = setInterval(reviewTick, 8);
+}
+function reviewTick(){
+  if (!RV.on) return;
+  const ms = performance.now() - RV.start;
+  P.t = RV.clock(Math.max(0, ms)); syncScrub();
+  while (RV.i < RV.ev.length && RV.ev[RV.i][0] <= ms){
+    const i = RV.i++, e = RV.ev[i];
+    if (e[1] === 0){
+      const v = RV.verdict.get(i) || "bad"; if (v === "good") RV.ok++; else RV.bad++;
+      P.pressed.set(e[2], {state: v, t: performance.now()}); if (v === "bad") P.flashes.push({p: e[2], t: performance.now(), state: "bad"});
+      reviewBarText();
+    } else if (e[1] === 1){
+      const pr = P.pressed.get(e[2]), keep = pr ? Math.max(0, 350 - (performance.now() - pr.t)) : 0;   // short notes stay lit long enough to see
+      if (keep) setTimeout(() => { const q = P.pressed.get(e[2]); if (q === pr) P.pressed.delete(e[2]); }, keep); else P.pressed.delete(e[2]);
+    }
+    takeOut(e[1], e[2], e[3]);
+  }
+  if (RV.i >= RV.ev.length && ms > RV.take.dur + 600) stopReview();
+}
+function reviewBarText(){
+  if (!RV.take) return;
+  $("rvName").textContent = RV.take.name;
+  $("rvOk").textContent = RV.ok; $("rvBad").textContent = RV.bad;
+}
+function stopReview(quiet){
+  if (!RV.on) return;
+  clearInterval(RV.timer); RV.on = false;
+  for (const p of TP.held) takeOut(1, p, 0); TP.held.clear(); pedalOut(false);
+  P.pressed.clear(); $("reviewBar").hidden = true;
+  if (RV.prevMode){ P.mode = RV.prevMode; setSeg("modeSeg", P.mode); }
+  resetRun(P.t); syncScrub();
+  if (!quiet) toast(`${RV.take.name}: ${RV.ok} right, ${RV.bad} wrong`, 2600);
+}
+$("rvStop").onclick = () => stopReview();
+
+
+/* ---------------- favorites, sorting, genres ---------------- */
+const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 4.5 6.9 4.5c2.1 0 3.6 1.2 5.1 3 1.5-1.8 3-3 5.1-3 3.5 0 5.4 3.5 4.2 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" fill="currentColor"/></svg>';
+const HEART_O = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 4.5 6.9 4.5c2.1 0 3.6 1.2 5.1 3 1.5-1.8 3-3 5.1-3 3.5 0 5.4 3.5 4.2 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const FAV = new Set(store.get("dg30.favs", []));
+const isFav = id => FAV.has(id);
+function toggleFav(id, label){
+  if (FAV.has(id)) FAV.delete(id); else FAV.add(id);
+  store.set("dg30.favs", [...FAV]);
+  toast(FAV.has(id) ? `Added ${label ? "“" + label + "” " : ""}to favorites` : "Removed from favorites", 1300);
+}
+function favButton(id, label, after){
+  const b = document.createElement("button"); b.type = "button"; b.className = "fav";
+  const on = isFav(id); b.innerHTML = on ? HEART : HEART_O; b.setAttribute("aria-pressed", String(on));
+  b.setAttribute("aria-label", (on ? "Remove from favorites: " : "Add to favorites: ") + (label || ""));
+  b.onclick = e => { e.stopPropagation(); toggleFav(id, label); after ? after() : renderLibrary(); };
+  return b;
+}
+const SORTS = {
+  mine: [["recent","Recently added"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  samples: [["recent","Default order"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  recordings: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["artist","Artist"],["genre","Genre"]],
+  playlists: [["recent","Newest"],["az","A–Z"],["fav","Favorites"],["size","Most songs"]]
+};
+const sortOf = tab => { const v = store.get("dg30.sort." + tab, "recent"); return (SORTS[tab] || []).some(o => o[0] === v) ? v : "recent"; };
+function fillSort(sel, tab){
+  if (sel.dataset.tab !== tab){ sel.textContent = ""; for (const [v, l] of SORTS[tab]){ const o = document.createElement("option"); o.value = v; o.textContent = l; sel.appendChild(o); } sel.dataset.tab = tab; }
+  sel.value = sortOf(tab);
+}
+const cmpText = (a, b) => String(a || "").localeCompare(String(b || ""), undefined, {sensitivity: "base", numeric: true});
+const artistOf = s => s.artist || s.by || "";
+// sorts a list and says where the group headings go: [{item}] or [{head}]
+function sortItems(list, mode, get){
+  const g = get || (x => x);
+  const items = list.slice();
+  const title = x => g(x).title || x.name || "";
+  let key = null;
+  if (mode === "az") items.sort((a, b) => cmpText(title(a), title(b)));
+  else if (mode === "fav"){ items.sort((a, b) => (isFav(b._favId || g(b).id) - isFav(a._favId || g(a).id)) || cmpText(title(a), title(b))); key = x => isFav(x._favId || g(x).id) ? "Favorites" : "Everything else"; }
+  else if (mode === "artist"){ items.sort((a, b) => cmpText(artistOf(g(a)) || "~", artistOf(g(b)) || "~") || cmpText(title(a), title(b))); key = x => artistOf(g(x)) || "Unknown artist"; }
+  else if (mode === "genre"){ items.sort((a, b) => cmpText(g(a).genre || "~", g(b).genre || "~") || cmpText(title(a), title(b))); key = x => g(x).genre || "No genre yet"; }
+  else if (mode === "size") items.sort((a, b) => (b.songs || []).length - (a.songs || []).length);
+  if (!key) return items.map(item => ({item}));
+  const out = []; let last = null;
+  for (const item of items){ const k = key(item); if (k !== last){ out.push({head: k}); last = k; } out.push({item}); }
+  return out;
+}
+function groupHead(text){ const h = document.createElement("div"); h.className = "grouphd"; h.textContent = text; return h; }
+$("libSort").addEventListener("change", e => { store.set("dg30.sort." + (libTab === "samples" ? "samples" : "mine"), e.target.value); renderLibrary(); });
+$("recSort").addEventListener("change", e => { store.set("dg30.sort.recordings", e.target.value); renderRecs(); });
+$("plSort").addEventListener("change", e => { store.set("dg30.sort.playlists", e.target.value); renderPlaylists(); });
+// genres for your songs, looked up in Apple's music catalogue like the covers
+let genresRunning = false;
+async function lookupGenre(title, artist){
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent((title + " " + artist).trim())}&media=music&entity=song&limit=10`;
+  let data; try { data = await (await fetch(url)).json(); } catch(e){ data = await jsonp(url); }
+  const a = artist.toLowerCase().split(/\s*(?:&|,| feat| with )\s*/)[0].trim();
+  const res = data.results || [];
+  const r = res.find(x => (x.artistName || "").toLowerCase().includes(a)) || res[0];
+  return r && r.primaryGenreName ? r.primaryGenreName : null;
+}
+async function autoGenres(){
+  if (genresRunning || navigator.onLine === false) return;
+  genresRunning = true;
+  try {
+    for (const m of store.get("dg30.songs", [])){
+      if (m.genre || m.genreTried || !m.artist) continue;
+      let g = null; try { g = await lookupGenre(cleanTitle(m.title), m.artist); } catch(e){ break; }
+      setSongMeta(m.id, {genre: g || undefined, genreTried: true});
+      if (g) renderLibrary();
+    }
+  } finally { genresRunning = false; }
+}
+
 /* connection light in the practice bar: green = piano connected, amber = listening with the mic, red = not connected */
 function syncPConn(){
   const b = $("pConn"); if (!b) return;
@@ -5189,7 +5400,7 @@ function syncPConn(){
 }
 $("pConn").onclick = () => $("connDlg").showModal();
 setInterval(syncPConn, 1500);
-$("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(PT.loop.on ? PT.loop.a : null); setPlaying(!P.playing); if (P.playing){ setDrawer(false); PT.lastBeat = null; PT.fromA = PT.loop.on && P.t <= PT.loop.a + 0.05; startCountIn(); } else { PT.countUntil = 0; $("countNum").hidden = true; } };
+$("playBtn").onclick = () => { if (RV.on) stopReview(true); if (!P.playing && P.t > P.len + 0.5) resetRun(PT.loop.on ? PT.loop.a : null); setPlaying(!P.playing); if (P.playing){ setDrawer(false); PT.lastBeat = null; PT.fromA = PT.loop.on && P.t <= PT.loop.a + 0.05; startCountIn(); } else { PT.countUntil = 0; $("countNum").hidden = true; } };
 /* ---------- practice drawer: tempo, key, view, words, strum, sound, full screen ---------- */
 function placeDrawer(){ const bar = $("bars"); $("pDrawer").style.top = (bar.offsetTop + bar.offsetHeight) + "px"; }
 function setDrawer(open){
@@ -5528,7 +5739,7 @@ async function showStorageInfo(){
   if (!store.get("dg30.primary", null)) showSplash();
   renderLibrary();
   songStoreReady = loadSongStore();
-  songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true), 4000); });
+  songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true).finally(autoGenres), 4000); });
   if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });

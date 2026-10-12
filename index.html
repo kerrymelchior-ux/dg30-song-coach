@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.73">
+<meta name="version" content="1.74">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1041,7 +1041,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.73";
+const APP_VERSION = "1.74";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -2227,7 +2227,16 @@ function guitarListenTick(){
 const OPEN_STR = [40, 45, 50, 55, 59, 64];          // E A D G B E, low to high (s 0 = low E)
 const tabsView = () => P.instr === "guitar" && G.view === "tabs";
 function buildTabs(notes){
-  const src = notes.filter(n => n.h === "R"); const use = src.length > 12 ? src : notes;
+  // which notes carry the tune? Usually the right hand. But in band arrangements the right hand can be a slow pad
+  // (long held chords) while the guitar riff or melody moves underneath, so if the right hand barely moves, use all notes.
+  const onsets = arr => { const t = []; for (const n of arr.slice().sort((a, b) => a.t - b.t)){ if (!t.length || n.t - t[t.length - 1] > 0.035) t.push(n.t); } return t; };
+  const medGap = t => { if (t.length < 3) return 99; const g = []; for (let i = 1; i < t.length; i++) g.push(t[i] - t[i - 1]); g.sort((a, b) => a - b); return g[g.length >> 1]; };
+  const src = notes.filter(n => n.h === "R");
+  const allOn = onsets(notes), rOn = onsets(src);
+  let use = src.length > 12 && !(rOn.length < allOn.length * 0.35 || medGap(rOn) > 1.2) ? src : notes;
+  // long held notes (pads, sustained chords) only count where nothing shorter is moving
+  const shortish = use.filter(n => n.d <= 2.0);
+  if (shortish.length > use.length * 0.5) use = use.filter(n => n.d <= 2.0 || !shortish.some(m => m.t > n.t - 0.05 && m.t < n.t + Math.min(n.d, 4)));
   const sorted = use.slice().sort((a, b) => a.t - b.t || b.p - a.p);
   const mel = [];
   for (const n of sorted){ const l = mel[mel.length - 1]; if (l && n.t - l.t < 0.035) continue; mel.push(n); }   // highest note of each onset
@@ -2304,6 +2313,17 @@ function drawTabs(now, W, strumY){
   // fret numbers (cut off at the left edge so they never cover the string names)
   cx.save(); cx.beginPath(); cx.rect(x0 - 2, y0 - gap, x1 - x0 + 14, gap * 7); cx.clip();
   const fs = Math.round(Math.min(26, gap * 0.72));
+  // each chord's shape as a soft column of fret numbers, so there's always a hand position to hold
+  if (P.chords && P.chords.length){
+    const cfs = Math.round(fs * 0.74); cx.font = `600 ${cfs}px ${css("--f-mono")}`; cx.textAlign = "center"; cx.textBaseline = "middle";
+    for (const c of P.chords){
+      const x = playX + (c.t - P.t) * pps + fs * 0.2; if (x > x1 + 20) break; if (x < x0 - 20 || !c.frets) continue;
+      cx.globalAlpha = 0.8;
+      cx.strokeStyle = C.chrome; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x - cfs * 0.9, lineY(5) - cfs * 0.4); cx.lineTo(x - cfs * 0.9, lineY(0) + cfs * 0.4); cx.stroke();
+      c.frets.forEach((fr, st) => { if (fr < 0) return; const yy = lineY(st); cx.fillStyle = "rgba(10,8,7,0.9)"; cx.fillRect(x - cfs * 0.55, yy - cfs * 0.5, cfs * 1.1, cfs); cx.fillStyle = C.chrome; cx.fillText(String(fr), x, yy + 1); });
+      cx.globalAlpha = 1;
+    }
+  }
   cx.font = `700 ${fs}px ${css("--f-mono")}`; cx.textAlign = "center"; cx.textBaseline = "middle";
   for (const n of tabs){
     const x = playX + (n.t - P.t) * pps; if (x > x1 + 30) break; const xe = playX + (n.t + n.d - P.t) * pps; if (xe < x0) continue;
@@ -2425,6 +2445,16 @@ function drawGuitar(now){
       const x = n.f === 0 ? nutX - 14 : (fretX(n.f - 1) + fretX(Math.min(n.f, 15))) / 2;
       cx.beginPath(); cx.arc(x, y, dotR * (ghost ? 0.85 : 1.1), 0, Math.PI * 2);
       if (ghost){ cx.strokeStyle = C.R; cx.lineWidth = 2; cx.stroke(); } else { cx.fillStyle = C.R; cx.fill(); cx.fillStyle = C.bg; cx.font = `700 ${Math.round(dotR * 1.1)}px ${css("--f-mono")}`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(String(n.f), x, y + 1); } };
+    // the chord's shape in soft blue, so you can see where the whole hand goes; the note to pick is on top in gold
+    if (cur && cur.frets){
+      cur.frets.forEach((f, s) => {
+        const y = rowY(s);
+        if (f < 0){ cx.fillStyle = C.muted; cx.font = `700 ${dotR * 1.3}px ${css("--f-body")}`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("×", nutX - 14, y); return; }
+        if (f === 0){ cx.strokeStyle = C.chrome; cx.lineWidth = 2; cx.beginPath(); cx.arc(nutX - 14, y, dotR * 0.6, 0, Math.PI * 2); cx.stroke(); return; }
+        const x = (fretX(f - 1) + fretX(f)) / 2;
+        cx.globalAlpha = 0.55; cx.fillStyle = C.chrome; cx.beginPath(); cx.arc(x, y, dotR * 0.85, 0, Math.PI * 2); cx.fill(); cx.globalAlpha = 1;
+      });
+    }
     if (i >= 0){ dot(tabs[i + 1], true); if (tabs[i].t <= P.t + 0.6) dot(tabs[i], false); }
   }
 }

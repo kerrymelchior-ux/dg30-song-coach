@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.42">
+<meta name="version" content="1.43">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
@@ -212,7 +212,9 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .scrub{display:flex;align-items:center;gap:10px;padding:6px 12px 8px;background:var(--panel);border-top:1px solid var(--line)}
 .scrub output{font:500 12px var(--f-mono);color:var(--muted);min-width:7.5em;text-align:right;font-variant-numeric:tabular-nums}
 .result{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
-.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);background:var(--ivory);color:var(--lacquer);padding:10px 16px;border-radius:14px;font-weight:600;z-index:50;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.45);text-align:center}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);cursor:pointer;animation:toastIn .15s ease-out;background:var(--ivory);color:var(--lacquer);padding:10px 16px;border-radius:14px;font-weight:600;z-index:50;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.45);text-align:center}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-50%)}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
 /* Tabs */
 .tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
 .tab{flex:1;min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:15px}
@@ -310,6 +312,15 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
 
 /* practice toolbar: slim bar, everything else in a drawer */
+.pconn{position:relative;flex:none;width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--lacquer);display:grid;place-items:center;padding:0;color:var(--muted)}
+.pconn i{position:absolute;right:6px;bottom:6px;width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--lacquer)}
+.pconn.on{color:var(--ivory);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+.pconn.on i{background:var(--good);box-shadow:0 0 0 2px var(--lacquer),0 0 8px var(--good)}
+.pconn.mic i{background:var(--right)}
+.pconn.busy i{background:var(--right);animation:pconnBlink 1s ease-in-out infinite}
+@keyframes pconnBlink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.pconn.busy i{animation:none}}
+@media (max-height:520px){ .pconn{width:36px;height:36px} }
 .qvol{display:flex;align-items:center;gap:2px;flex:none;height:42px;padding:0 10px 0 2px;border:1px solid var(--line);border-radius:10px;background:var(--lacquer)}
 .qvol button{width:36px;height:40px;border:0;background:none;padding:0;display:grid;place-items:center;color:var(--ivory)}
 .qvol input{width:110px;accent-color:var(--accent)}
@@ -505,6 +516,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
   <div id="bars" class="ctrl">
     <button class="icon" id="backBtn" type="button" aria-label="Back to songs">&#8592;</button>
     <div class="title" id="pTitle">Song</div>
+    <button class="pconn" id="pConn" type="button" title="Piano not connected. Tap to connect" aria-label="Piano not connected. Tap to connect"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><i></i></button>
     <div class="qvol" role="group" aria-label="Piano volume">
       <button type="button" id="qMute" aria-label="Mute" title="Mute or unmute"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path id="qWave1" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path id="qWave2" d="M18 6.8a7.5 7.5 0 0 1 0 10.4"/><path id="qX" d="m15.5 9.5 5 5m0-5-5 5" style="display:none"/></svg></button>
       <input id="qVol" type="range" min="0" max="100" step="5" value="100" aria-label="Piano volume">
@@ -833,7 +845,7 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.42";
+const APP_VERSION = "1.43";
 const BP_VER = "1.0.1";
 const BP_SOURCES = [
   { mod:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/+esm`, model:`https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@${BP_VER}/model/model.json` },
@@ -1262,7 +1274,7 @@ const bleQueue = { pending:[], busy:false };
 function setConnected(kind, name){
   conn.kind = kind; conn.name = name;
   if (kind === "ble" || kind === "midi") setTimeout(applyVolume, 300);
-  $("connPill").classList.toggle("on", !!kind);
+  $("connPill").classList.toggle("on", !!kind); syncPConn();
   $("connText").textContent = kind ? (kind === "mic" ? "Mic listening" : name || "Piano connected") : "Connect piano"; $("connPill").title = $("connText").textContent;
   $("connStatus").textContent = kind ? "Connected: " + (name || kind) : "";
   if ($("setConnName")) { $("setConnName").textContent = kind ? (kind === "mic" ? "Listening with the mic" : (name || "Piano") + " connected") : "Not connected"; $("setConnBtn").textContent = kind ? "Change" : "Connect piano"; }
@@ -2205,7 +2217,7 @@ function setPlaying(on){
   if (on && P.instr === "guitar" && P.mode === "wait") startGuitarMic();
   if (on && !P.playing) setTimeout(() => pedalSeek(P.t), 0);
   if (on && !P.playing && conn.outMode === "piano" && !pianoReady() && (P.mode === "listen" || P.instr === "guitar" || P.hands !== "B"))
-    toast("The piano isn't connected, so the song plays on the phone speaker. Tap the message at the top to connect.");
+    toast("Piano not connected: playing on the phone speaker");
   P.playing = on; $("playBtn").innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
   if (!on) allNotesOff(); else audioCtx();
   keepAwake();
@@ -2788,14 +2800,14 @@ function drawBanner(){
   let msg = "";
   const needPiano = conn.outMode === "piano" && !pianoReady() && conn.kind !== "mic";
   b.classList.toggle("tap", needPiano);
-  if (needPiano && (P.playing || !conn.kind)){ b.hidden = false; b.textContent = reconnecting ? "Reconnecting to the piano…" : "Piano not connected · tap to connect"; return; }
+  if (needPiano && reconnecting){ b.hidden = false; b.textContent = "Reconnecting to the piano…"; return; }
   if (P.instr === "guitar"){
     if (!P.playing) msg = P.mode === "wait" ? (GM.denied ? "Wait mode needs the microphone to hear your guitar" : "Press play, then strum each chord. The mic listens for it.") : (G.backing === "piano" ? "Press play: the piano plays while the chords show" : G.backing === "both" ? "Press play: the piano and a guitar play together" : "Press play");
     else if (P.waiting && P.waitChord) msg = "Strum " + P.waitChord.name + (GM.starting ? " · starting the mic…" : " · listening");
     else if (P.chords.length && P.t < P.chords[0].t) msg = "Get ready…";
     b.hidden = !msg; b.textContent = msg; return;
   }
-  if (!P.playing) msg = conn.kind ? "Press play" : "Connect your piano to start";
+  if (!P.playing) msg = "Press play";
   if (!P.playing && conn.kind === "mic" && conn.outMode === "piano") msg = "Using the mic: the song plays on the phone speaker";
   else if (P.mode === "wait" && P.waiting && cur) msg = "Play " + [...cur.req].filter(q => !cur.hit.has(q)).sort((a,b)=>a-b).map(noteName).join(" + ");
   else if (P.t < (P.notes[0]?.t ?? 0)) msg = "Get ready…";
@@ -4531,6 +4543,17 @@ function closePractice(){
   exitFullscreen();
 }
 $("backBtn").onclick = closePractice;
+
+/* connection light in the practice bar: green = piano connected, amber = listening with the mic, red = not connected */
+function syncPConn(){
+  const b = $("pConn"); if (!b) return;
+  const on = conn.kind === "ble" || conn.kind === "midi", mic = conn.kind === "mic";
+  b.classList.toggle("on", on); b.classList.toggle("mic", mic); b.classList.toggle("busy", !!(typeof reconnecting !== "undefined" && reconnecting));
+  const t = on ? (conn.name || "Piano") + " connected" : mic ? "Listening with the mic. Tap to change" : "Piano not connected. Tap to connect";
+  b.title = t; b.setAttribute("aria-label", t);
+}
+$("pConn").onclick = () => $("connDlg").showModal();
+setInterval(syncPConn, 1500);
 $("playBtn").onclick = () => { if (!P.playing && P.t > P.len + 0.5) resetRun(); setPlaying(!P.playing); if (P.playing) setDrawer(false); };
 /* ---------- practice drawer: tempo, key, view, words, strum, sound, full screen ---------- */
 function placeDrawer(){ const bar = $("bars"); $("pDrawer").style.top = (bar.offsetTop + bar.offsetHeight) + "px"; }
@@ -4692,9 +4715,11 @@ $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; stor
 
 /* small toast via the banner on library */
 function toast(msg, ms){
+  document.querySelectorAll(".toast").forEach(x => x.remove());          // one message at a time
   const t = document.createElement("div"); t.textContent = msg; t.setAttribute("role", "status"); t.className = "toast";
+  t.addEventListener("pointerdown", e => { e.stopPropagation(); t.remove(); });   // tap to dismiss
   const open = [...document.querySelectorAll("dialog[open]")].pop();      // a pop-up sits above the page, so show it there
-  (open || document.body).appendChild(t); setTimeout(() => t.remove(), ms || Math.max(2600, msg.length * 60));
+  (open || document.body).appendChild(t); setTimeout(() => t.remove(), ms || Math.min(3500, Math.max(1800, msg.length * 35)));
 }
 
 /* ---------------- tabs ---------------- */

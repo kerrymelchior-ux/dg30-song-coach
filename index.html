@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.91">
+<meta name="version" content="1.92">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1269,7 +1269,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.91";
+const APP_VERSION = "1.92";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -2154,7 +2154,7 @@ function renderSoundList(){
     const here = list.find(s => s.i === soundState.cur); if (here){ const c = document.createElement("span"); c.className = "cur"; c.textContent = here.name; sum.appendChild(c); }
     d.appendChild(sum);
     const body = document.createElement("div"); body.className = "sbody";
-    for (const s of list){
+    for (const s of [...list].sort((a, b) => byName(a.name, b.name))){
       const b = document.createElement("button"); b.type = "button"; b.className = "snd"; b.textContent = s.name;
       b.setAttribute("aria-pressed", String(s.i === soundState.cur));
       b.onclick = () => selectSound(s.i);
@@ -2195,6 +2195,9 @@ function renderInstr(){
 const PIANO_GROUPS = [["Grand pianos", ["grand", "kawai", "steinway", "splendid"]], ["Upright pianos", ["upright", "honky"]],
   ["Electric pianos", ["rhodes", "wurli", "cp80", "fm"]], ["Other keyboards", ["harpsi", "simple"]]];
 const PG_OPEN = {};      // which piano groups are open, per list
+// instruments are listed A to Z inside each group, by the name you see (in your language)
+const byName = (a, b) => tr(a).localeCompare(tr(b), (typeof LANG_LOCALE !== "undefined" && LANG_LOCALE[LANG]) || undefined, {numeric: true, sensitivity: "base"});
+const sortCards = l => [...l].sort((a, b) => byName(a[1], b[1]));
 function instCardsInto(box, tab){
   const list = tab === "guitar" ? GUITARS : PHONE_PIANOS, cur = tab === "guitar" ? gtrSound() : grand.want;
   box.textContent = ""; box.dataset.tab = tab;
@@ -2205,7 +2208,7 @@ function instCardsInto(box, tab){
     return b;
   };
   const btn = box.previousElementSibling && box.previousElementSibling.classList.contains("expall") ? box.previousElementSibling : null;
-  if (tab === "guitar"){ box.classList.remove("grouped"); for (const it of list) box.appendChild(card(it)); if (btn) btn.hidden = true; return; }
+  if (tab === "guitar"){ box.classList.remove("grouped"); for (const it of sortCards(list)) box.appendChild(card(it)); if (btn) btn.hidden = true; return; }
   box.classList.add("grouped");
   const open = PG_OPEN[box.id] || (PG_OPEN[box.id] = new Set([(PIANO_GROUPS.find(g => g[1].includes(cur)) || PIANO_GROUPS[0])[0]]));
   for (const [g, keys] of PIANO_GROUPS){
@@ -2213,7 +2216,7 @@ function instCardsInto(box, tab){
     const sum = document.createElement("summary"); sum.append(g + " "); const n = document.createElement("small"); n.textContent = keys.length; sum.appendChild(n);
     const here = list.find(x => x[0] === cur && keys.includes(x[0])); if (here){ const c = document.createElement("span"); c.className = "cur"; c.textContent = here[1]; sum.appendChild(c); }
     const inner = document.createElement("div"); inner.className = "icards";
-    for (const it of list) if (keys.includes(it[0])) inner.appendChild(card(it));
+    for (const it of sortCards(list)) if (keys.includes(it[0])) inner.appendChild(card(it));
     d.append(sum, inner);
     d.addEventListener("toggle", () => { if (d.open) open.add(g); else open.delete(g); if (btn) syncExpand(btn, box); });
     box.appendChild(d);

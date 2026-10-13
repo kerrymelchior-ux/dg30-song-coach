@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.83">
+<meta name="version" content="1.84">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -402,6 +402,19 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 #soundList{display:flex;flex-direction:column;gap:4px;max-height:52vh;overflow-y:auto}
 @media (max-height:520px){#soundDlg .sheet,#instDlg .sheet{gap:10px;padding:14px}#soundDlg h2,#instDlg h2{font-size:18px}#soundList{max-height:44vh}}
 .sgroup{margin-top:10px}
+/* sound groups that open and close */
+details.sgrp{border:1px solid var(--line);border-radius:12px;background:var(--lacquer)}
+details.sgrp > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:46px;padding:0 14px;font-weight:600}
+details.sgrp > summary::-webkit-details-marker{display:none}
+details.sgrp > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+details.sgrp[open] > summary::after{transform:rotate(-135deg)}
+details.sgrp > summary small{color:var(--muted);font-weight:500}
+details.sgrp > summary .cur{color:var(--chrome);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+details.sgrp .sbody{display:flex;flex-direction:column;gap:2px;padding:0 6px 8px}
+details.sgrp .icards{padding:0 8px 10px}
+.expall{align-self:flex-end;background:none;border:none;color:var(--chrome);font:600 14px var(--f-body);padding:6px 4px;cursor:pointer}
+#soundList,#instCards.grouped,#setInstCards.grouped{gap:8px}
+#instCards.grouped,#setInstCards.grouped{display:flex;flex-direction:column}
 .snd{text-align:left;min-height:42px;padding:0 12px;border-radius:9px;border:1px solid transparent;background:transparent;font-weight:500}
 .snd:hover{background:var(--lacquer)}
 .snd[aria-pressed="true"]{background:var(--ivory);color:var(--lacquer)}
@@ -627,6 +640,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     </div>
     <small style="color:var(--muted)" id="setInstNote"></small>
     <button class="btn" id="setPianoSounds" type="button" hidden style="align-self:flex-start">Choose from your piano's own sounds</button>
+    <button class="expall" id="setInstExpand" type="button" hidden>Expand all</button>
     <div class="icards" id="setInstCards"></div>
   </section>
   <section class="add setcard">
@@ -962,11 +976,13 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <h2>Instrument</h2>
     <div class="seg" id="instSeg" role="group" aria-label="Piano or guitar" style="align-self:flex-start"><button type="button" data-v="piano" aria-pressed="true">Piano</button><button type="button" data-v="guitar" aria-pressed="false">Guitar</button></div>
     <small style="color:var(--muted)" id="instNote"></small>
+    <button class="expall" id="instExpand" type="button" hidden>Expand all</button>
     <div class="icards" id="instCards"></div>
     <div id="instPianoBox" hidden style="display:flex;flex-direction:column;gap:8px">
       <div class="status connmsg" id="soundStatus" aria-live="polite"></div>
       <input id="soundSearch" type="text" autocomplete="off" placeholder="Search your piano's sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
       <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
+      <button class="expall" id="soundExpand" type="button">Expand all</button>
       <div id="soundList"></div>
     </div>
     <div class="field" id="pedalField">
@@ -1150,7 +1166,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.83";
+const APP_VERSION = "1.84";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -1889,20 +1905,40 @@ function renderSoundLabel(){
   const ph = (PHONE_PIANOS.find(x => x[0] === grand.want) || PHONE_PIANOS[0])[1], gt = (GUITARS.find(x => x[0] === gtrSound()) || GUITARS[0])[1];
   $("setSoundName").textContent = "Piano: " + (pianoReady() ? (s ? s.name : "your piano's sound") : ph) + " · Guitar: " + gt;
 }
+// the piano's sounds in groups that open and close (Pianos, Organs, Strings…); the group you're using starts open
+const SND_OPEN = new Set();
 function renderSoundList(){
-  const q = $("soundSearch").value.trim().toLowerCase(), box = $("soundList");
+  const q = $("soundSearch").value.trim().toLowerCase(), box = $("soundList"), cur = SOUNDS[soundState.cur];
   box.textContent = "";
-  let lastGroup = null;
+  const groups = new Map();
   for (const s of SOUNDS){
     if (q ? !(s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q)) : (!s.main && !$("soundAll").checked)) continue;
-    if (s.group !== lastGroup){ const h = document.createElement("div"); h.className = "label sgroup"; h.textContent = s.group; box.appendChild(h); lastGroup = s.group; }
-    const b = document.createElement("button"); b.type = "button"; b.className = "snd"; b.textContent = s.name;
-    b.setAttribute("aria-pressed", String(s.i === soundState.cur));
-    b.onclick = () => selectSound(s.i);
-    box.appendChild(b);
+    if (!groups.has(s.group)) groups.set(s.group, []); groups.get(s.group).push(s);
   }
-  if (!box.children.length){ const p = document.createElement("p"); p.textContent = "No sounds match."; box.appendChild(p); }
+  if (!SND_OPEN.size && cur) SND_OPEN.add(cur.group);
+  for (const [g, list] of groups){
+    const d = document.createElement("details"); d.className = "sgrp"; d.open = !!q || SND_OPEN.has(g);
+    const sum = document.createElement("summary"); sum.append(g + " "); const n = document.createElement("small"); n.textContent = list.length; sum.appendChild(n);
+    const here = list.find(s => s.i === soundState.cur); if (here){ const c = document.createElement("span"); c.className = "cur"; c.textContent = here.name; sum.appendChild(c); }
+    d.appendChild(sum);
+    const body = document.createElement("div"); body.className = "sbody";
+    for (const s of list){
+      const b = document.createElement("button"); b.type = "button"; b.className = "snd"; b.textContent = s.name;
+      b.setAttribute("aria-pressed", String(s.i === soundState.cur));
+      b.onclick = () => selectSound(s.i);
+      body.appendChild(b);
+    }
+    d.appendChild(body);
+    d.addEventListener("toggle", () => { if (q) return; if (d.open) SND_OPEN.add(g); else SND_OPEN.delete(g); syncExpand($("soundExpand"), box); });
+    box.appendChild(d);
+  }
+  if (!groups.size){ const p = document.createElement("p"); p.textContent = "No sounds match."; box.appendChild(p); }
+  syncExpand($("soundExpand"), box);
 }
+// "Expand all" / "Collapse all" for a list of groups
+function syncExpand(btn, box){ const ds = [...box.querySelectorAll("details.sgrp")]; btn.hidden = ds.length < 2; btn.textContent = ds.length && ds.every(d => d.open) ? "Collapse all" : "Expand all"; }
+function toggleAll(btn, box){ const ds = [...box.querySelectorAll("details.sgrp")], open = !ds.every(d => d.open); ds.forEach(d => d.open = open); syncExpand(btn, box); }
+$("soundExpand").onclick = () => toggleAll($("soundExpand"), $("soundList"));
 function openSounds(){ $("soundDlg").showModal(); $("soundDlg").scrollTop = 0; }
 /* Instrument: the phone's pianos, your piano's own sounds when it's connected, or the guitars */
 let instTab = "piano";
@@ -1914,7 +1950,7 @@ const instOnPiano = () => instTab === "piano" && pianoReady() && conn.outMode ==
 function renderInstr(){
   setSeg("instSeg", instTab);
   const onPiano = instOnPiano();
-  $("instPianoBox").hidden = !onPiano; $("instCards").hidden = onPiano; $("pedalField").hidden = instTab !== "piano";
+  $("instPianoBox").hidden = !onPiano; $("instCards").hidden = onPiano; if (onPiano) $("instExpand").hidden = true; $("pedalField").hidden = instTab !== "piano";
   $("instNote").textContent = instTab === "guitar"
     ? "Guitars play on this phone or tablet's speaker, even with the piano connected. Tap one to hear it. Recorded guitars download once, then work offline."
     : onPiano ? "These are the sounds built into your piano. Disconnect the piano to use the phone's pianos instead."
@@ -1924,15 +1960,33 @@ function renderInstr(){
   instStatus();
 }
 // the instrument cards: in the Instrument window, and on the Settings page under Main instrument
+const PIANO_GROUPS = [["Grand pianos", ["grand", "kawai", "steinway", "splendid"]], ["Upright pianos", ["upright", "honky"]],
+  ["Electric pianos", ["rhodes", "wurli", "cp80", "fm"]], ["Other keyboards", ["harpsi", "simple"]]];
+const PG_OPEN = {};      // which piano groups are open, per list
 function instCardsInto(box, tab){
   const list = tab === "guitar" ? GUITARS : PHONE_PIANOS, cur = tab === "guitar" ? gtrSound() : grand.want;
   box.textContent = ""; box.dataset.tab = tab;
-  for (const [k, name, desc] of list){
+  const card = ([k, name, desc]) => {
     const b = document.createElement("button"); b.type = "button"; b.className = "icard"; b.dataset.k = k; b.setAttribute("aria-pressed", String(k === cur));
     for (const [c, t] of [["iname", name], ["idesc", desc], ["ist", ""], ["iplay", k === cur ? "\u2713" : "\u25B6"]]){ const sp = document.createElement("span"); sp.className = c; sp.textContent = t; if (c === "iplay") sp.setAttribute("aria-hidden", "true"); b.appendChild(sp); }
     b.onclick = () => { instTab = tab; pickInstr(k); };
-    box.appendChild(b);
+    return b;
+  };
+  const btn = box.previousElementSibling && box.previousElementSibling.classList.contains("expall") ? box.previousElementSibling : null;
+  if (tab === "guitar"){ box.classList.remove("grouped"); for (const it of list) box.appendChild(card(it)); if (btn) btn.hidden = true; return; }
+  box.classList.add("grouped");
+  const open = PG_OPEN[box.id] || (PG_OPEN[box.id] = new Set([(PIANO_GROUPS.find(g => g[1].includes(cur)) || PIANO_GROUPS[0])[0]]));
+  for (const [g, keys] of PIANO_GROUPS){
+    const d = document.createElement("details"); d.className = "sgrp"; d.open = open.has(g);
+    const sum = document.createElement("summary"); sum.append(g + " "); const n = document.createElement("small"); n.textContent = keys.length; sum.appendChild(n);
+    const here = list.find(x => x[0] === cur && keys.includes(x[0])); if (here){ const c = document.createElement("span"); c.className = "cur"; c.textContent = here[1]; sum.appendChild(c); }
+    const inner = document.createElement("div"); inner.className = "icards";
+    for (const it of list) if (keys.includes(it[0])) inner.appendChild(card(it));
+    d.append(sum, inner);
+    d.addEventListener("toggle", () => { if (d.open) open.add(g); else open.delete(g); if (btn) syncExpand(btn, box); });
+    box.appendChild(d);
   }
+  if (btn) syncExpand(btn, box);
 }
 function renderSetInstr(){
   const tab = primaryInstr(), onPiano = tab === "piano" && pianoReady() && conn.outMode === "piano";
@@ -4307,6 +4361,8 @@ function setPrimary(v, announce){
 }
 $("instChip").onclick = () => setPrimary(primaryInstr() === "guitar" ? "piano" : "guitar", true);
 $("setPianoSounds").onclick = () => openInstrument("piano");
+$("instExpand").onclick = () => toggleAll($("instExpand"), $("instCards"));
+$("setInstExpand").onclick = () => toggleAll($("setInstExpand"), $("setInstCards"));
 $("primSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setPrimary(b.dataset.v, false); });
 function showSplash(){
   const sp = $("splash"); sp.hidden = false; sp.classList.remove("out");

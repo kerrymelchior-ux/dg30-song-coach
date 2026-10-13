@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.80">
+<meta name="version" content="1.81">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -697,7 +697,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="label" style="margin-top:10px" id="verLabel"></div>
     <div class="row" style="gap:10px;align-items:center"><button class="btn" id="updBtn" type="button">Check for updates</button><span id="updStatus" style="color:var(--muted);font-size:14px"></span></div>
     <small style="color:var(--muted)">© 2026 Kerry E. Melchior II. All rights reserved.</small>
-    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Guitars and the other phone pianos from the Musyng Kite sound set (CC BY-SA 3.0), with the FluidR3 GM set by Frank Wen (CC BY 3.0) as a backup, via midi-js-soundfonts by Benjamin Gleitzman. Sheet music drawn with abcjs.</small>
+    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Kawai grand, Steinway B grand, Yamaha upright, harpsichord and FM piano from the Versilian Community Sample Library by Sam Gossner (CC0); Splendid Grand Piano (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer and CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); all via danigb/samples. Steel-string and electric guitars from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0); nylon-string guitar from FreePats (CC0). Sheet music drawn with abcjs.</small>
   </section>
   </div>
 </main>
@@ -995,7 +995,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <p id="tunerHint"></p>
     </div><div class="tcol">
     <div id="headstock"></div>
-    <div class="row" style="justify-content:center;gap:10px">
+    <div class="row" style="justify-content:center;gap:10px;flex-wrap:wrap">
+      <div class="seg" id="tunerType" role="group" aria-label="Guitar type"></div>
       <div class="seg" id="tunerStrings" role="group" aria-label="Which string"></div>
       <div class="seg" id="tunerLayout" role="group" aria-label="Headstock shape"></div>
     </div>
@@ -1133,7 +1134,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.80";
+const APP_VERSION = "1.81";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -1482,7 +1483,8 @@ const PIANO_SRC = [
 // hard playing sounds bright, like a real piano, instead of one recording made quieter or louder.
 const LAYER_SRC = v => ({base: `https://cdn.jsdelivr.net/npm/@audio-samples/piano-mp3-velocity${v}@1.0.5/audio/`, name: (L, o) => encodeURIComponent(L + o + "v" + v) + ".mp3"});
 const LAYERS = [{key: "mid", v: 8, center: 0.6}, {key: "soft", v: 4, center: 0.3}, {key: "loud", v: 14, center: 0.92}];
-const grand = { layers: {}, want: ["grand","bright","honky","epiano","fm","simple"].includes(store.get("dg30.phoneSound", "grand")) ? store.get("dg30.phoneSound", "grand") : "grand", bufs: new Map(), state: "idle", loading: null, bus: null };
+const PIANO_KINDS = ["grand","kawai","steinway","splendid","upright","honky","rhodes","wurli","cp80","fm","harpsi","simple"];
+const grand = { layers: {}, want: (() => { const v = ({bright: "splendid", epiano: "rhodes"})[store.get("dg30.phoneSound", "grand")] || store.get("dg30.phoneSound", "grand"); return PIANO_KINDS.includes(v) ? v : "grand"; })(), bufs: new Map(), state: "idle", loading: null, bus: null };
 function grandNotes(){ const out = []; for (let p = 21; p <= 108; p += 3) out.push(p); return out.sort((a, b) => Math.abs(a - 62) - Math.abs(b - 62)); }
 function loadGrand(){
   if (grand.loading) return grand.loading;
@@ -1532,7 +1534,9 @@ function grandBus(a){
   const len = Math.round(a.sampleRate * 1.8), ir = a.createBuffer(2, len, a.sampleRate);
   for (let c = 0; c < 2; c++){ const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
   rev.buffer = ir; dry.gain.value = 0.9; wet.gain.value = 0.22;
-  bus.connect(dry); dry.connect(vol.master); bus.connect(rev); rev.connect(wet); wet.connect(vol.master);
+  // a gentle limiter, so big loud chords don't crackle on the phone speaker
+  const lim = a.createDynamicsCompressor(); lim.threshold.value = -8; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.2;
+  bus.connect(dry); dry.connect(lim); bus.connect(rev); rev.connect(wet); wet.connect(lim); lim.connect(vol.master);
   return grand.bus = bus;
 }
 function grandOn(p, v, bufs){
@@ -1564,7 +1568,7 @@ function grandOn(p, v, bufs){
 }
 function synthOn(p, v){
   if (grand.want === "grand"){ if (!grand.loading) loadGrand(); if (grandOn(p, v)) return; }
-  else if (GS[grand.want]){ const g = GS[grand.want]; if (g.state === "none") loadGuitar(grand.want); if (grandOn(p, v, g.bufs)) return; }
+  else if (SFZ_OPT[grand.want]){ const s = siOf(grand.want); if (s.state === "none") siLoad(grand.want); if (siOn(p, v, grand.want)) return; }
   const a = audioCtx(), t = a.currentTime, f = 440 * Math.pow(2, (p - 69) / 12);
   const g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter();
   o1.type = "triangle"; o2.type = "sine"; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -1910,12 +1914,12 @@ function renderInstr(){
   }
   instStatus();
 }
-function instSampler(k){ return k === "grand" ? grand : GS[k === "twelve" ? "steel" : k] || null; }
+function instSampler(k){ return k === "grand" ? grand : instTab === "piano" ? siOf(k) : GS[k === "twelve" ? "steel" : k] || null; }
 function instStatus(){
   const box = $("instCards"); if (!box || !$("instDlg").open) return;
   for (const b of box.querySelectorAll(".icard")){
     const k = b.dataset.k, g = instSampler(k), el = b.querySelector(".ist"); if (!g){ el.textContent = ""; continue; }
-    const total = k === "grand" ? 30 : g.total || (isGtrKind(k === "twelve" ? "steel" : k) ? 17 : 30);
+    const total = k === "grand" ? 30 : g.total || 30;
     el.textContent = g.state === "loading" ? `Downloading… ${Math.min(99, Math.round(g.bufs.size / total * 100))}%`
       : g.state === "ready" ? "Downloaded, works offline" : g.state === "partial" ? "Partly downloaded" : g.state === "failed" ? "Couldn't download. Tap to try again" : "Downloads once when you pick it";
   }
@@ -1929,7 +1933,7 @@ async function pickInstr(k){
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
     allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel();
-    if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (GS[k]) await loadGuitar(k);
+    if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k);
     if (grand.want !== k || !$("instDlg").open) return;
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
@@ -2175,53 +2179,147 @@ function gtrBuf(a, p){
   const norm = 0.6 / (peak || 1); for (let i = 0; i < len; i++) d[i] *= norm;
   gtrBufs.set(p, b); return b;
 }
-/* recorded guitars for the phone speaker: steel- and nylon-string acoustic (FluidR3 GM samples, CC BY 3.0),
-   loaded once and kept on the phone; the 12-string doubles each note the way a real one does. */
-// recorded instruments from the FluidR3 GM sound set (CC BY 3.0): guitars, plus the extra phone pianos
-const GTR_FILES = {nylon: "acoustic_guitar_nylon", steel: "acoustic_guitar_steel", bright: "bright_acoustic_piano", honky: "honkytonk_piano", epiano: "electric_piano_1", fm: "electric_piano_2"};
-const GS = {}; for (const k in GTR_FILES) GS[k] = {bufs: new Map(), state: "none"};
-const isGtrKind = k => k === "nylon" || k === "steel";
-const PHONE_PIANOS = [
-  ["grand", "Concert grand", "A recorded Yamaha concert grand, rich and full"],
-  ["bright", "Bright grand", "A brighter, punchier grand that cuts through for pop and rock"],
-  ["honky", "Honky-tonk upright", "An old saloon upright, slightly out of tune on purpose"],
-  ["epiano", "Electric piano", "Classic tine electric piano, warm and bell-like"],
-  ["fm", "80s electric piano", "Glassy, shimmering electric piano from the 80s"],
-  ["simple", "Simple tone", "Made on the phone, no download"]];
-const GUITARS = [
-  ["steel", "Steel-string acoustic", "Bright and full, the classic strummed acoustic"],
-  ["nylon", "Nylon-string acoustic", "Soft and warm, a classical or Spanish guitar"],
-  ["twelve", "12-string acoustic", "Doubled strings with a shimmering, chorus-like ring"],
-  ["synth", "Simple plucked string", "Made on the phone, no download"]];
-const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return ["steel", "nylon", "twelve", "synth"].includes(v) ? v : "steel"; };
+/* ---------------- recorded guitars ----------------
+   Steel-string and clean electric: tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0), long natural recordings.
+   Nylon-string: the FreePats Spanish classical guitar (CC0), with the tonejs nylon guitar as a backup.
+   Each note is kept on the phone after the first download. The 12-string doubles each note the way a real one does. */
+const TJ_N = ["C","Cs","D","Ds","E","F","Fs","G","Gs","A","As","B"], FP_N = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const smpName = (names, p) => names[p % 12] + (Math.floor(p / 12) - 1);
+const noteRange = (a, b, step = 1) => { const o = []; for (let p = a; p <= b; p += step) o.push(p); return o; };
+const GTR_DEF = {
+  steel: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-acoustic/", notes: noteRange(38, 74), file: p => smpName(TJ_N, p) + ".mp3"}],
+  nylon: [{repo: "freepats/spanish-classical-guitar", ref: "main", dir: "samples/", notes: [36,37,38,39,40,41,43,45,47,48,50,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84], file: p => encodeURIComponent(smpName(FP_N, p)) + ".flac"},
+          {repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-nylon/", notes: [35,38,40,42,44,45,47,49,50,52,54,55,57,59,61,63,64,66,68,69,71,73,74,76,78,79,80,81,82], file: p => smpName(TJ_N, p) + ".mp3"}],
+  electric: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-electric/", notes: [37,40,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84], file: p => smpName(TJ_N, p) + ".mp3"}]
+};
+// the same files from several places; whichever answers first is tried first next time
+const MIRROR = {};
+function ghUrls(repo, ref, path){
+  const list = [`https://cdn.jsdelivr.net/gh/${repo}@${ref}/${path}`, `https://raw.githubusercontent.com/${repo}/${ref}/${path}`];
+  if (repo === "danigb/samples") list.push(`https://danigb.github.io/samples/${path}`, `https://danigb.github.io/samples/${path.replace(/^audio\//, "")}`);
+  else { const [u, r] = repo.split("/"); list.push(`https://${u}.github.io/${r}/${path}`); }
+  const k = MIRROR[repo] || 0; return k ? [list[k], ...list.filter((_, i) => i !== k)].map((url, i) => ({url, i: i === 0 ? k : list.indexOf(url), repo})) : list.map((url, i) => ({url, i, repo}));
+}
+const GS = {}; for (const k in GTR_DEF) GS[k] = {bufs: new Map(), state: "none", trim: 1, total: GTR_DEF[k][0].notes.length};
+const isGtrKind = k => !!GTR_DEF[k];
+async function fetchCached(cache, urls){
+  for (const u of urls){
+    const url = u.url || u;
+    try {
+      let res = cache ? await cache.match(url).catch(() => null) : null;
+      if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
+      const ab = await res.arrayBuffer(); if (u.repo) MIRROR[u.repo] = u.i; return ab;
+    } catch(e){ /* next mirror */ }
+  }
+  return null;
+}
+// how loud a set of recordings is, so every instrument comes out at about the same level
+function loudness(bufs){
+  const v = [];
+  for (const b of bufs){ const d = b.getChannelData(0); let pk = 0, at = 0; for (let i = 0; i < Math.min(d.length, 22050); i++) if (Math.abs(d[i]) > pk){ pk = Math.abs(d[i]); at = i; }
+    let s = 0, n = Math.min(d.length - at, 35000); for (let i = 0; i < n; i++) s += d[at + i] * d[at + i]; if (n > 0) v.push(Math.sqrt(s / n)); }
+  v.sort((a, b) => a - b); return v.length ? v[v.length >> 1] : 0.1;
+}
 function loadGuitar(kind){
   const g = GS[kind]; if (!g) return Promise.resolve();
   if (g.loading) return g.loading;
   g.state = "loading"; showGtrSound();
   g.loading = (async () => {
-    const gtr = isGtrKind(kind), a = audioCtx(); let cache = null; try { cache = await caches.open(gtr ? "dg30-guitar" : "dg30-piano"); } catch(e){}
-    const N = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
-    const queue = []; if (gtr) for (let p = 40; p <= 88; p += 3) queue.push(p); else { for (let p = 21; p <= 108; p += 3) queue.push(p); queue.sort((x, y) => Math.abs(x - 62) - Math.abs(y - 62)); }
-    g.total = queue.length;
-    const bases = ["https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/", "https://gleitz.github.io/midi-js-soundfonts/MusyngKite/", "https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/FluidR3_GM/", "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/"];
-    const one = async p => {
-      for (const base of bases){
-        const url = `${base}${GTR_FILES[kind]}-mp3/${N[p % 12]}${Math.floor(p / 12) - 1}.mp3`;
-        try {
-          let res = cache ? await cache.match(url).catch(() => null) : null;
-          if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
-          g.bufs.set(p, trimSample(a, await a.decodeAudioData(await res.arrayBuffer()), gtr ? (p < 52 ? 6 : p < 64 ? 5 : 4) : (p < 48 ? 7 : p < 72 ? 5.5 : 4)));
-          return;
-        } catch(e){}
-      }
-    };
-    await Promise.all(Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); }));
-    g.state = g.bufs.size >= (gtr ? 10 : 24) ? "ready" : g.bufs.size ? "partial" : "failed";
+    const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-guitar2"); } catch(e){}
+    for (const set of GTR_DEF[kind]){
+      g.bufs.clear(); g.total = set.notes.length;
+      const queue = set.notes.slice().sort((x, y) => Math.abs(x - 52) - Math.abs(y - 52));
+      let fails = 0;
+      const one = async p => {
+        if (fails > 4 && !g.bufs.size) return;              // this set won't play here (e.g. a format the phone can't read): try the next
+        const ab = await fetchCached(cache, ghUrls(set.repo, set.ref, set.dir + set.file(p)));
+        try { if (!ab) throw 0; g.bufs.set(p, trimSample(a, await a.decodeAudioData(ab), p < 52 ? 6 : p < 64 ? 5 : 4)); } catch(e){ fails++; }
+      };
+      await Promise.all(Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); }));
+      if (g.bufs.size >= set.notes.length * 0.6) break;
+    }
+    g.trim = 0.07 / (loudness(g.bufs.values()) || 0.07);
+    g.state = g.bufs.size >= 8 ? "ready" : g.bufs.size ? "partial" : "failed";
     if (g.state === "failed") g.loading = null;
     showGtrSound();
   })();
   return g.loading;
 }
+
+/* ---------------- the phone's pianos ----------------
+   Real recorded pianos, each at three strengths (soft, medium, loud), mapped from their SFZ instrument files:
+   Kawai grand, Steinway B grand and Yamaha upright from the Versilian Community Sample Library (CC0);
+   the Splendid Grand (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer, Pianet and
+   Yamaha CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); TX81Z FM piano and harpsichord from VCSL (CC0).
+   Hosted in danigb/samples on GitHub. The medium strength downloads first so it's playable sooner. */
+const SFZ = {"kawai":{"base":"audio/vcsl/Zithers/","layers":{"mid":[[22,"A#-1_v3_rr1_Player",0,10.0],[24,"C0_v2_rr1_Player",-11,20.0],[27,"D#0_v2_rr1_Player",5,23.0],[30,"F#0_v2_rr1_Player",-2,18.0],[33,"A0_v2_rr1_Player",1,17.0],[36,"C1_v2_rr1_Player",3,23.0],[39,"D#1_v2_rr1_Player",6,23.0],[42,"F#1_v2_rr1_Player",0,17.0],[45,"A1_v2_rr1_Player",3,17.0],[48,"C2_v2_rr1_Player",1,19.0],[50,"D2_v2_rr1_Player",3,19.0],[52,"E2_v2_rr1_Player",5,18.0],[54,"F#2_v2_rr1_Player",2,27.0],[56,"G#2_v2_rr1_Player",3,29.0],[58,"A#2_v2_rr1_Player",5,19.0],[60,"C3_v2_rr1_Player",4,19.0],[62,"D3_v2_rr1_Player",7,27.0],[64,"E3_v2_rr1_Player",7,20.0],[66,"F#3_v2_rr1_Player",6,20.0],[68,"G#3_v2_rr1_Player",3,23.0],[70,"A#3_v2_rr1_Player",8,30.0],[72,"C4_v2_rr1_Player",4,19.0],[74,"D4_v2_rr1_Player",1,16.0],[76,"E4_v2_rr1_Player",3,25.0],[78,"F#4_v2_rr1_Player",12,30.0],[80,"G#4_v2_rr1_Player",-1,37.0],[82,"A#4_v2_rr1_Player",-1,26.0],[83,"B4_v3_rr1_Player",-10,11.0],[84,"C5_v2_rr1_Player",1,15.0],[87,"D#5_v2_rr1_Player",-9,23.0],[90,"F#5_v2_rr1_Player",0,23.0],[93,"A5_v2_rr1_Player",3,22.0],[96,"C6_v2_rr1_Player",1,14.0],[99,"D#6_v2_rr1_Player",-3,20.0],[102,"F#6_v3_rr1_Player",1,10.0],[103,"G6_v2_rr1_Player",0,18.0],[105,"A6_v2_rr1_Player",0,17.0],[108,"C7_v2_rr1_Player",0,21.0]],"soft":[[22,"A#-1_v2_rr1_Player",81,21.0],[24,"C0_v1_rr1_Player",-2,34.0],[27,"D#0_v1_rr1_Player",15,31.0],[30,"F#0_v1_rr1_Player",2,25.0],[33,"A0_v1_rr1_Player",6,29.0],[36,"C1_v1_rr1_Player",14,35.0],[39,"D#1_v1_rr1_Player",8,32.0],[42,"F#1_v1_rr1_Player",1,28.0],[45,"A1_v1_rr1_Player",5,29.0],[48,"C2_v1_rr1_Player",8,30.0],[50,"D2_v1_rr1_Player",5,34.0],[52,"E2_v1_rr1_Player",5,28.0],[54,"F#2_v1_rr1_Player",1,35.0],[56,"G#2_v1_rr1_Player",0,41.0],[58,"A#2_v1_rr1_Player",4,29.0],[60,"C3_v1_rr1_Player",4,33.0],[62,"D3_v1_rr1_Player",7,43.0],[64,"E3_v1_rr1_Player",-1,39.0],[66,"F#3_v1_rr1_Player",4,40.0],[68,"G#3_v1_rr1_Player",3,33.0],[70,"A#3_v1_rr1_Player",18,41.0],[72,"C4_v1_rr1_Player",4,36.0],[74,"D4_v1_rr1_Player",1,42.0],[76,"E4_v1_rr1_Player",3,39.0],[78,"F#4_v1_rr1_Player",13,41.0],[80,"G#4_v1_rr1_Player",0,45.0],[82,"A#4_v1_rr1_Player",-1,36.0],[83,"B4_v3_rr1_Player",-10,11.0],[84,"C5_v1_rr1_Player",0,31.0],[87,"D#5_v2_rr1_Player",-9,23.0],[90,"F#5_v2_rr1_Player",0,23.0],[93,"A5_v2_rr1_Player",3,22.0],[96,"C6_v1_rr1_Player",0,36.0],[99,"D#6_v2_rr1_Player",-3,20.0],[102,"F#6_v3_rr1_Player",1,10.0],[103,"G6_v2_rr1_Player",0,18.0],[105,"A6_v1_rr1_Player",0,40.0],[108,"C7_v1_rr1_Player",0,28.0]],"loud":[[22,"A#-1_v4_rr1_Player",0,1.0],[24,"C0_v4_rr1_Player",-19,2.0],[27,"D#0_v4_rr1_Player",-11,3.0],[30,"F#0_v4_rr1_Player",-4,2.0],[33,"A0_v4_rr1_Player",-6,0.0],[36,"C1_v4_rr1_Player",-2,5.0],[39,"D#1_v4_rr1_Player",1,4.0],[42,"F#1_v4_rr1_Player",-5,2.0],[45,"A1_v4_rr1_Player",0,1.0],[48,"C2_v4_rr1_Player",-10,6.0],[50,"D2_v4_rr1_Player",-4,3.0],[52,"E2_v4_rr1_Player",-2,1.0],[54,"F#2_v4_rr1_Player",-5,3.0],[56,"G#2_v4_rr1_Player",-5,5.0],[58,"A#2_v4_rr1_Player",-7,2.0],[60,"C3_v4_rr1_Player",-3,2.0],[62,"D3_v4_rr1_Player",-2,7.0],[64,"E3_v4_rr1_Player",-3,1.0],[66,"F#3_v4_rr1_Player",-2,0.0],[68,"G#3_v4_rr1_Player",-5,2.0],[70,"A#3_v4_rr1_Player",-13,6.0],[72,"C4_v4_rr1_Player",-2,1.0],[74,"D4_v4_rr1_Player",-8,-3.0],[76,"E4_v4_rr1_Player",-6,2.0],[78,"F#4_v4_rr1_Player",-5,1.0],[80,"G#4_v4_rr1_Player",-18,3.0],[82,"A#4_v3_rr1_Player",-2,8.0],[83,"B4_v3_rr1_Player",-10,11.0],[84,"C5_v4_rr1_Player",-2,0.0],[87,"D#5_v4_rr1_Player",-19,6.0],[90,"F#5_v4_rr1_Player",-7,1.0],[93,"A5_v4_rr1_Player",-1,5.0],[96,"C6_v4_rr1_Player",0,1.0],[99,"D#6_v4_rr1_Player",2,5.0],[102,"F#6_v4_rr1_Player",0,6.0],[103,"G6_v2_rr1_Player",0,18.0],[105,"A6_v4_rr1_Player",-1,4.0],[108,"C7_v3_rr1_Player",0,5.0]]},"pre":"Grand Piano, Kawai/Sustains/GPiano_sus_"},"steinway":{"base":"audio/vcsl/Zithers/","layers":{"mid":[[22,"NoSus/JHPiano_NoSus_Close_A#0_vl3_rr1",0,0.0],[24,"NoSus/JHPiano_NoSus_Close_C1_vl3_rr1",0,1.0],[26,"NoSus/JHPiano_NoSus_Close_D1_vl3_rr1",0,0.0],[28,"NoSus/JHPiano_NoSus_Close_E1_vl3_rr1",0,0.0],[30,"NoSus/JHPiano_NoSus_Close_F#1_vl3_rr1",0,0.0],[32,"NoSus/JHPiano_NoSus_Close_G#1_vl3_rr1",0,0.0],[34,"NoSus/JHPiano_NoSus_Close_A#1_vl3_rr1",0,0.0],[36,"NoSus/JHPiano_NoSus_Close_C2_vl3_rr1",0,1.0],[38,"NoSus/JHPiano_NoSus_Close_D2_vl3_rr1",0,1.0],[40,"NoSus/JHPiano_NoSus_Close_E2_vl3_rr1",0,-2.0],[42,"NoSus/JHPiano_NoSus_Close_F#2_vl3_rr1",0,0.0],[44,"NoSus/JHPiano_NoSus_Close_G#2_vl3_rr1",0,2.0],[46,"NoSus/JHPiano_NoSus_Close_A#2_vl3_rr1",0,0.0],[48,"NoSus/JHPiano_NoSus_Close_C3_vl3_rr1",0,0.0],[50,"NoSus/JHPiano_NoSus_Close_D3_vl3_rr1",0,0.0],[52,"NoSus/JHPiano_NoSus_Close_E3_vl3_rr1",0,1.0],[54,"NoSus/JHPiano_NoSus_Close_F#3_vl3_rr1",0,0.0],[56,"NoSus/JHPiano_NoSus_Close_G#3_vl3_rr1",0,-1.0],[58,"NoSus/JHPiano_NoSus_Close_A#3_vl3_rr1",0,0.0],[60,"NoSus/JHPiano_NoSus_Close_C4_vl3_rr1",0,-1.0],[62,"NoSus/JHPiano_NoSus_Close_D4_vl3_rr1",0,1.0],[64,"NoSus/JHPiano_NoSus_Close_E4_vl3_rr1",0,0.0],[66,"NoSus/JHPiano_NoSus_Close_F#4_vl3_rr1",0,3.0],[68,"NoSus/JHPiano_NoSus_Close_G#4_vl3_rr1",0,-1.0],[70,"NoSus/JHPiano_NoSus_Close_A#4_vl3_rr1",0,-1.0],[72,"NoSus/JHPiano_NoSus_Close_C5_vl3_rr1",0,0.0],[74,"NoSus/JHPiano_NoSus_Close_D5_vl3_rr1",0,0.0],[76,"NoSus/JHPiano_NoSus_Close_E5_vl3_rr1",0,0.0],[78,"NoSus/JHPiano_NoSus_Close_F#5_vl3_rr1",0,1.0],[80,"NoSus/JHPiano_NoSus_Close_G#5_vl3_rr1",0,-1.0],[82,"NoSus/JHPiano_NoSus_Close_A#5_vl3_rr1",0,0.0],[84,"NoSus/JHPiano_NoSus_Close_C6_vl3_rr1",0,3.0],[86,"NoSus/JHPiano_NoSus_Close_D6_vl3_rr1",0,0.0],[88,"NoSus/JHPiano_NoSus_Close_E6_vl3_rr1",0,0.0],[90,"NoSus/JHPiano_NoSus_Close_F#6_vl3_rr1",0,-1.0],[92,"NoSus/JHPiano_NoSus_Close_G#6_vl3_rr1",0,1.0],[94,"NoSus/JHPiano_NoSus_Close_A#6_vl3_rr1",0,3.0],[96,"NoSus/JHPiano_NoSus_Close_C7_vl3_rr1",0,0.0],[98,"NoSus/JHPiano_NoSus_Close_D7_vl3_rr1",0,1.0],[100,"NoSus/JHPiano_NoSus_Close_E7_vl3_rr1",0,-2.0],[102,"NoSus/JHPiano_NoSus_Close_F#7_vl3_rr1",0,-3.0],[104,"NoSus/JHPiano_NoSus_Close_G#7_vl3_rr1",0,7.0]],"soft":[[22,"NoSus/JHPiano_NoSus_Close_A#0_vl2_rr1",0,-1.0],[24,"NoSus/JHPiano_NoSus_Close_C1_vl2_rr1",0,0.0],[26,"NoSus/JHPiano_NoSus_Close_D1_vl2_rr1",0,0.0],[28,"NoSus/JHPiano_NoSus_Close_E1_vl2_rr1",0,0.0],[30,"NoSus/JHPiano_NoSus_Close_F#1_vl2_rr1",0,0.0],[32,"NoSus/JHPiano_NoSus_Close_G#1_vl2_rr1",0,0.0],[34,"NoSus/JHPiano_NoSus_Close_A#1_vl2_rr1",0,0.0],[36,"NoSus/JHPiano_NoSus_Close_C2_vl2_rr1",0,0.0],[38,"NoSus/JHPiano_NoSus_Close_D2_vl2_rr1",0,0.0],[40,"NoSus/JHPiano_NoSus_Close_E2_vl2_rr1",0,-2.0],[42,"NoSus/JHPiano_NoSus_Close_F#2_vl2_rr1",0,0.0],[44,"NoSus/JHPiano_NoSus_Close_G#2_vl2_rr1",0,2.0],[46,"NoSus/JHPiano_NoSus_Close_A#2_vl2_rr1",0,0.0],[48,"NoSus/JHPiano_NoSus_Close_C3_vl2_rr1",0,1.0],[50,"NoSus/JHPiano_NoSus_Close_D3_vl2_rr1",0,0.0],[52,"NoSus/JHPiano_NoSus_Close_E3_vl2_rr1",0,2.0],[54,"NoSus/JHPiano_NoSus_Close_F#3_vl2_rr1",0,1.0],[56,"NoSus/JHPiano_NoSus_Close_G#3_vl2_rr1",0,-1.0],[58,"NoSus/JHPiano_NoSus_Close_A#3_vl2_rr1",0,2.0],[60,"NoSus/JHPiano_NoSus_Close_C4_vl2_rr1",0,0.0],[62,"NoSus/JHPiano_NoSus_Close_D4_vl2_rr1",0,2.0],[64,"NoSus/JHPiano_NoSus_Close_E4_vl2_rr1",0,-2.0],[66,"NoSus/JHPiano_NoSus_Close_F#4_vl2_rr1",0,3.0],[68,"NoSus/JHPiano_NoSus_Close_G#4_vl2_rr1",0,-1.0],[70,"NoSus/JHPiano_NoSus_Close_A#4_vl2_rr1",0,-1.0],[72,"NoSus/JHPiano_NoSus_Close_C5_vl2_rr1",0,0.0],[74,"NoSus/JHPiano_NoSus_Close_D5_vl2_rr1",0,2.0],[76,"NoSus/JHPiano_NoSus_Close_E5_vl2_rr1",0,-3.0],[78,"NoSus/JHPiano_NoSus_Close_F#5_vl2_rr1",0,-1.0],[80,"NoSus/JHPiano_NoSus_Close_G#5_vl2_rr1",0,1.0],[82,"NoSus/JHPiano_NoSus_Close_A#5_vl2_rr1",0,-3.0],[84,"NoSus/JHPiano_NoSus_Close_C6_vl2_rr1",0,1.0],[86,"NoSus/JHPiano_NoSus_Close_D6_vl2_rr1",0,1.0],[88,"NoSus/JHPiano_NoSus_Close_E6_vl2_rr1",0,-2.0],[90,"NoSus/JHPiano_NoSus_Close_F#6_vl2_rr1",0,0.0],[92,"NoSus/JHPiano_NoSus_Close_G#6_vl2_rr1",0,-2.0],[94,"NoSus/JHPiano_NoSus_Close_A#6_vl2_rr1",0,2.0],[96,"NoSus/JHPiano_NoSus_Close_C7_vl2_rr1",0,4.0],[98,"NoSus/JHPiano_NoSus_Close_D7_vl2_rr1",0,2.0],[100,"NoSus/JHPiano_NoSus_Close_E7_vl2_rr1",0,4.0],[102,"NoSus/JHPiano_NoSus_Close_F#7_vl2_rr1",0,5.0],[104,"NoSus/JHPiano_NoSus_Close_G#7_vl2_rr1",0,-1.0]],"loud":[[22,"NoSus/JHPiano_NoSus_Close_A#0_vl4_rr1",0,0.0],[24,"NoSus/JHPiano_NoSus_Close_C1_vl4_rr1",0,1.0],[26,"NoSus/JHPiano_NoSus_Close_D1_vl4_rr1",0,0.0],[28,"NoSus/JHPiano_NoSus_Close_E1_vl4_rr1",0,0.0],[30,"NoSus/JHPiano_NoSus_Close_F#1_vl4_rr1",0,0.0],[32,"NoSus/JHPiano_NoSus_Close_G#1_vl4_rr1",0,0.0],[34,"NoSus/JHPiano_NoSus_Close_A#1_vl4_rr1",0,0.0],[36,"NoSus/JHPiano_NoSus_Close_C2_vl4_rr1",0,1.0],[38,"NoSus/JHPiano_NoSus_Close_D2_vl4_rr1",0,0.0],[40,"NoSus/JHPiano_NoSus_Close_E2_vl4_rr1",0,-3.0],[42,"NoSus/JHPiano_NoSus_Close_F#2_vl4_rr1",0,0.0],[44,"NoSus/JHPiano_NoSus_Close_G#2_vl4_rr1",0,1.0],[46,"NoSus/JHPiano_NoSus_Close_A#2_vl4_rr1",0,0.0],[48,"NoSus/JHPiano_NoSus_Close_C3_vl4_rr1",0,0.0],[50,"NoSus/JHPiano_NoSus_Close_D3_vl4_rr1",0,0.0],[52,"NoSus/JHPiano_NoSus_Close_E3_vl4_rr1",0,0.0],[54,"NoSus/JHPiano_NoSus_Close_F#3_vl4_rr1",0,0.0],[56,"NoSus/JHPiano_NoSus_Close_G#3_vl4_rr1",0,0.0],[58,"NoSus/JHPiano_NoSus_Close_A#3_vl4_rr1",0,0.0],[60,"NoSus/JHPiano_NoSus_Close_C4_vl4_rr1",0,-1.0],[62,"NoSus/JHPiano_NoSus_Close_D4_vl4_rr1",0,0.0],[64,"NoSus/JHPiano_NoSus_Close_E4_vl4_rr1",0,-1.0],[66,"NoSus/JHPiano_NoSus_Close_F#4_vl4_rr1",0,3.0],[68,"NoSus/JHPiano_NoSus_Close_G#4_vl4_rr1",0,-1.0],[70,"NoSus/JHPiano_NoSus_Close_A#4_vl4_rr1",0,0.0],[72,"NoSus/JHPiano_NoSus_Close_C5_vl4_rr1",0,1.0],[74,"NoSus/JHPiano_NoSus_Close_D5_vl4_rr1",0,0.0],[76,"NoSus/JHPiano_NoSus_Close_E5_vl4_rr1",0,0.0],[78,"NoSus/JHPiano_NoSus_Close_F#5_vl4_rr1",0,1.0],[80,"NoSus/JHPiano_NoSus_Close_G#5_vl4_rr1",0,0.0],[82,"NoSus/JHPiano_NoSus_Close_A#5_vl4_rr1",0,0.0],[84,"NoSus/JHPiano_NoSus_Close_C6_vl4_rr1",0,3.0],[86,"NoSus/JHPiano_NoSus_Close_D6_vl4_rr1",0,-1.0],[88,"NoSus/JHPiano_NoSus_Close_E6_vl4_rr1",0,0.0],[90,"NoSus/JHPiano_NoSus_Close_F#6_vl4_rr1",0,-1.0],[92,"NoSus/JHPiano_NoSus_Close_G#6_vl4_rr1",0,2.0],[94,"NoSus/JHPiano_NoSus_Close_A#6_vl4_rr1",0,4.0],[96,"NoSus/JHPiano_NoSus_Close_C7_vl4_rr1",0,0.0],[98,"NoSus/JHPiano_NoSus_Close_D7_vl4_rr1",0,3.0],[100,"NoSus/JHPiano_NoSus_Close_E7_vl4_rr1",0,-3.0],[102,"NoSus/JHPiano_NoSus_Close_F#7_vl4_rr1",0,-3.0],[104,"Sus/JHPiano_Sus_Close_G#7_vl4_rr1",0,4.0]]},"pre":"Grand Piano, Steinway B/"},"upright":{"base":"audio/vcsl/Zithers/","layers":{"mid":[[24,"C0_vl2_rr1",0,8.0],[31,"G0_vl2_rr1",-2,9.0],[36,"C1_vl2_rr1",1,13.0],[43,"G1_vl2_rr1",-3,12.0],[48,"C2_vl2_rr1",-1,9.0],[55,"G2_vl2_rr1",-5,5.0],[60,"C3_vl2_rr1",-2,9.0],[67,"G3_vl2_rr1",-4,13.0],[72,"C4_vl2_rr1",-3,6.0],[79,"G4_vl2_rr1",0,4.0],[84,"C5_vl2_rr1",1,10.0],[91,"G5_vl2_rr1",1,12.0],[96,"C6_vl2_rr1",0,7.0]],"soft":[[24,"C0_vl1_rr1",0,29.0],[31,"G0_vl1_rr1",8,30.0],[36,"C1_vl1_rr1",3,27.0],[43,"G1_vl1_rr1",0,21.0],[48,"C2_vl1_rr1",1,39.0],[55,"G2_vl1_rr1",0,20.0],[60,"C3_vl1_rr1",0,20.0],[67,"G3_vl1_rr1",-2,22.0],[72,"C4_vl1_rr1",-2,17.0],[79,"G4_vl1_rr1",3,19.0],[84,"C5_vl1_rr1",0,40.0],[91,"G5_vl1_rr2",0,25.0],[96,"C6_vl2_rr1",0,7.0]],"loud":[[24,"C0_vl3_rr1",0,6.0],[31,"G0_vl3_rr1",5,0.0],[36,"C1_vl3_rr1",-5,0.0],[43,"G1_vl3_rr1",-9,-1.0],[48,"C2_vl3_rr1",-3,0.0],[55,"G2_vl3_rr1",-8,-4.0],[60,"C3_vl3_rr1",-5,-1.0],[67,"G3_vl3_rr1",-7,0.0],[72,"C4_vl3_rr1",-6,-3.0],[79,"G4_vl3_rr1",-1,-2.0],[84,"C5_vl3_rr1",0,3.0],[91,"G5_vl3_rr1",-5,2.0],[96,"C6_vl3_rr1",0,1.0]]},"pre":"Upright Piano, Yamaha/Sustains/Upright1_Sus_"},"harpsi":{"base":"audio/vcsl/Zithers/","layers":{"mid":[[26,"D0_rr1_Main",0,4.2],[32,"G#0_rr1_Main",0,0.0],[34,"A#0_rr1_Main",0,-1.0],[36,"C1_rr1_Main",0,2.0],[38,"D1_rr1_Main",0,3.0],[40,"E1_rr1_Main",0,0.0],[42,"F#1_rr1_Main",0,2.3],[44,"G#1_rr1_Main",0,1.1],[46,"A#1_rr1_Main",0,0.0],[48,"C2_rr1_Main",0,1.3],[50,"D2_rr1_Main",0,1.4],[52,"E2_rr1_Main",0,-2.2],[54,"F#2_rr1_Main",0,-1.6],[56,"G#2_rr1_Main",0,-2.0],[58,"A#2_rr1_Main",0,-2.0],[60,"C3_rr1_Main",0,1.4],[62,"D3_rr1_Main",0,-1.5],[64,"E3_rr1_Main",0,-0.4],[66,"F#3_rr1_Main",0,-1.1],[68,"G#3_rr1_Main",0,-1.1],[70,"A#3_rr1_Main",0,0.7],[72,"C4_rr1_Main",0,4.2],[74,"D4_rr1_Main",0,1.9],[76,"E4_rr1_Main",0,-1.0],[78,"F#4_rr1_Main",0,-0.8],[80,"G#4_rr1_Main",0,-3.4],[82,"A#4_rr1_Main",0,0.4],[84,"C5_rr1_Main",0,5.3]]},"pre":"Harpsichord, French/Sustains/Harpsi2_Normal_"},"fm":{"base":"audio/vcsl/TX81Z/","layers":{"mid":[[24,"C0_vl2",-2,11.0],[28,"E0_vl2",-2,11.0],[32,"G#0_vl2",-2,10.0],[36,"C1_vl2",-1,10.0],[40,"E1_vl2",-2,11.0],[44,"G#1_vl2",-1,11.0],[48,"C2_vl2",-1,11.0],[52,"E2_vl2",-1,11.0],[56,"G#2_vl2",0,11.0],[60,"C3_vl2",0,11.0],[64,"E3_vl2",0,11.0],[68,"G#3_vl2",0,11.0],[72,"C4_vl2",0,11.0],[76,"E4_vl2",0,11.0],[80,"G#4_vl2",0,11.0],[84,"C5_vl2",0,11.0],[88,"E5_vl2",0,11.0],[92,"G#5_vl2",0,11.0],[96,"C6_vl2",0,11.0],[100,"E6_vl2",0,11.0],[104,"G#6_vl2",0,11.0],[108,"C7_vl2",-1,11.0]],"soft":[[24,"C0_vl1",-3,17.0],[28,"E0_vl1",-2,16.0],[32,"G#0_vl1",-2,15.0],[36,"C1_vl1",-1,15.0],[40,"E1_vl1",-2,15.0],[44,"G#1_vl1",-1,15.0],[48,"C2_vl1",-1,15.0],[52,"E2_vl1",-1,16.0],[56,"G#2_vl1",0,15.0],[60,"C3_vl1",0,15.0],[64,"E3_vl1",0,15.0],[68,"G#3_vl1",0,15.0],[72,"C4_vl1",0,15.0],[76,"E4_vl1",0,15.0],[80,"G#4_vl1",0,15.0],[84,"C5_vl1",0,15.0],[88,"E5_vl1",0,15.0],[92,"G#5_vl1",0,15.0],[96,"C6_vl1",0,14.0],[100,"E6_vl1",0,14.0],[104,"G#6_vl1",0,15.0],[108,"C7_vl1",0,14.0]],"loud":[[24,"C0_vl3",-2,9.0],[28,"E0_vl3",-2,9.0],[32,"G#0_vl3",-1,9.0],[36,"C1_vl3",-1,10.0],[40,"E1_vl3",-1,10.0],[44,"G#1_vl3",0,9.0],[48,"C2_vl3",0,9.0],[52,"E2_vl3",-1,10.0],[56,"G#2_vl3",0,10.0],[60,"C3_vl3",0,9.0],[64,"E3_vl3",0,9.0],[68,"G#3_vl3",0,9.0],[72,"C4_vl3",0,9.0],[76,"E4_vl3",0,10.0],[80,"G#4_vl3",0,10.0],[84,"C5_vl3",0,9.0],[88,"E5_vl3",0,9.0],[92,"G#5_vl3",0,10.0],[96,"C6_vl3",0,10.0],[100,"E6_vl3",0,10.0],[104,"G#6_vl3",0,10.0],[108,"C7_vl2",-1,11.0]]},"pre":"FM Piano/FMPiano_"},"cp80":{"base":"audio/gs-e-pianos/CP80/","layers":{"mid":[[27,"027-D#1-MP",0,-2.0],[34,"034-A#1-MP",0,-3.0],[35,"035-B1-F",0,-3.0],[42,"042-F#2-MP",0,-3.0],[46,"046-A#2-MP",0,-4.0],[50,"050-D3-MP",0,-6.0],[53,"053-F3-MP",0,-4.0],[57,"057-A3-MP",0,-6.0],[60,"060-C4-MP",0,-6.0],[63,"063-D#4-MP",0,-6.0],[65,"065-F4-MP",0,-6.0],[68,"068-G#4-MP",0,-6.0],[72,"072-C5-MP",0,-6.0],[76,"076-E5-MP",0,-4.0],[80,"080-G#5-MP",0,-3.0],[82,"082-A#5-MP",0,-3.0],[85,"085-C#6-MP",0,-4.0],[88,"088-E6-MP",0,-4.0],[91,"091-G6-MP",0,-5.0],[95,"095-B6-MP",0,-5.0],[97,"097-C#7-MP",0,-5.0],[102,"102-F#7-MP",0,-7.0],[107,"107-B7-PP",0,-6.0]],"soft":[[27,"027-D#1-PP",0,-2.0],[34,"034-A#1-PP",0,-3.0],[35,"035-B1-F",0,-3.0],[42,"042-F#2-PP",0,-4.0],[46,"046-A#2-MP",0,-4.0],[50,"050-D3-PP",0,-6.0],[53,"053-F3-MP",0,-4.0],[57,"057-A3-PP",0,-6.0],[60,"060-C4-MP",0,-6.0],[63,"063-D#4-PP",0,-6.0],[65,"065-F4-PP",0,-6.0],[68,"068-G#4-PP",0,-6.0],[72,"072-C5-PP",0,-6.0],[76,"076-E5-MP",0,-4.0],[80,"080-G#5-PP",0,-6.0],[82,"082-A#5-MP",0,-3.0],[85,"085-C#6-PP",0,-6.0],[88,"088-E6-MP",0,-4.0],[91,"091-G6-PP",0,-6.0],[95,"095-B6-MP",0,-5.0],[97,"097-C#7-PP",0,-6.0],[102,"102-F#7-PP",0,-6.0],[107,"107-B7-PP",0,-6.0]],"loud":[[27,"027-D#1-FF",0,-2.0],[34,"034-A#1-MP",0,-3.0],[35,"035-B1-FF",0,-3.0],[42,"042-F#2-FF",0,-3.0],[46,"046-A#2-FF",0,-4.0],[50,"050-D3-FF",0,-6.0],[53,"053-F3-FF",0,-4.0],[57,"057-A3-FF",0,-6.0],[60,"060-C4-FF",0,-6.0],[63,"063-D#4-FF",0,-6.0],[65,"065-F4-FF",0,-6.0],[68,"068-G#4-FF",0,-6.0],[72,"072-C5-FF",0,-6.0],[76,"076-E5-FF",0,-4.0],[80,"080-G#5-FF",0,-3.0],[82,"082-A#5-FF",0,-3.0],[85,"085-C#6-FF",0,-4.0],[88,"088-E6-FF",0,-4.0],[91,"091-G6-FF",0,-5.0],[95,"095-B6-FF",0,-5.0],[97,"097-C#7-FF",0,-5.0],[102,"102-F#7-FF",0,-7.0],[107,"107-B7-F",0,-5.0]]},"pre":"Samples/"},"wurli":{"base":"audio/gs-e-pianos/Wurlitzer EP200/","layers":{"mid":[[33,"a1f",-5,-4.0],[36,"c2f",-7,-5.0],[40,"e2mp",-4,-4.0],[41,"f2f",-6,-4.0],[44,"ab2pp",-8,-4.0],[45,"a2mp",-2,-4.0],[47,"b2f",-8,-5.0],[51,"eb3mp",-9,-5.0],[52,"e3f",-4,-4.0],[56,"ab3f",-11,-4.0],[61,"db4f",-2,-4.0],[64,"e4ff",-3,-5.0],[66,"gb4mp",7,-5.0],[67,"g4ff",3,-5.0],[68,"ab4f",0,-5.0],[71,"b4mp",-5,-5.0],[73,"db5f",3,-6.0],[79,"g5f",-7,-5.0],[85,"db6f",0,-5.0],[92,"ab6mp",2,-5.0]],"soft":[[33,"a1mp",-5,-3.0],[36,"c2f",-7,-5.0],[40,"e2mp",-4,-4.0],[41,"f2f",-6,-4.0],[44,"ab2pp",-8,-4.0],[45,"a2mp",-2,-4.0],[47,"b2f",-8,-5.0],[51,"eb3mp",-9,-5.0],[52,"e3f",-4,-4.0],[56,"ab3mp",-8,-5.0],[61,"db4mp",4,-5.0],[64,"e4ff",-3,-5.0],[66,"gb4mp",7,-5.0],[67,"g4pp",-2,-5.0],[68,"ab4f",0,-5.0],[71,"b4mp",-5,-5.0],[73,"db5mp",3,-5.0],[79,"g5mp",-8,-5.0],[85,"db6mp",6,-5.0],[92,"ab6mp",2,-5.0]],"loud":[[33,"a1ff",-5,-5.0],[36,"c2ff",-7,-5.0],[40,"e2mp",-4,-4.0],[41,"f2ff",-6,-5.0],[44,"ab2pp",-8,-4.0],[45,"a2mp",-2,-4.0],[47,"b2ff",-8,-5.0],[51,"eb3mp",-9,-5.0],[52,"e3ff",-2,-5.0],[56,"ab3ff",-8,-5.0],[61,"db4ff",2,-5.0],[64,"e4ff",-3,-5.0],[66,"gb4mp",7,-5.0],[67,"g4ff",3,-5.0],[68,"ab4f",0,-5.0],[71,"b4mp",-5,-5.0],[73,"db5ff",-1,-3.0],[79,"g5ff",-7,-4.0],[85,"db6f",0,-5.0],[92,"ab6f",0,-5.0]]},"pre":"Samples/"},"pianet":{"base":"audio/gs-e-pianos/Pianet T/","layers":{"mid":[[29,"29_F1_P",0,-2.0],[31,"33_A1_release",0,-18.0],[33,"33_A1_P",-5,-2.0],[35,"37_C#2_release",0,-21.0],[37,"37_C#2_P",0,-2.0],[39,"41_F2_release",0,-16.0],[41,"41_F2_P",-3,-2.0],[43,"45_A2_release",0,-20.0],[45,"45_A2_P",0,-2.0],[47,"47_B2_FF",0,-2.0],[49,"49_C#3_P",-2,-2.0],[51,"53_F3_release",0,-13.0],[52,"52_E3_P",0,-2.0],[53,"53_F3_FF",-3,-2.0],[55,"57_A3_release",0,-26.0],[57,"57_A3_P",0,-2.0],[59,"61_C#4_release",0,-20.0],[61,"61_C#4_P",0,-2.0],[63,"65_F4_release",0,-12.0],[65,"65_F4_P",-3,-2.0],[67,"69_A4_release",0,-20.0],[69,"69_A4_P",-1,-2.0],[71,"73_C#5_release",0,-26.0],[73,"73_C#5_P",0,-2.0],[75,"77_F5_release",0,-18.0],[77,"77_F5_P",0,-2.0],[79,"81_A5_release",0,-25.0],[81,"81_A5_P",-2,-2.0],[83,"85_C#6_release",0,-26.0],[85,"85_C#6_P",-4,-2.0],[88,"88_E6_P",0,-2.0]],"loud":[[29,"29_F1_FF",0,-2.0],[31,"33_A1_release",0,-18.0],[33,"33_A1_FF",-5,-2.0],[35,"37_C#2_release",0,-21.0],[37,"37_C#2_FF",0,-2.0],[39,"41_F2_release",0,-16.0],[41,"41_F2_FF",-1,-2.0],[43,"45_A2_release",0,-20.0],[45,"45_A2_FF",0,-2.0],[47,"47_B2_FF",0,-2.0],[49,"49_C#3_FF",0,-2.0],[51,"53_F3_release",0,-13.0],[52,"52_E3_P",0,-2.0],[53,"53_F3_FF",-3,-2.0],[55,"57_A3_release",0,-26.0],[57,"57_A3_FF",0,-2.0],[59,"61_C#4_release",0,-20.0],[61,"61_C#4_FF",0,-2.0],[63,"65_F4_release",0,-12.0],[65,"65_F4_FF",-3,-2.0],[67,"69_A4_release",0,-20.0],[69,"69_A4_FF",-1,-2.0],[71,"73_C#5_release",0,-26.0],[73,"73_C#5_FF",0,-2.0],[75,"77_F5_release",0,-18.0],[77,"77_F5_FF",0,-2.0],[79,"81_A5_release",0,-25.0],[81,"81_A5_FF",-2,-2.0],[83,"85_C#6_release",0,-26.0],[85,"85_C#6_FF",-4,-2.0],[88,"88_E6_P",0,-2.0]]},"pre":"Samples/"},"rhodes":{"base":"audio/jlearman/rhodes-mki/jRhodes3d-mono/","layers":{"mid":[[29,"29__F1_3",0,0.0],[35,"35__B1_3",0,0.0],[40,"40__E2_3",0,0.0],[45,"45__A2_3",0,0.0],[50,"50__D3_3",0,0.0],[55,"55__G3_3",0,0.0],[59,"59__B3_3",0,0.0],[62,"62__D4_3",0,0.0],[65,"65__F4_3",0,0.0],[71,"71__B4_4",0,0.0],[76,"76__E5_4",0,0.0],[81,"81__A5_4",0,0.0],[86,"86__D6_4",0,0.0],[91,"91__G6_4",0,0.0],[96,"96__C7_4",0,0.0]],"soft":[[29,"29__F1_5",0,6.0],[35,"35__B1_5",0,6.0],[40,"40__E2_5",0,6.0],[45,"45__A2_5",0,6.0],[50,"50__D3_5",0,6.0],[55,"55__G3_5",0,6.0],[59,"59__B3_5",0,6.0],[62,"62__D4_5",0,6.0],[65,"65__F4_5",0,6.0],[71,"71__B4_5",0,6.0],[76,"76__E5_5",0,6.0],[81,"81__A5_5",0,6.0],[86,"86__D6_5",0,6.0],[91,"91__G6_5",0,6.0],[96,"96__C7_5",0,0.0]],"loud":[[29,"29__F1_1",0,0.0],[35,"35__B1_1",0,0.0],[40,"40__E2_1",0,0.0],[45,"45__A2_1",0,0.0],[50,"50__D3_1",0,0.0],[55,"55__G3_1",0,0.0],[59,"59__B3_1",0,0.0],[62,"62__D4_1",0,0.0],[65,"65__F4_1",0,0.0],[71,"71__B4_1",0,0.0],[76,"76__E5_1",0,0.0],[81,"81__A5_2",0,0.0],[86,"86__D6_2",0,0.0],[91,"91__G6_2",0,0.0],[96,"96__C7_2",0,0.0]]},"pre":"A_0"},"splendid":{"base":"audio/splendid-grand-piano/","layers":{"mid":[[23,"Mp-B-1",0,0.0],[27,"Mp-D#0",0,0.0],[29,"Mp-F0",0,0.0],[31,"Mp-G0",0,0.0],[33,"Mp-A0",0,0.0],[35,"Mp-B0",0,0.0],[37,"Mp-C#1",0,0.0],[38,"Mp-D1",0,0.0],[40,"Mp-E1",0,0.0],[41,"Mp-F1",0,0.0],[43,"Mp-G1",0,0.0],[45,"Mp-A1",0,0.0],[47,"Mp-B1",0,0.0],[48,"Mp-C2",0,0.0],[50,"Mp-D2",0,0.0],[52,"Mp-E2",0,0.0],[53,"Mp-F2",0,0.0],[55,"Mp-G2",0,0.0],[56,"Mp-G#2",0,0.0],[57,"Mp-A2",0,0.0],[58,"Mp-A#2",0,0.0],[59,"Mp-B2",0,0.0],[60,"Mp-C3",0,0.0],[62,"Mp-D3",0,0.0],[64,"Mp-E3",0,0.0],[65,"Mp-F3",0,0.0],[67,"Mp-G3",0,0.0],[69,"Mp-A3",0,0.0],[71,"Mp-B3",0,0.0],[72,"Mp-C4",0,0.0],[74,"Mp-D4",0,0.0],[76,"Mp-E4",0,0.0],[77,"Mp-F4",0,0.0],[79,"Mp-G4",0,0.0],[80,"Mp-G#4",0,0.0],[81,"Mp-A4",0,0.0],[82,"Mp-A#4",0,0.0],[83,"Mp-B4",0,0.0],[85,"Mp-C#5",0,0.0],[86,"Mp-D5",0,0.0],[87,"Mp-D#5",0,0.0],[88,"Mp-E5",0,0.0],[89,"Mp-F5",0,0.0],[90,"Mp-F#5",0,0.0],[91,"Mp-G5",0,0.0],[92,"Mp-G#5",0,0.0],[93,"Mp-A5",0,0.0],[94,"Mp-A#5",0,0.0],[95,"Mp-B5",0,0.0],[96,"Mp-C6",0,0.0],[97,"Mp-C#6",0,0.0],[98,"Mp-D6",0,0.0],[99,"Mp-D#6",0,0.0],[100,"PP-E6",0,0.0],[101,"Mp-F6",0,0.0],[102,"Mp-F#6",0,0.0],[103,"Mp-G6",0,0.0],[104,"Mp-G#6",0,0.0],[105,"Mp-A6",0,0.0],[106,"Mp-A#6",0,0.0],[107,"PP-B6",0,0.0],[108,"PP-C7",0,0.0]],"soft":[[23,"PP-B-1",0,0.0],[27,"PP-D#0",0,0.0],[29,"PP-F0",0,0.0],[31,"PP-G0",0,0.0],[33,"PP-A0",0,0.0],[35,"PP-B0",0,0.0],[37,"PP-C#1",0,1.0],[38,"PP-D1",0,0.0],[40,"PP-E1",0,0.0],[41,"PP-F1",0,0.0],[43,"PP-G1",0,0.0],[45,"PP-A1",0,0.0],[47,"PP-B1",0,0.0],[48,"PP-C2",0,0.0],[50,"PP-D2",0,0.0],[52,"PP-E2",0,0.0],[53,"PP-F2",0,0.0],[55,"PP-G2",0,0.0],[56,"PP-G#2",0,0.0],[57,"PP-A2",0,0.0],[58,"PP-A#2",0,0.0],[59,"PP-B2",0,0.0],[60,"PP-C3",0,0.0],[62,"PP-D3",0,0.0],[64,"PP-E3",0,0.0],[65,"PP-F3",0,0.0],[67,"PP-G3",0,0.0],[69,"PP-A3",0,0.0],[71,"PP-B3",0,0.0],[72,"PP-C4",0,0.0],[74,"PP-D4",0,0.0],[76,"PP-E4",0,0.0],[77,"PP-F4",0,0.0],[79,"PP-G4",0,0.0],[80,"PP-G#4",0,0.0],[81,"PP-A4",0,0.0],[82,"PP-A#4",0,0.0],[83,"PP-B4",0,0.0],[85,"PP-C#5",0,0.0],[86,"PP-D5",0,0.0],[87,"PP-D#5",0,0.0],[88,"Mp-E5",0,0.0],[89,"PP-F5",0,0.0],[90,"PP-F#5",0,0.0],[91,"PP-G5",0,0.0],[92,"PP-G#5",0,0.0],[93,"PP-A5",0,0.0],[94,"PP-A#5",0,0.0],[95,"PP-B5",0,0.0],[96,"PP-C6",0,0.0],[97,"PP-C#6",0,0.0],[98,"PP-D6",0,0.0],[99,"PP-D#6",0,0.0],[100,"PP-E6",0,0.0],[101,"PP-F6",0,0.0],[102,"PP-F#6",0,0.0],[103,"PP-G6",0,0.0],[104,"PP-G#6",0,0.0],[105,"PP-A6",0,0.0],[106,"PP-A#6",0,0.0],[107,"PP-B6",0,0.0],[108,"PP-C7",0,0.0]],"loud":[[23,"FF-B-1",0,0.0],[27,"FF-D#0",0,0.0],[29,"FF-F0",0,0.0],[31,"FF-G0",0,0.0],[33,"FF-A0",0,0.0],[35,"FF-B0",0,0.0],[37,"FF-C#1",0,0.0],[38,"FF-D1",0,0.0],[40,"FF-E1",0,0.0],[41,"FF-F1",0,0.0],[43,"FF-G1",0,0.0],[45,"FF-A1",0,0.0],[47,"FF-B1",0,0.0],[48,"FF-C2",0,0.0],[50,"FF-D2",0,0.0],[52,"FF-E2",0,0.0],[53,"FF-F2",0,0.0],[55,"FF-G2",0,0.0],[56,"FF-G#2",0,0.0],[57,"FF-A2",0,0.0],[58,"FF-A#2",0,0.0],[59,"FF-B2",0,0.0],[60,"FF-C3",0,0.0],[62,"FF-D3",0,0.0],[64,"FF-E3",0,0.0],[65,"FF-F3",0,0.0],[67,"FF-G3",0,0.0],[69,"FF-A3",0,0.0],[71,"FF-B3",0,0.0],[72,"FF-C4",0,0.0],[74,"FF-D4",0,0.0],[76,"FF-E4",0,0.0],[77,"FF-F4",0,0.0],[79,"FF-G4",0,0.0],[80,"FF-G#4",0,0.0],[81,"FF-A4",0,0.0],[82,"FF-A#4",0,0.0],[83,"FF-B4",0,0.0],[85,"FF-C#5",0,0.0],[86,"FF-D5",0,0.0],[87,"Mf-D#5",0,0.0],[88,"FF-E5",0,0.0],[89,"FF-F5",0,0.0],[90,"Mf-F#5",0,0.0],[91,"FF-G5",0,0.0],[92,"Mf-G#5",0,0.0],[93,"FF-A5",0,0.0],[94,"Mf-A#5",0,0.0],[95,"Mf-B5",0,0.0],[96,"Mf-C6",0,0.0],[97,"Mf-C#6",0,0.0],[98,"Mf-D6",0,0.0],[99,"Mf-D#6",0,0.0],[100,"Mf-E6",0,0.0],[101,"Mf-F6",0,0.0],[102,"Mf-F#6",0,0.0],[103,"Mf-G6",0,0.0],[104,"Mf-G#6",0,0.0],[105,"Mf-A6",0,0.0],[106,"Mf-A#6",0,0.0],[107,"Mf-B6",0,0.0],[108,"Mf-C7",0,0.0]]},"pre":""}};
+const SFZ_OPT = {kawai: {vt: 1}, steinway: {vt: 1}, splendid: {vt: 0.35}, upright: {vt: 1}, honky: {src: "upright", vt: 1, detune: 13},
+  rhodes: {vt: 0.6}, wurli: {vt: 0.6}, cp80: {vt: 0.5}, fm: {vt: 0.8}, harpsi: {vt: 0}};
+const SI = {}; for (const k in SFZ) SI[k] = {state: "none", layers: {}, bufs: new Map(), total: SFZ[k].layers.mid.length, trim: 1};
+const siOf = k => SFZ_OPT[k] ? SI[SFZ_OPT[k].src || k] : null;
+function siLoad(kind){
+  const key = (SFZ_OPT[kind] && SFZ_OPT[kind].src) || kind, s = SI[key], def = SFZ[key]; if (!s) return Promise.resolve();
+  if (s.loading) return s.loading;
+  s.state = "loading"; showPhoneSound();
+  s.loading = (async () => {
+    const a = audioCtx(); let cache = null; try { cache = await caches.open("dg30-piano"); } catch(e){}
+    for (const ln of ["mid", "loud", "soft"]){
+      const list = def.layers[ln]; if (!list) continue;
+      const map = s.layers[ln] = new Map(), mid = ln === "mid";
+      const queue = list.slice().sort((x, y) => Math.abs(x[0] - 62) - Math.abs(y[0] - 62));
+      const one = async ([c, name, tune, vol]) => {
+        const path = (def.base + def.pre + name + ".m4a").split("/").map(encodeURIComponent).join("/");
+        const ab = await fetchCached(cache, ghUrls("danigb/samples", "main", path));
+        try { if (!ab) throw 0; const r = {buf: trimSample(a, await a.decodeAudioData(ab), mid ? (c < 48 ? 8 : c < 72 ? 6 : 4) : (c < 48 ? 5.5 : c < 72 ? 4.5 : 3)), tune, vol};
+          map.set(c, r); if (mid) s.bufs.set(c, r); } catch(e){}
+      };
+      await Promise.all(Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); }));
+      if (mid){
+        s.trim = 0.065 / (loudness([...s.bufs.values()].map(r => r.buf)) * Math.pow(10, (list.reduce((t, x) => t + x[3], 0) / list.length) / 20) || 0.065);
+        s.state = s.bufs.size >= list.length * 0.7 ? "ready" : s.bufs.size ? "partial" : "failed"; showPhoneSound();
+        if (s.state === "failed") break;
+      }
+    }
+    if (s.state === "failed") s.loading = null;
+    showPhoneSound();
+  })();
+  return s.loading;
+}
+function siOn(p, v, kind){
+  const o = SFZ_OPT[kind], s = siOf(kind); if (!s || !s.bufs.size) return false;
+  const vel = Math.max(0.05, v / 127), want = vel < 0.45 ? "soft" : vel < 0.8 ? "mid" : "loud";
+  let pool = s.layers[want]; if (!pool || pool.size < s.bufs.size * 0.7) pool = s.bufs;
+  let best = null; for (const [c, r] of pool) if (!best || Math.abs(c - p) < Math.abs(best.c - p)) best = {c, r};
+  if (!best || Math.abs(best.c - p) > 9) return false;
+  const a = audioCtx(), t = a.currentTime, g = a.createGain(), srcs = [];
+  const curve = Math.min(1.75, Math.pow(vel / 0.63, 0.25 + 1.35 * o.vt));      // how much louder a harder press plays
+  g.gain.value = s.trim * Math.pow(10, (best.r.vol || 0) / 20) * curve * (o.detune ? 0.62 : 1);
+  const voice = cents => { const src = a.createBufferSource(); src.buffer = best.r.buf; src.playbackRate.value = Math.pow(2, (p - best.c) / 12 + ((best.r.tune || 0) + cents) / 1200); src.connect(g); src.start(t); srcs.push(src); };
+  if (o.detune){ voice(-o.detune); voice(o.detune * 0.8); } else voice(0);   // honky-tonk: two strings a little out of tune with each other
+  g.connect(grandBus(a));
+  synthOff(p); synthVoices.set(p, {g, srcs});
+  return true;
+}
+const PHONE_PIANOS = [
+  ["grand", "Yamaha concert grand", "A Yamaha C5 concert grand, rich and full"],
+  ["kawai", "Kawai grand", "A Kawai grand: warm and singing, from the same family as your DG30"],
+  ["steinway", "Steinway grand", "A Steinway model B: deep, clear and even"],
+  ["splendid", "Studio grand", "A bright, punchy grand that cuts through for pop and rock"],
+  ["upright", "Yamaha upright", "A home upright piano, close and intimate"],
+  ["honky", "Honky-tonk upright", "The upright with its strings a little out of tune, saloon style"],
+  ["rhodes", "Rhodes electric piano", "The classic 70s Rhodes, warm and bell-like"],
+  ["wurli", "Wurlitzer electric piano", "The bright, barky Wurlitzer from 60s pop and soul"],
+  ["cp80", "Yamaha CP-80 electric grand", "The 80s stage electric grand"],
+  ["fm", "80s FM piano", "Glassy, shimmering FM electric piano from the 80s"],
+  ["harpsi", "Harpsichord", "A French harpsichord, for Bach and baroque"],
+  ["simple", "Simple tone", "Made on the phone, no download"]];
+const GUITARS = [
+  ["steel", "Steel-string acoustic", "A real steel-string acoustic with its full natural ring"],
+  ["nylon", "Nylon-string classical", "A Spanish classical guitar, soft and warm"],
+  ["twelve", "12-string acoustic", "Doubled strings with a shimmering, chorus-like ring"],
+  ["electric", "Clean electric guitar", "A clean electric, smooth and round"],
+  ["synth", "Simple plucked string", "Made on the phone, no download"]];
+const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return GUITARS.some(x => x[0] === v) ? v : "steel"; };
 function showGtrSound(){ instStatus(); }
 function nearestBuf(g, p){ let best = null, bd = 99; for (const [q, b] of g.bufs){ const d = Math.abs(q - p); if (d < bd){ bd = d; best = [q, b]; } } return best; }
 function phoneGuitar(p, vel, delay){
@@ -2236,7 +2334,7 @@ function phoneGuitar(p, vel, delay){
     const nb = nearestBuf(g, pitch); if (!nb) return;
     const src = a.createBufferSource(), vg = a.createGain();
     src.buffer = nb[1]; src.playbackRate.value = Math.pow(2, (pitch - nb[0]) / 12 + (cents || 0) / 1200);
-    vg.gain.value = gain * (0.3 + 0.8 * vel);
+    vg.gain.value = gain * (0.3 + 0.8 * vel) * (g.trim || 1);
     src.connect(vg); vg.connect(out); src.start(t + dt); srcs.push(src);
   };
   if (kind === "twelve"){
@@ -4762,6 +4860,10 @@ function playlistAdvance(){
 /* ---------------- guitar tuner ---------------- */
 const TUNER = { stream:null, an:null, buf:null, raf:0, hist:[], target:null, a4: store.get("dg30.a4", 440) };
 const GUITAR_STRINGS = [{n:"E", o:2, p:40}, {n:"A", o:2, p:45}, {n:"D", o:3, p:50}, {n:"G", o:3, p:55}, {n:"B", o:3, p:59}, {n:"E", o:4, p:64}];
+// a 12-string has six pairs: the four low pairs add a string an octave up, the top two pairs are in unison
+const TWELVE_STRINGS = GUITAR_STRINGS.flatMap((st, i) => [{...st, course: 6 - i, main: true}, i < 4 ? {n: st.n, o: st.o + 1, p: st.p + 12, course: 6 - i, main: false} : {...st, course: 6 - i, main: false}]);
+const twelveOn = () => store.get("dg30.gtrType", "6") === "12";
+const tunerStrings = () => twelveOn() ? TWELVE_STRINGS : GUITAR_STRINGS;
 // YIN pitch detection, tuned for 70–1000 Hz
 function yinPitch(buf, sr){
   let rms = 0; for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / buf.length);
@@ -4786,7 +4888,7 @@ async function openTuner(){
     const a = audioCtx(), src = a.createMediaStreamSource(TUNER.stream);
     TUNER.an = a.createAnalyser(); TUNER.an.fftSize = 4096; src.connect(TUNER.an);
     TUNER.buf = new Float32Array(TUNER.an.fftSize); TUNER.hist = [];
-    $("tunerHint").textContent = "Play one string at a time.";
+    $("tunerHint").textContent = twelveOn() ? "Tune one string at a time: rest a finger on its partner so only one rings, or tap its peg." : "Play one string at a time.";
     tunerLoop();
   } catch(e){ $("tunerHint").textContent = "Microphone permission was declined. Allow it in Chrome's site settings to use the tuner."; }
 }
@@ -4812,7 +4914,7 @@ function showTuner(f){
     $("headstock").querySelectorAll(".near").forEach(el => el.classList.remove("near", "ok")); return; }
   const midi = 69 + 12 * Math.log2(f / TUNER.a4);
   let target = TUNER.target, cents;
-  if (target == null){ target = GUITAR_STRINGS.reduce((b, s) => Math.abs(s.p - midi) < Math.abs(b.p - midi) ? s : b).p; if (Math.abs(target - midi) > 2.5) target = Math.round(midi); }
+  if (target == null){ target = tunerStrings().reduce((b, s) => Math.abs(s.p - midi) < Math.abs(b.p - midi) ? s : b).p; if (Math.abs(target - midi) > 2.5) target = Math.round(midi); }
   cents = Math.max(-50, Math.min(50, Math.round((midi - target) * 100)));
   note.textContent = SHARP_NAMES[((target % 12) + 12) % 12] + (Math.floor(target / 12) - 1);
   $("tunerHz").textContent = f.toFixed(1) + " Hz · " + (cents > 0 ? "+" : "") + cents + " cents";
@@ -4824,6 +4926,34 @@ function showTuner(f){
 }
 // a headstock like the one in your hands: each tuning peg labelled with the note its string should be
 const STRING_NAMES = {40:"6th", 45:"5th", 50:"4th", 55:"3rd", 59:"2nd", 64:"1st"};
+// the 12-string headstock: six tuners down each side, strings in pairs
+function headstock12Svg(){
+  const S = TWELVE_STRINGS, nutY = S.map((_, i) => 55 + i * 5.3 + Math.floor(i / 2) * 0.6);
+  const pegs = [];
+  [[2, 1, 0], [3, 4, 5]].forEach((courses, side) => {
+    let k = 0;
+    for (const c of courses) for (const main of [true, false]){
+      const i = S.findIndex(x => x.course === 6 - c && x.main === main), x = 104 + k * 39; k++;
+      pegs.push({st: S[i], i, x, y: side ? 128 : 42, bx: x, by: side ? 158 : 12});
+    }
+  });
+  let out = `<svg viewBox="0 0 360 172" class="headstock" role="group" aria-label="12-string headstock: tap a peg to tune that string">`;
+  out += `<rect x="0" y="52" width="72" height="68" rx="2" class="hs-board"/>`;
+  for (const x of [22, 50]) out += `<line x1="${x}" y1="52" x2="${x}" y2="120" class="hs-fret"/>`;
+  out += `<path d="M72 48 C110 28 150 22 330 24 Q348 26 348 44 L348 128 Q348 146 330 148 C150 150 110 144 72 124 Z" class="hs-wood"/><rect x="68" y="50" width="7" height="72" rx="1.5" class="hs-nut"/>`;
+  for (const pg of pegs){ const w = (pg.st.main ? 2 : 1.2) - (6 - pg.st.course) * 0.15;
+    out += `<line x1="0" y1="${nutY[pg.i]}" x2="72" y2="${nutY[pg.i]}" class="hs-str" data-p="${pg.st.p}" style="stroke-width:${w}"/>`;
+    out += `<line x1="72" y1="${nutY[pg.i]}" x2="${pg.x}" y2="${pg.y}" class="hs-str" data-p="${pg.st.p}" style="stroke-width:${w}"/>`; }
+  for (const pg of pegs){
+    const course = STRING_NAMES[GUITAR_STRINGS[6 - pg.st.course].p], lbl = pg.st.main ? course : pg.st.course > 2 ? "8va" : "pair";
+    out += `<g class="peg" data-p="${pg.st.p}" tabindex="0" role="button" aria-label="${pg.st.n}${pg.st.o}, ${course} string${pg.st.main ? "" : pg.st.course > 2 ? ", octave string" : ", second string"}">`;
+    out += `<line x1="${pg.x}" y1="${pg.y}" x2="${pg.bx}" y2="${pg.by}" class="hs-post"/><circle cx="${pg.x}" cy="${pg.y}" r="5.5" class="hs-bush"/>`;
+    out += `<ellipse cx="${pg.bx}" cy="${pg.by}" rx="18" ry="11" class="hs-key"/>`;
+    out += `<text x="${pg.bx}" y="${pg.by + 1}" class="hs-note" style="font-size:13px">${pg.st.n}<tspan class="hs-oct" dx="1" dy="3">${pg.st.o}</tspan></text>`;
+    out += `<text x="${pg.x}" y="${pg.y + (pg.by > pg.y ? -10 : 16)}" class="hs-num" style="font-size:8px">${lbl}</text></g>`;
+  }
+  return out + `</svg>`;
+}
 function headstockSvg(layout){
   const nutY = [60, 70, 80, 90, 100, 110];                 // low E on top, as you look down at the guitar
   const pegs = layout === "6" ?
@@ -4854,8 +4984,8 @@ function headstockSvg(layout){
   return out + `</svg>`;
 }
 function renderTunerStrings(){
-  const layout = store.get("dg30.headstock", "3");
-  $("headstock").innerHTML = headstockSvg(layout);
+  const layout = store.get("dg30.headstock", "3"), twelve = twelveOn();
+  $("headstock").innerHTML = twelve ? headstock12Svg() : headstockSvg(layout);
   $("headstock").querySelectorAll(".peg").forEach(g => {
     const p = +g.dataset.p;
     g.classList.toggle("locked", TUNER.target === p);
@@ -4866,7 +4996,13 @@ function renderTunerStrings(){
   const auto = document.createElement("button"); auto.type = "button"; auto.textContent = "Auto"; auto.setAttribute("aria-pressed", String(TUNER.target == null));
   auto.onclick = () => { TUNER.target = null; renderTunerStrings(); }; box.appendChild(auto);
   const lock = document.createElement("button"); lock.type = "button"; lock.textContent = TUNER.target != null ? "One string" : "Tap a peg"; lock.setAttribute("aria-pressed", String(TUNER.target != null)); lock.disabled = TUNER.target == null; box.appendChild(lock);
-  $("tunerLayout").textContent = "";
+  $("tunerType").textContent = "";
+  for (const [v, label] of [["6", "6-string"], ["12", "12-string"]]){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(store.get("dg30.gtrType", "6") === v));
+    b.onclick = () => { store.set("dg30.gtrType", v); TUNER.target = null; renderTunerStrings(); }; $("tunerType").appendChild(b);
+  }
+  if (TUNER.stream) $("tunerHint").textContent = twelve ? "Tune one string at a time: rest a finger on its partner so only one rings, or tap its peg." : "Play one string at a time.";
+  $("tunerLayout").textContent = ""; $("tunerLayout").hidden = twelve;
   for (const [v, label] of [["3", "3 + 3"], ["6", "6 in a row"]]){
     const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(layout === v));
     b.onclick = () => { store.set("dg30.headstock", v); renderTunerStrings(); }; $("tunerLayout").appendChild(b);
@@ -7178,7 +7314,7 @@ async function showStorageInfo(){
   songStoreReady = loadSongStore();
   songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true).finally(autoGenres), 4000); });
   if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
-  else if (GS[grand.want]) setTimeout(() => { try { loadGuitar(grand.want); } catch(e){} }, 2500);
+  else if (SFZ_OPT[grand.want]) setTimeout(() => { try { siLoad(grand.want); } catch(e){} }, 2500);
   { const gk = gtrSound(); if (gk !== "synth") setTimeout(() => { try { loadGuitar(gk === "twelve" ? "steel" : gk); } catch(e){} }, 4000); }   // ready before the first strum
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });

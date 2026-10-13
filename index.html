@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.82">
+<meta name="version" content="1.83">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -617,6 +617,17 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <h2>Main instrument</h2>
     <p>Songs open on this instrument, and the app's highlight color follows it. You can still switch inside any song.</p>
     <div class="seg" id="primSeg" role="group" aria-label="Main instrument" style="align-self:flex-start"><button type="button" data-v="piano" aria-pressed="true">Piano</button><button type="button" data-v="guitar" aria-pressed="false">Guitar</button></div>
+    <div class="field" id="setPedalField">
+      <label class="label" for="setPedalSel">Sustain pedal when the app plays</label>
+      <select id="setPedalSel" class="pedsel">
+        <option value="auto">Automatic: as marked in the music, or at each chord change</option>
+        <option value="marked">Only where the music marks Ped.</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <small style="color:var(--muted)" id="setInstNote"></small>
+    <button class="btn" id="setPianoSounds" type="button" hidden style="align-self:flex-start">Choose from your piano's own sounds</button>
+    <div class="icards" id="setInstCards"></div>
   </section>
   <section class="add setcard">
     <h2>You</h2>
@@ -919,14 +930,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <select id="fxSel"><option value="sparkles">Sparkles</option><option value="flames">Flames</option><option value="stars">Twinkling stars</option><option value="bubbles">Bubbles</option><option value="electric">Electric sparks</option><option value="off">Off (plain notes, best if the phone feels slow)</option></select></div>
     <div class="field"><label class="label" for="backSel">Background</label>
       <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option><option value="ocean">Under the sea</option><option value="aquarium">Aquarium (fish swimming)</option><option value="sunset">Sunset</option><option value="city">City lights</option><option value="fireflies">Fireflies</option><option value="synthwave">Retro synthwave</option><option value="lava">Lava lamp</option><option value="warp">Warp speed</option><option value="smoke">Drifting smoke</option><option value="galaxy">Spiral galaxy</option><option value="snow">Snowfall</option><option value="embers">Campfire embers</option></select></div>
-    <div class="field">
-      <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
-      <select id="pedalSel">
-        <option value="auto">Automatic: as marked in the music, or at each chord change</option>
-        <option value="marked">Only where the music marks Ped.</option>
-        <option value="off">Off</option>
-      </select>
-    </div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
   </div>
 </dialog>
@@ -965,6 +968,14 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <input id="soundSearch" type="text" autocomplete="off" placeholder="Search your piano's sounds, e.g. strings" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px">
       <label class="row" style="gap:8px;font-size:14px"><input id="soundAll" type="checkbox"> Show all 355 sounds</label>
       <div id="soundList"></div>
+    </div>
+    <div class="field" id="pedalField">
+      <label class="label" for="pedalSel">Sustain pedal when the app plays</label>
+      <select id="pedalSel" class="pedsel">
+        <option value="auto">Automatic: as marked in the music, or at each chord change</option>
+        <option value="marked">Only where the music marks Ped.</option>
+        <option value="off">Off</option>
+      </select>
     </div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="instClose" type="button">Done</button></div>
   </div>
@@ -1139,7 +1150,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.82";
+const APP_VERSION = "1.83";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -1903,27 +1914,42 @@ const instOnPiano = () => instTab === "piano" && pianoReady() && conn.outMode ==
 function renderInstr(){
   setSeg("instSeg", instTab);
   const onPiano = instOnPiano();
-  $("instPianoBox").hidden = !onPiano; $("instCards").hidden = onPiano;
+  $("instPianoBox").hidden = !onPiano; $("instCards").hidden = onPiano; $("pedalField").hidden = instTab !== "piano";
   $("instNote").textContent = instTab === "guitar"
     ? "Guitars play on this phone or tablet's speaker, even with the piano connected. Tap one to hear it. Recorded guitars download once, then work offline."
     : onPiano ? "These are the sounds built into your piano. Disconnect the piano to use the phone's pianos instead."
     : "These play on this phone or tablet's speaker. Tap one to hear it. Connect your piano to choose from its own sounds. Recorded pianos download once, then work offline.";
   if (onPiano){ renderSoundList(); return; }
-  const list = instTab === "guitar" ? GUITARS : PHONE_PIANOS, cur = instTab === "guitar" ? gtrSound() : grand.want, box = $("instCards");
-  box.textContent = "";
+  instCardsInto($("instCards"), instTab);
+  instStatus();
+}
+// the instrument cards: in the Instrument window, and on the Settings page under Main instrument
+function instCardsInto(box, tab){
+  const list = tab === "guitar" ? GUITARS : PHONE_PIANOS, cur = tab === "guitar" ? gtrSound() : grand.want;
+  box.textContent = ""; box.dataset.tab = tab;
   for (const [k, name, desc] of list){
     const b = document.createElement("button"); b.type = "button"; b.className = "icard"; b.dataset.k = k; b.setAttribute("aria-pressed", String(k === cur));
     for (const [c, t] of [["iname", name], ["idesc", desc], ["ist", ""], ["iplay", k === cur ? "\u2713" : "\u25B6"]]){ const sp = document.createElement("span"); sp.className = c; sp.textContent = t; if (c === "iplay") sp.setAttribute("aria-hidden", "true"); b.appendChild(sp); }
-    b.onclick = () => pickInstr(k);
+    b.onclick = () => { instTab = tab; pickInstr(k); };
     box.appendChild(b);
   }
-  instStatus();
 }
-function instSampler(k){ return k === "grand" ? grand : instTab === "piano" ? siOf(k) : GS[k === "twelve" ? "steel" : k] || null; }
+function renderSetInstr(){
+  const tab = primaryInstr(), onPiano = tab === "piano" && pianoReady() && conn.outMode === "piano";
+  $("setInstNote").textContent = tab === "guitar" ? "Guitars play on this phone or tablet's speaker. Tap one to hear it."
+    : onPiano ? "Your piano is connected, so songs play on its own sounds. These phone pianos are used when it isn't. Tap one to hear it."
+    : "These play on this phone or tablet's speaker. Tap one to hear it. Connect your piano to use its own sounds.";
+  $("setPianoSounds").hidden = !onPiano;
+  $("setPedalField").hidden = tab !== "piano";
+  instCardsInto($("setInstCards"), tab); instStatus();
+}
+function instSampler(k, tab){ return k === "grand" ? grand : (tab || instTab) === "piano" ? siOf(k) : GS[k === "twelve" ? "steel" : k] || null; }
 function instStatus(){
-  const box = $("instCards"); if (!box || !$("instDlg").open) return;
-  for (const b of box.querySelectorAll(".icard")){
-    const k = b.dataset.k, g = instSampler(k), el = b.querySelector(".ist"); if (!g){ el.textContent = ""; continue; }
+  const boxes = [];
+  if ($("instDlg").open) boxes.push($("instCards"));
+  if (!$("tabSettings").hidden) boxes.push($("setInstCards"));
+  for (const box of boxes) for (const b of box.querySelectorAll(".icard")){
+    const k = b.dataset.k, g = instSampler(k, box.dataset.tab), el = b.querySelector(".ist"); if (!g){ el.textContent = ""; continue; }
     const total = k === "grand" ? 30 : g.total || 30;
     el.textContent = g.state === "loading" ? `Downloading… ${Math.min(99, Math.round(g.bufs.size / total * 100))}%`
       : g.state === "ready" ? "Downloaded, works offline" : g.state === "partial" ? "Partly downloaded" : g.state === "failed" ? "Couldn't download. Tap to try again" : "Downloads once when you pick it";
@@ -1931,15 +1957,15 @@ function instStatus(){
 }
 async function pickInstr(k){
   if (instTab === "guitar"){
-    store.set("dg30.gtrSound", k); renderInstr(); renderSoundLabel();
+    store.set("dg30.gtrSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k !== "synth") await loadGuitar(k === "twelve" ? "steel" : k);
-    if (gtrSound() !== k || !$("instDlg").open) return;
+    if (gtrSound() !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
     [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
-    allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel();
+    allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k);
-    if (grand.want !== k || !$("instDlg").open) return;
+    if (grand.want !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOff(p, true)), 2300);
@@ -1948,7 +1974,7 @@ async function pickInstr(k){
 }
 $("instSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; instTab = b.dataset.v; renderInstr(); });
 $("instClose").onclick = () => $("instDlg").close();
-setInterval(() => { if ($("instDlg").open) instStatus(); }, 600);
+setInterval(() => { if ($("instDlg").open || !$("tabSettings").hidden) instStatus(); }, 600);
 
 /* ---------------- guitar: chord symbols → shapes ---------------- */
 const STRINGS = [40, 45, 50, 55, 59, 64];   // E2 A2 D3 G3 B3 E4, low to high
@@ -4273,12 +4299,14 @@ function applyPrimary(){
   const chip = $("instChip"); chip.innerHTML = ICONS[v]; const nm = document.createElement("span"); nm.id = "instName"; nm.textContent = v === "guitar" ? "Guitar" : "Piano"; chip.appendChild(nm);
   chip.setAttribute("aria-label", `Main instrument: ${nm.textContent}. Tap to switch to ${v === "guitar" ? "piano" : "guitar"}.`);
   setSeg("primSeg", v);
+  try { renderSetInstr(); } catch(e){}
 }
 function setPrimary(v, announce){
   store.set("dg30.primary", v); applyPrimary(); renderLibrary();
   if (announce) toast(v === "guitar" ? "Guitar is your main instrument. Songs open with chord shapes." : "Piano is your main instrument. Songs open with falling notes.");
 }
 $("instChip").onclick = () => setPrimary(primaryInstr() === "guitar" ? "piano" : "guitar", true);
+$("setPianoSounds").onclick = () => openInstrument("piano");
 $("primSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setPrimary(b.dataset.v, false); });
 function showSplash(){
   const sp = $("splash"); sp.hidden = false; sp.classList.remove("out");
@@ -6819,8 +6847,10 @@ $("vMute").onclick = () => { if (vol.piano > 0){ vol.unmuteTo = vol.piano; setPi
 document.querySelectorAll("#volDlg .vpresets button[data-v]").forEach(b => b.onclick = () => setPianoVol(+b.dataset.v));
 $("volDone").onclick = () => $("volDlg").close();
 $("volSong").addEventListener("input", e => { vol.song = +e.target.value; store.set("dg30.songVol", vol.song); showVol(); });
-$("pedalSel").value = store.get("dg30.pedalMode", "auto");
-$("pedalSel").addEventListener("change", e => { store.set("dg30.pedalMode", e.target.value); if (P.song){ buildPedalEvents(); pedalSeek(P.t); } });
+document.querySelectorAll(".pedsel").forEach(sel => {
+  sel.value = store.get("dg30.pedalMode", "auto");
+  sel.addEventListener("change", e => { store.set("dg30.pedalMode", e.target.value); document.querySelectorAll(".pedsel").forEach(o => o.value = e.target.value); if (P.song){ buildPedalEvents(); pedalSeek(P.t); } });
+});
 $("seek").addEventListener("input", e => { const [w0, w1] = seekWindow(); const was = P.playing; setPlaying(false); resetRun(w0 + (w1 - w0) * e.target.value / 1000); syncScrub(); if (was) setPlaying(true); });
 $("resAgain").onclick = () => { $("resDlg").close(); resetRun(); setPlaying(true); };
 $("resLib").onclick = () => { $("resDlg").close(); closePractice(); };
@@ -7280,6 +7310,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && Da
 
 function showTab(name){
   $("tabSongs").hidden = name !== "songs"; $("tabSettings").hidden = name !== "settings";
+  if (name === "settings") try { renderSetInstr(); } catch(e){}
   $("tabBtnSettings").setAttribute("aria-expanded", String(name === "settings"));
   document.querySelector(".libtabs").hidden = false;
   try { sessionStorage.setItem("dg30.tab", name); } catch(e){}

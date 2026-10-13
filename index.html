@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.86">
+<meta name="version" content="1.88">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -283,6 +283,16 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 #bgMedia.vid .bgrays,#bgMedia.vid img{display:none}
 @keyframes bgRays{0%{transform:translateX(-4%) skewX(-4deg);opacity:.55}100%{transform:translateX(4%) skewX(4deg);opacity:1}}
 #bgMedia .bgdim{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.42))}
+#syncBar{position:absolute;left:0;right:0;bottom:8px;margin:0 auto;width:min(760px,calc(100% - 16px));z-index:9;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 12px 10px;border-radius:18px;background:rgba(14,12,11,.92);border:1px solid var(--line);box-shadow:0 10px 34px rgba(0,0,0,.5);color:var(--ivory);text-align:center}
+#syncBar .syl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#syncBar .prev{color:var(--muted);font-size:13px;min-height:16px}
+#syncBar .cur{font:600 clamp(17px,4.6vw,24px)/1.25 var(--f-body);color:#fff;white-space:normal}
+#syncBar .next{color:var(--muted);font-size:14px;min-height:18px}
+#syncBar .syrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:4px}
+#syncBar .btn{min-height:42px;padding:0 14px}
+#syncBar .sytap{min-width:140px;min-height:56px;font-size:20px;letter-spacing:.06em}
+#syncBar small{color:var(--muted);font-size:12px}
+body.syncing #wordsBtn{visibility:hidden}
 #bgcv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 #follow{position:absolute;left:0;right:0;top:0;overflow-y:auto;background:#fbf7ee;color:#1a1714;-webkit-overflow-scrolling:touch}
 #followInner{position:relative;padding:6px 8px 40px}
@@ -840,7 +850,9 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><div id="bgMedia" hidden><img id="bgImg" alt=""><video id="bgVid" muted loop playsinline preload="auto"></video><div class="bgrays"></div><div class="bgdim"></div></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="redoMarks"></div><div id="followSvg"></div></div></div><div id="redoBar" hidden data-phase="pick"><div class="rdgrp rd-pick"><span>Redo bars</span><select id="rdFrom" aria-label="From bar"></select><span>to</span><select id="rdTo" aria-label="To bar"></select><button class="btn" id="rdHear" type="button">&#9654; Hear them</button><button class="btn primary rec" id="rdGo" type="button"><i></i>Record</button><button class="btn ghost" id="rdCancel" type="button">Cancel</button></div><div class="rdgrp rd-rec"><span id="rdRecLbl">Get ready…</span><button class="btn" id="rdStop" type="button">Stop</button></div><div class="rdgrp rd-choose"><span id="rdChoLbl">Bars</span><button class="btn" id="rdOld" type="button">&#9654; Old</button><button class="btn" id="rdNew" type="button">&#9654; New</button><button class="btn primary" id="rdKeepNew" type="button">Keep new</button><button class="btn" id="rdKeepOld" type="button">Keep old</button><button class="btn ghost" id="rdAgain" type="button">Try again</button></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><div id="bgMedia" hidden><img id="bgImg" alt=""><video id="bgVid" muted loop playsinline preload="auto"></video><div class="bgrays"></div><div class="bgdim"></div></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="redoMarks"></div><div id="followSvg"></div></div></div><div id="redoBar" hidden data-phase="pick"><div class="rdgrp rd-pick"><span>Redo bars</span><select id="rdFrom" aria-label="From bar"></select><span>to</span><select id="rdTo" aria-label="To bar"></select><button class="btn" id="rdHear" type="button">&#9654; Hear them</button><button class="btn primary rec" id="rdGo" type="button"><i></i>Record</button><button class="btn ghost" id="rdCancel" type="button">Cancel</button></div><div class="rdgrp rd-rec"><span id="rdRecLbl">Get ready…</span><button class="btn" id="rdStop" type="button">Stop</button></div><div class="rdgrp rd-choose"><span id="rdChoLbl">Bars</span><button class="btn" id="rdOld" type="button">&#9654; Old</button><button class="btn" id="rdNew" type="button">&#9654; New</button><button class="btn primary" id="rdKeepNew" type="button">Keep new</button><button class="btn" id="rdKeepOld" type="button">Keep old</button><button class="btn ghost" id="rdAgain" type="button">Try again</button></div></div><div id="syncBar" hidden><div class="syl prev" id="syPrev"></div><div class="syl cur" id="syCur"></div><div class="syl next" id="syNext"></div>
+<div class="syrow"><button class="btn" id="syUndo" type="button">&#8630; Back</button><button class="btn" id="sySkip" type="button" title="This line isn't in this version of the song">Skip line</button><button class="btn primary sytap" id="syTap" type="button">TAP</button><button class="btn" id="sySave" type="button">Save</button><button class="btn ghost" id="syCancel" type="button">Cancel</button></div>
+<small id="syHint"></small></div><div id="banner" hidden></div></div>
   <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -1156,6 +1168,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <p><span id="lyrTitle"></span>: the words are lined up with the melody note by note. If they're early or late all the way through, shift them. If whole lines land in the wrong place, stretch moves the lines' starting guide.</p>
     <div class="row" style="justify-content:space-between"><span class="label">Shift</span><div class="seg"><button type="button" id="lyrShiftDn" aria-label="Earlier">Earlier</button><button type="button" id="lyrShift" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrShiftUp" aria-label="Later">Later</button></div></div>
     <div class="row" style="justify-content:space-between"><span class="label">Stretch</span><div class="seg"><button type="button" id="lyrStrDn">Shorter</button><button type="button" id="lyrStretch" disabled style="min-width:70px;color:var(--ivory)"></button><button type="button" id="lyrStrUp">Longer</button></div></div>
+    <button class="btn" id="lyrSync" type="button" style="align-self:flex-start">Sync by tapping instead (most accurate)</button>
     <div class="row" style="justify-content:space-between"><button class="btn ghost" id="lyrRemove" type="button">Remove lyrics</button><span class="row"><button class="btn" id="lyrCancel" type="button">Cancel</button><button class="btn primary" id="lyrSave" type="button">Save</button></span></div>
   </div>
 </dialog>
@@ -1178,7 +1191,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.86";
+const APP_VERSION = "1.88";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -1198,7 +1211,7 @@ const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + String(Ma
 /* ---------------- storage (per-device) ---------------- */
 /* Small settings live in localStorage (about 5 MB in total). Song data (notes, words, chords, reader results)
    lives in IndexedDB, which can hold hundreds of MB, with an in-memory copy so reads stay instant. */
-const BIG = /^dg30\.(song|lyrics|chords|scan|pedal|art|rec)\./;
+const BIG = /^dg30\.(song|lyrics|chords|scan|pedal|art|rec|vox)\./;
 const big = { cache: new Map(), ok: false, warned: false };
 const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
@@ -1251,7 +1264,7 @@ function loadNotes(id){
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
   try { const keep = store.get("dg30.recs", []).filter(t => { if (t.songId === id){ store.del("dg30.rec." + t.id); return false; } return true; }); store.set("dg30.recs", keep); } catch(e){}
-  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id);
+  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id); store.del("dg30.vox." + id); store.del("dg30.lyrraw." + id);
 }
 
 /* ---------------- demo songs (public domain) ---------------- */
@@ -1499,7 +1512,43 @@ function readMidiFile(arrBuf){
   notes.sort((a,b) => a.t - b.t);
   notes.bpm = midi.header.tempos?.[0]?.bpm ? Math.round(midi.header.tempos[0].bpm) : null;
   const ks = midi.header.keySignatures?.[0]; notes.key = ks ? ks.key + (ks.scale === "minor" ? "m" : "") : "";
+  // the sung line: "lead sheet with lyrics" files have a separate track for it (named lyric, vocal, voice, melody…)
+  const vox = tracks.find(t => /lyric|vocal|voice|vox|melody|sing|soprano|lead/i.test(t.name || ""));
+  if (vox && vox.notes.length >= 8) notes.vox = vox.notes.map(n => ({t: n.time, d: n.duration, p: n.midi}));
+  // words stored in the file itself (karaoke-style), each syllable at its exact time
+  try { const ly = midiLyricEvents(arrBuf); if (ly.length >= 8) notes.lyr = ly.map(e => ({t: midi.header.ticksToSeconds(e.tick), text: e.text})); } catch(e){}
   return notes;
+}
+// lyric (and karaoke text) events straight from the file's bytes
+function midiLyricEvents(buf){
+  const b = new Uint8Array(buf), out = [], dv = new DataView(buf); let pos = 8 + dv.getUint32(4); const lyr = [], txt = [];
+  while (pos + 8 <= b.length){
+    const id = String.fromCharCode(b[pos], b[pos + 1], b[pos + 2], b[pos + 3]), len = dv.getUint32(pos + 4); let i = pos + 8; const end = i + len; pos = end;
+    if (id !== "MTrk") continue;
+    let tick = 0, run = 0;
+    const vlq = () => { let v = 0, c; do { c = b[i++]; v = (v << 7) | (c & 127); } while (c & 128 && i < end); return v; };
+    while (i < end){
+      tick += vlq(); let st = b[i];
+      if (st === 0xFF){ const ty = b[i + 1]; i += 2; const l = vlq(); const tx = new TextDecoder("latin1").decode(b.subarray(i, i + l)); i += l;
+        if (ty === 5) lyr.push({tick, text: tx}); else if (ty === 1 && !/^@/.test(tx)) txt.push({tick, text: tx}); if (ty === 0x2F) break; continue; }
+      if (st === 0xF0 || st === 0xF7){ i++; i += vlq(); continue; }
+      if (st & 128){ run = st; i++; } const t = run & 0xF0; i += (t === 0xC0 || t === 0xD0) ? 1 : 2;
+    }
+  }
+  return (lyr.length >= 8 ? lyr : txt.length >= 20 ? txt : out).sort((a, c) => a.tick - c.tick);
+}
+// karaoke syllables → the app's words: syllables of one word are joined with "-", lines break on pauses and marks
+function lyricEventsToWords(ev, cut){
+  const out = []; let prevT = null, brk = true;
+  ev.forEach((e, k) => {
+    let raw = String(e.text); const newLine = /^[\/\\]/.test(raw) || brk; raw = raw.replace(/^[\/\\]/, "");
+    brk = /[\r\n]$/.test(raw); raw = raw.replace(/[\r\n]+/g, " ");
+    const w = raw.trim(); if (!w) return;
+    const nx = ev[k + 1], cont = !/\s$/.test(raw) && nx && !/^[\s\/\\]/.test(nx.text) && !/[.,;:!?]$/.test(w);
+    const t = Math.max(0, e.t - (cut || 0));
+    out.push([+t.toFixed(3), w + (cont ? "-" : ""), newLine || (prevT != null && t - prevT > 1.6) ? 1 : 0]); prevT = t;
+  });
+  return out;
 }
 function downloadMidi(title, notes){
   const MidiCls = window.Midi && (window.Midi.Midi || window.Midi);
@@ -4508,7 +4557,8 @@ function openRowMenu(s){
       };
       delBtn = b; }
     const raw = store.get("dg30.lyrraw." + s.id, null);
-    if (f.lyrics && raw && raw.lines) item("lyrics", "Lyrics timing", "Shift or stretch the words to match", () => openLyricTiming(s));
+    if (s.artist || (raw && raw.lines)) item("lyrics", "Sync lyrics by tapping", "Listen and tap as each line starts, for exact timing", () => startLyricSync(s));
+    if (f.lyrics && raw && raw.lines) item("lyrics", "Lyrics timing", "Shift all the words earlier or later", () => openLyricTiming(s));
     else if (!f.lyrics) item("lyrics", "Find lyrics", raw && raw.instrumental ? "Listed as instrumental" : "Look them up online", async () => {
       toast("Looking up lyrics…");
       try { const r = await findLyricsFor(s); renderLibrary(); toast(r === "added" ? "Lyrics added. Tap Aa in the song to show them." : r === "instrumental" ? "That song is listed as instrumental." : "No lyrics found. Check the title and artist with Edit details."); }
@@ -5095,6 +5145,10 @@ function finishAudioSong(raw, level, name){
   const t0 = notes[0].t, cutIntro = t0 > 1.5 ? t0 - 1 : 0; if (cutIntro) notes.forEach(n => n.t -= cutIntro);
   const last = notes[notes.length - 1];
   const meta = { id: newSongId(), title: name || "Untitled song", level, bpm: raw.bpm || estimateTempo(raw), key: raw.key || "", count: notes.length, len: last.t + last.d, added: Date.now() };
+  if (raw.vox) store.set("dg30.vox." + meta.id, raw.vox.map(n => [+Math.max(0, n.t - cutIntro).toFixed(3), +n.d.toFixed(3), n.p]));
+  if (raw.lyr){ const words = lyricEventsToWords(raw.lyr, cutIntro);
+    if (words.length >= 8){ store.set("dg30.lyrics." + meta.id, words); meta.words = true;
+      store.set("dg30.lyrraw." + meta.id, {exact: words, lines: wordsToLines(words), v: 2, shift: 0, stretch: 1}); } }
   if (!saveSong(meta, notes)) throw new Error("This phone's storage is full. Free up some space and try again.");
   return meta;
 }
@@ -5411,7 +5465,7 @@ async function restoreFrom(file){
     const mineById = new Map(mine.map(s => [s.id, s]));
     const newer = new Set(theirs.filter(s => mineById.has(s.id) && (s.rev || 0) > (mineById.get(s.id).rev || 0)).map(s => s.id));
     const have = new Set(mine.map(s => s.id).filter(id => !newer.has(id))); let added = 0, updated = 0;
-    for (const id of newer){ for (const k of ["chords", "lyrics", "tempo", "pedal", "scan"]) store.del("dg30." + k + "." + id); }
+    for (const id of newer){ for (const k of ["chords", "lyrics", "lyrraw", "lyrtried", "tempo", "pedal", "scan"]) store.del("dg30." + k + "." + id); }
     for (const [k, v] of Object.entries(b.data)){
       if (k === "dg30.songs" || k === "dg30.playlists") continue;
       const m = k.match(/^dg30\.([a-z]+)\.(.+)$/); if (m && have.has(m[2])) continue;   // keep this device's copy of songs it already has
@@ -5436,7 +5490,7 @@ async function restoreFrom(file){
 
 /* ---------------- share one song as a file ----------------
    Everything the app knows about the song, so the person you send it to can add it without scanning or an API key. */
-const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal", "art"];
+const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal", "art", "vox", "lyrraw"];
 function songPackage(id){
   const meta = songById(id);
   const pkg = {app:"DG30 Song Coach", kind:"song", version: APP_VERSION, meta: {...meta}};
@@ -6075,7 +6129,85 @@ function melodyOf(notes){
   for (const n of sorted){ const l = mel[mel.length - 1]; if (l && n.t - l.t < 0.035) continue; mel.push(n); }
   return mel;
 }
+// lines you tapped in yourself: each line starts where you tapped (snapped to the melody note right there),
+// and its words follow the melody notes until the next line
+function placeTapped(id, raw, shift){
+  const notes = loadNotes(id).sort((a, b) => a.t - b.t), mel = melodyOf(notes), sh = shift || 0, out = [];
+  const lines = raw.lines.filter(l => l[1] && l[1].trim());
+  const taps = raw.taps || [];
+  const nextTap = i => { for (let j = i + 1; j < taps.length; j++) if (taps[j] != null) return taps[j]; return null; };
+  let last = -1;
+  lines.forEach((ln, i) => {
+    const s = taps[i]; if (s == null) return;
+    const nx = nextTap(i), end = nx != null ? nx : s + 7;
+    const words = ln[1].trim().split(/\s+/).filter(Boolean), syl = words.map(syllables), total = Math.max(1, syl.reduce((a, b) => a + b, 0));
+    // the melody note nearest your tap starts the line
+    let k0 = -1, bd = 0.35; mel.forEach((x, k) => { const d = Math.abs(x.t - s); if (d < bd){ bd = d; k0 = k; } });
+    const start = k0 >= 0 ? mel[k0].t : s;
+    const avail = [];                                   // the melody notes of this line: up to the next line, and not across a long pause
+    if (k0 >= 0) for (let k = k0; k < mel.length && mel[k].t < end - 0.05; k++){ const pv = avail[avail.length - 1]; if (pv && mel[k].t - (pv.t + pv.d) > 1.2 && avail.length >= 2) break; avail.push(mel[k]); }
+    let si = 0;
+    words.forEach((w, wi) => {
+      let t = avail.length >= total ? avail[si].t : avail.length >= 2 ? avail[Math.min(avail.length - 1, Math.floor(si * avail.length / total))].t : start + Math.max(0.3, (end - start) * 0.85) * si / total;
+      t += sh; if (t <= last) t = last + 0.04;
+      out.push([+Math.max(0, t).toFixed(3), w, wi === 0 ? 1 : 0]); last = t; si += syl[wi] || 1;
+    });
+  });
+  return out;
+}
+function wordsToLines(words){
+  const lines = []; let cur = null;
+  for (const [t, w, nl] of words){ if (nl || !cur){ cur = [t, ""]; lines.push(cur); } cur[1] += /-$/.test(w) ? w.slice(0, -1) : w + " "; }
+  return lines.map(l => [l[0], l[1].trim()]);
+}
+/* The song file has the sung melody on its own track, so every syllable has its own note. Lines are matched to
+   the melody's phrases in order (a line's syllables against the notes between phrase starts); a line the
+   arrangement leaves out can be skipped, and extra sung bits are allowed. Then each syllable gets its note. */
+function placeOnVox(vox, raw, sh){
+  const on = [];
+  for (const [t, d] of vox.slice().sort((a, b) => a[0] - b[0])){ const l = on[on.length - 1]; if (l && t - l.t < 0.03){ l.end = Math.max(l.end, t + d); continue; } on.push({t, end: t + d}); }
+  const m = on.length, phr = on.map((x, k) => k === 0 || x.t - on[k - 1].end > 0.3 || x.t - on[k - 1].t > 1.4);
+  const lines = raw.lines.filter(l => l[1] && l[1].trim()).map(l => { const words = l[1].trim().split(/\s+/).filter(Boolean), syl = words.map(syllables); return {words, syl, n: Math.max(1, syl.reduce((a, b) => a + b, 0))}; });
+  const n = lines.length; if (!n || m < 4) return [];
+  const fit = (c, need) => c < need ? (need - c) * 1.0 : Math.min((c - need) * 0.35, 1.0 + (c - need) * 0.02);
+  const startCost = k => phr[k] ? 0 : 2.2, skipCost = i => 3 + 0.05 * lines[i].n, INF = 1e18;
+  const dp = [], bp = [];
+  dp[0] = new Float64Array(m); bp[0] = new Array(m).fill(null);
+  for (let k = 0; k < m; k++) dp[0][k] = startCost(k) + 0.02 * k;
+  for (let i = 1; i < n; i++){
+    dp[i] = new Float64Array(m).fill(INF); bp[i] = new Array(m).fill(null);
+    for (let k = 1; k < m; k++){
+      let best = INF, arg = null; const win = Math.max(0, k - (lines[i - 1].n * 4 + 80));
+      for (let j = win; j < k; j++){
+        if (dp[i - 1][j] < INF){ const v = dp[i - 1][j] + fit(k - j, lines[i - 1].n); if (v < best){ best = v; arg = [i - 1, j]; } }
+        if (i >= 2 && dp[i - 2][j] < INF){ const v = dp[i - 2][j] + fit(k - j, lines[i - 2].n) + skipCost(i - 1); if (v < best){ best = v; arg = [i - 2, j]; } }
+      }
+      if (arg){ dp[i][k] = best + startCost(k); bp[i][k] = arg; }
+    }
+  }
+  let bi = n - 1, bk = 0, bv = INF;
+  for (const i of [n - 1, n - 2]) if (i >= 0) for (let k = 0; k < m; k++){ if (dp[i][k] >= INF) continue; const v = dp[i][k] + fit(m - k, lines[i].n) + (i === n - 2 ? skipCost(n - 1) : 0); if (v < bv){ bv = v; bi = i; bk = k; } }
+  const starts = new Array(n).fill(null); let i = bi, k = bk;
+  while (i != null && i >= 0){ starts[i] = k; const p = bp[i][k]; if (!p) break; [i, k] = p; }
+  const out = []; let last = -1;
+  const placed = starts.map((k, i) => k == null ? null : i);
+  lines.forEach((ln, i) => {
+    const k0 = starts[i]; if (k0 == null) return;
+    let k1 = m; for (let j = i + 1; j < n; j++) if (starts[j] != null){ k1 = starts[j]; break; }
+    const avail = on.slice(k0, k1); let si = 0;
+    ln.words.forEach((w, wi) => {
+      const idx = avail.length >= ln.n ? si : Math.floor(si * avail.length / ln.n);
+      let t = avail[Math.min(avail.length - 1, idx)].t + (sh || 0); if (t <= last) t = last + 0.04;
+      out.push([+Math.max(0, t).toFixed(3), w, wi === 0 ? 1 : 0]); last = t; si += ln.syl[wi] || 1;
+    });
+  });
+  void placed;
+  return out;
+}
 function placeLyrics(id, raw, shift, stretch){
+  if (raw && raw.lines && !raw.exact && !raw.taps){ const vox = store.get("dg30.vox." + id, null); if (vox && vox.length >= 8){ const w = placeOnVox(vox, raw, shift); if (w.length) return w; } }
+  if (raw && raw.exact) return raw.exact.map(x => [+Math.max(0, x[0] + (shift || 0)).toFixed(3), x[1], x[2] || 0]);   // timed in the song file itself
+  if (raw && raw.taps) return placeTapped(id, raw, shift);
   const notes = loadNotes(id).sort((a, b) => a.t - b.t); if (!notes.length || !raw || !raw.lines) return [];
   const end = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
   const scale = (end / (raw.dur || end)) * (stretch || 1), sh = shift || 0;
@@ -6207,9 +6339,67 @@ function openLyricTiming(s){
     $("lyrDlg").close(); renderLibrary(); toast("Lyrics removed");
   };
   $("lyrCancel").onclick = () => $("lyrDlg").close();
+  $("lyrSync").onclick = () => { $("lyrDlg").close(); startLyricSync(s); };
   $("lyrDlg").showModal();
 }
 
+
+/* ---------------- sync the lyrics by tapping ----------------
+   A piano arrangement rarely follows the original recording (different intro, tempo, repeats, verses left out),
+   so automatic timing can be way off. Here you listen to the song (slowed down if you like) and tap once as each
+   line starts; skip any line the arrangement leaves out. Each word then lands on the melody notes of its line. */
+const SY = {on: false, id: null, lines: [], taps: [], i: 0, raw: null};
+async function startLyricSync(s){
+  let raw = store.get("dg30.lyrraw." + s.id, null);
+  if (!raw || !raw.lines){
+    toast("Looking up the lyrics…");
+    try { const r = await findLyricsFor(s); if (r !== "added"){ toast(r === "instrumental" ? "That song is listed as instrumental." : "No lyrics found. Check the title and artist with Edit details."); return; } }
+    catch(e){ toast("Couldn't reach the lyrics service. Check the connection and try again."); return; }
+    raw = store.get("dg30.lyrraw." + s.id, null); if (!raw || !raw.lines) return;
+  }
+  $("rowDlg").open && $("rowDlg").close(); $("lyrDlg").open && $("lyrDlg").close();
+  TK.tipShown = true; openPractice(s.id, "piano");
+  Object.assign(SY, {on: true, id: s.id, raw, lines: raw.lines.filter(l => l[1] && l[1].trim()).map(l => l[1].trim()), taps: [], i: 0});
+  P.mode = "listen"; setSeg("modeSeg", "listen"); setWords(false); document.body.classList.add("syncing");
+  setBpm(Math.round((P.baseBpm || 100) * 0.75)); resetRun(0); syncShow();
+  $("syncBar").hidden = false;
+  toast("Press ▶ to play. Tap TAP the moment each line starts", 3200);
+}
+function syncShow(){
+  const L0 = SY.lines;
+  $("syPrev").textContent = SY.i > 0 ? (SY.taps[SY.i - 1] == null ? "(skipped) " : "✓ ") + L0[SY.i - 1] : "";
+  $("syCur").textContent = SY.i < L0.length ? L0[SY.i] : "All lines done. Tap Save.";
+  $("syNext").textContent = SY.i + 1 < L0.length ? L0[SY.i + 1] : "";
+  $("syTap").disabled = $("sySkip").disabled = SY.i >= L0.length; $("syUndo").disabled = SY.i === 0;
+  $("syHint").textContent = `Line ${Math.min(SY.i + 1, L0.length)} of ${L0.length} · playing at ${Math.round((P.tempo || 1) * 100)}% speed (change it in ⋯)`;
+}
+function syncTap(){
+  if (!SY.on || SY.i >= SY.lines.length) return;
+  if (!P.playing){ setPlaying(true); toast("Playing. Tap again when the line starts", 1600); return; }
+  SY.taps[SY.i++] = Math.max(0, P.t - 0.18 * (P.tempo || 1));        // allow for how long a tap takes
+  syncShow();
+}
+function syncEnd(){ SY.on = false; $("syncBar").hidden = true; document.body.classList.remove("syncing"); }
+$("syTap").onclick = syncTap;
+$("sySkip").onclick = () => { if (SY.i >= SY.lines.length) return; SY.taps[SY.i++] = null; syncShow(); };
+$("syUndo").onclick = () => {
+  if (!SY.i) return; SY.i--; SY.taps.length = SY.i;
+  let back = 0; for (let j = SY.i - 1; j >= 0; j--) if (SY.taps[j] != null){ back = SY.taps[j]; break; }
+  const was = P.playing; setPlaying(false); resetRun(Math.max(0, back - 1)); syncShow(); if (was) setPlaying(true);
+};
+$("sySave").onclick = async () => {
+  if (!SY.taps.some(t => t != null)){ toast("Tap at least one line first", 1600); return; }
+  setPlaying(false);
+  const raw = {...SY.raw, taps: SY.taps.slice(), shift: 0, stretch: 1, v: 2};
+  store.set("dg30.lyrraw." + SY.id, raw);
+  const words = placeLyrics(SY.id, raw, 0, 1);
+  await store.setAsync("dg30.lyrics." + SY.id, words); setSongMeta(SY.id, {words: true});
+  P.lyricLines = buildLyricLines(loadLyrics(SY.id)); syncEnd(); $("wordsBtn").classList.remove("none"); setWords(true); resetRun(0);
+  const n = SY.taps.filter(t => t != null).length;
+  toast(`Lyrics synced: ${n} line${n === 1 ? "" : "s"}. Press ▶ to watch them`, 2600);
+};
+$("syCancel").onclick = () => { setPlaying(false); syncEnd(); toast("Lyrics sync cancelled", 1400); };
+document.addEventListener("keydown", e => { if (SY.on && (e.code === "Space" || e.key === "Enter") && !e.target.closest("input,select,textarea")){ e.preventDefault(); syncTap(); } });
 
 /* ---------------- tags inside MP3 files: title, artist and cover picture ---------------- */
 function readId3(buf){
@@ -6293,7 +6483,7 @@ function openPractice(id, inst){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
-  TS.on = false; setTimeout(() => { BGM.tried = false; syncBgMedia(); }, 0);
+  TS.on = false; if (SY.on) syncEnd(); setTimeout(() => { BGM.tried = false; syncBgMedia(); }, 0);
   if (COMP.on){ rdClose(); COMP.on = false; COMP.rec = false; document.body.classList.remove("composing"); $("compBar").hidden = true; $("countNum").hidden = true; }
   commitSession();
   setDrawer(false);

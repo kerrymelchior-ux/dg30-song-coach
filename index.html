@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.85">
+<meta name="version" content="1.86">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -275,6 +275,14 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .stats b{color:var(--ivory);font-weight:500}
 #stage{position:relative;flex:1;min-height:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#bgMedia{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:#04202b}
+#bgMedia img,#bgMedia video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#bgMedia img{animation:bgDrift 46s ease-in-out infinite alternate;transform-origin:50% 40%}
+@keyframes bgDrift{0%{transform:scale(1.06) translate(0,0)}50%{transform:scale(1.12) translate(-2%,1%)}100%{transform:scale(1.08) translate(2%,-1%)}}
+#bgMedia .bgrays{position:absolute;inset:-20%;background:repeating-linear-gradient(100deg,rgba(255,255,255,0) 0 6%,rgba(255,255,255,.07) 8%,rgba(255,255,255,0) 11%);mix-blend-mode:screen;animation:bgRays 14s ease-in-out infinite alternate}
+#bgMedia.vid .bgrays,#bgMedia.vid img{display:none}
+@keyframes bgRays{0%{transform:translateX(-4%) skewX(-4deg);opacity:.55}100%{transform:translateX(4%) skewX(4deg);opacity:1}}
+#bgMedia .bgdim{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.42))}
 #bgcv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 #follow{position:absolute;left:0;right:0;top:0;overflow-y:auto;background:#fbf7ee;color:#1a1714;-webkit-overflow-scrolling:touch}
 #followInner{position:relative;padding:6px 8px 40px}
@@ -832,7 +840,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAALeEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggLI7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiEDDiAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYj37BWKSwaHzZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYj37BWKSwaHzWfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MTAuMDAwMDAwMDAwAB9DtnVAr+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiZhIgCAgAMDWAA/v+rUICjmYED6ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEH0ACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYELuACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYEPoACxAQABEBAAGAAwP/QMAAAA/v+rUICjmYETiACxAQABEBAAGAAwP/QMAAAA/v+rUIAfQ7Z17+eCF3CjmYEAAACxAQABEBAAGAAwP/QMAAAA/v+rUICjmIED6ACRAQABEBAUYADA/9AwAAD+/6tQgKOZgQfQALEBAAEQEAAYADA/9AwAAAD+/6tQgKOZgQu4ALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm">
     <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAJxAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAJxAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAACcQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAACgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAK/+EAFmdCwArZHsBEAAADAAQAAAMACDxImSABAAVoy4PEyAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAJQAAACUAAAABhzdHRzAAAAAAAAAAEAAAAKAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACiQAAAAsAAAALAAAACgAAAAoAAAAKAAAACgAAAAoAAAAKAAAACgAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAu1tZGF0AAACcgYF//9u3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4yMACAAAAAD2WIhAXzn///D0UAAVefgAAAAAdBmjgL5zqAAAAAB0GaVAL5zqAAAAAGQZpgF851AAAABkGagBfOdQAAAAZBmqAXznUAAAAGQZrAF851AAAABkGa4BfOdQAAAAZBmwAXznUAAAAGQZsgF851" type="video/mp4">
   </video>
-  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="redoMarks"></div><div id="followSvg"></div></div></div><div id="redoBar" hidden data-phase="pick"><div class="rdgrp rd-pick"><span>Redo bars</span><select id="rdFrom" aria-label="From bar"></select><span>to</span><select id="rdTo" aria-label="To bar"></select><button class="btn" id="rdHear" type="button">&#9654; Hear them</button><button class="btn primary rec" id="rdGo" type="button"><i></i>Record</button><button class="btn ghost" id="rdCancel" type="button">Cancel</button></div><div class="rdgrp rd-rec"><span id="rdRecLbl">Get ready…</span><button class="btn" id="rdStop" type="button">Stop</button></div><div class="rdgrp rd-choose"><span id="rdChoLbl">Bars</span><button class="btn" id="rdOld" type="button">&#9654; Old</button><button class="btn" id="rdNew" type="button">&#9654; New</button><button class="btn primary" id="rdKeepNew" type="button">Keep new</button><button class="btn" id="rdKeepOld" type="button">Keep old</button><button class="btn ghost" id="rdAgain" type="button">Try again</button></div></div><div id="banner" hidden></div></div>
+  <div id="stage"><div id="countNum" hidden aria-live="assertive"></div><div id="reviewBar" hidden><span class="rvdot"></span><b id="rvName">Take</b><span class="rvok">✓ <b id="rvOk">0</b> right</span><span class="rvbad">✗ <b id="rvBad">0</b> wrong</span><button type="button" id="rvStop">Stop</button></div><div id="bgMedia" hidden><img id="bgImg" alt=""><video id="bgVid" muted loop playsinline preload="auto"></video><div class="bgrays"></div><div class="bgdim"></div></div><canvas id="bgcv" hidden></canvas><canvas id="cv"></canvas><div id="follow" hidden><div id="followInner"><div id="followHi"></div><div id="followCur"></div><div id="followGlow"></div><div id="redoMarks"></div><div id="followSvg"></div></div></div><div id="redoBar" hidden data-phase="pick"><div class="rdgrp rd-pick"><span>Redo bars</span><select id="rdFrom" aria-label="From bar"></select><span>to</span><select id="rdTo" aria-label="To bar"></select><button class="btn" id="rdHear" type="button">&#9654; Hear them</button><button class="btn primary rec" id="rdGo" type="button"><i></i>Record</button><button class="btn ghost" id="rdCancel" type="button">Cancel</button></div><div class="rdgrp rd-rec"><span id="rdRecLbl">Get ready…</span><button class="btn" id="rdStop" type="button">Stop</button></div><div class="rdgrp rd-choose"><span id="rdChoLbl">Bars</span><button class="btn" id="rdOld" type="button">&#9654; Old</button><button class="btn" id="rdNew" type="button">&#9654; New</button><button class="btn primary" id="rdKeepNew" type="button">Keep new</button><button class="btn" id="rdKeepOld" type="button">Keep old</button><button class="btn ghost" id="rdAgain" type="button">Try again</button></div></div><div id="banner" hidden></div></div>
   <div class="scrub"><button class="loopbtn" id="loopBtn" type="button" aria-pressed="false" title="Loop a section"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg><span>Loop</span></button><button class="recbtn" id="recBtn" type="button" aria-pressed="false" title="Record your playing"><i></i><span id="recTxt">Rec</span></button><div class="seekwrap"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Song position"><div id="loopBand" hidden><i class="lh" id="loopA" aria-label="Loop start"></i><i class="lh" id="loopB" aria-label="Loop end"></i></div></div><output id="timeOut">0:00 / 0:00</output></div>
 </section>
 
@@ -943,7 +951,11 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="field"><label class="label" for="fxSel">Glowing notes and effects</label>
       <select id="fxSel"><option value="sparkles">Sparkles</option><option value="flames">Flames</option><option value="stars">Twinkling stars</option><option value="bubbles">Bubbles</option><option value="electric">Electric sparks</option><option value="off">Off (plain notes, best if the phone feels slow)</option></select></div>
     <div class="field"><label class="label" for="backSel">Background</label>
-      <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option><option value="ocean">Under the sea</option><option value="aquarium">Aquarium (fish swimming)</option><option value="sunset">Sunset</option><option value="city">City lights</option><option value="fireflies">Fireflies</option><option value="synthwave">Retro synthwave</option><option value="lava">Lava lamp</option><option value="warp">Warp speed</option><option value="smoke">Drifting smoke</option><option value="galaxy">Spiral galaxy</option><option value="snow">Snowfall</option><option value="embers">Campfire embers</option></select></div>
+      <select id="backSel"><option value="black">Black</option><option value="mood">Follows the music (colors change with the song)</option><option value="aurora">Northern lights</option><option value="nebula">Deep space</option><option value="silk">Flowing silk</option><option value="ocean">Under the sea</option><option value="aquarium">Aquarium (drawn fish swimming)</option><option value="custom">Your own photo or video…</option><option value="sunset">Sunset</option><option value="city">City lights</option><option value="fireflies">Fireflies</option><option value="synthwave">Retro synthwave</option><option value="lava">Lava lamp</option><option value="warp">Warp speed</option><option value="smoke">Drifting smoke</option><option value="galaxy">Spiral galaxy</option><option value="snow">Snowfall</option><option value="embers">Campfire embers</option></select></div>
+    <div class="field" id="bgCustomRow" hidden>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn" for="bgFile">Choose photo or video</label><input id="bgFile" type="file" accept="image/*,video/*" hidden><button class="btn ghost" id="bgRemove" type="button">Remove</button></div>
+      <small style="color:var(--muted)" id="bgCustomNote">Pick any picture or video from your phone, like a reef photo or an underwater video. Photos drift slowly with light shimmering through the water; videos loop silently. It's kept on this phone only.</small>
+    </div>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="soundClose" type="button">Done</button></div>
   </div>
 </dialog>
@@ -1166,7 +1178,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.85";
+const APP_VERSION = "1.86";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -3696,7 +3708,7 @@ function drawHand(hand, dir, st, press, dim, KB, palmH, ww, kbH){
 
 /* ---------------- colors and backdrops ---------------- */
 const barStyle = () => store.get("dg30.barColors", "rainbow");
-const BG_NAMES = ["black", "mood", "aurora", "nebula", "silk", "ocean", "aquarium", "sunset", "city", "fireflies", "synthwave", "lava", "warp", "smoke", "galaxy", "snow", "embers"];
+const BG_NAMES = ["black", "mood", "aurora", "nebula", "silk", "ocean", "aquarium", "custom", "sunset", "city", "fireflies", "synthwave", "lava", "warp", "smoke", "galaxy", "snow", "embers"];
 const backStyle = () => { const v = store.get("dg30.backdrop", "black"); return BG_NAMES.includes(v) ? v : "mood"; };
 const leftStripes = () => store.get("dg30.lhStripes", true);
 function stripePattern(){
@@ -3714,6 +3726,10 @@ function noteColor(p, h){
   return `hsl(${hue},${h === "L" ? 75 : 90}%,${h === "L" ? 55 : 62}%)`;
 }
 function drawBackdrop(now, W, Hh){
+  if (backStyle() === "custom" && BGM.url){
+    if ($("bgMedia").hidden || (BGM.kind === "video" && $("bgVid").paused && !BGM.tried)){ BGM.tried = BGM.kind === "video" && !$("bgMedia").hidden; syncBgMedia(); }
+    cx.clearRect(0, 0, W, Hh); if (BGM.kind === "image") drawBubbles(now, W, Hh); return; }
+  if (!$("bgMedia").hidden) syncBgMedia();
   const aq = backStyle() === "aquarium";
   if (bgActive() && GFX.gl) cx.clearRect(0, 0, W, Hh);        // the moving background shows through
   else if (aq){ const gr = cx.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, "#0b5163"); gr.addColorStop(1, "#04202b"); cx.fillStyle = gr; cx.fillRect(0, 0, W, Hh); }
@@ -3725,6 +3741,41 @@ function drawBackdrop(now, W, Hh){
    a width profile for the species, shading dark on the back and pale underneath, see-through fins, a lateral line
    and its own markings. Far-away fish are smaller and fade into the blue water. A school of silver fish moves as one,
    and every so often a grey reef shark cruises through; the small fish dart out of its way. */
+/* ---------------- your own photo or video as the background ----------------
+   Kept in the phone's own storage (IndexedDB), never uploaded. A photo drifts slowly with light rays moving
+   through it and bubbles rising; a video loops silently. A soft shade on top keeps the notes easy to see. */
+const BGM = {url: null, kind: null, name: ""};
+const BUB = {list: [], last: 0};
+function drawBubbles(now, W, H){
+  const dt = Math.min(0.1, (now - (BUB.last || now)) / 1000); BUB.last = now;
+  if (Math.random() < dt * 1.6) BUB.list.push({x: Math.random() * W, y: H + 4, r: 1.2 + Math.random() * 3, sp: 25 + Math.random() * 35, ph: Math.random() * 6});
+  cx.save(); cx.globalAlpha = 0.35; cx.strokeStyle = "#e4f7ff"; cx.lineWidth = 1;
+  BUB.list = BUB.list.filter(b => { b.y -= b.sp * dt; const x = b.x + Math.sin(now / 500 + b.ph) * 3; cx.beginPath(); cx.arc(x, b.y, b.r, 0, 6.283); cx.stroke(); return b.y > -10; });
+  cx.restore();
+}
+function mediaDB(){
+  return new Promise((ok, no) => { try { const r = indexedDB.open("dg30-media", 1); r.onupgradeneeded = () => r.result.createObjectStore("m"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch(e){ no(e); } });
+}
+async function mediaGet(){ try { const db = await mediaDB(); return await new Promise(ok => { const q = db.transaction("m").objectStore("m").get("bg"); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch(e){ return null; } }
+async function mediaPut(v){ const db = await mediaDB(); return new Promise((ok, no) => { const tx = db.transaction("m", "readwrite"); v ? tx.objectStore("m").put(v, "bg") : tx.objectStore("m").delete("bg"); tx.oncomplete = () => ok(true); tx.onerror = () => no(tx.error); }); }
+function bgMediaApply(rec){
+  if (BGM.url) URL.revokeObjectURL(BGM.url);
+  BGM.url = rec ? URL.createObjectURL(rec.blob) : null; BGM.kind = rec ? (rec.blob.type.startsWith("video") ? "video" : "image") : null; BGM.name = rec ? rec.name : "";
+  const img = $("bgImg"), vid = $("bgVid");
+  if (BGM.kind === "image"){ img.src = BGM.url; vid.removeAttribute("src"); vid.load(); }
+  else if (BGM.kind === "video"){ vid.src = BGM.url; img.removeAttribute("src"); }
+  else { img.removeAttribute("src"); vid.removeAttribute("src"); }
+  $("bgMedia").classList.toggle("vid", BGM.kind === "video");
+  $("bgCustomNote").textContent = BGM.url ? `Using “${BGM.name}”. It's kept on this phone only.` : "Pick any picture or video from your phone, like a reef photo or an underwater video. Photos drift slowly with light shimmering through the water; videos loop silently. It's kept on this phone only.";
+  $("bgRemove").hidden = !BGM.url;
+  syncBgMedia();
+}
+function syncBgMedia(){
+  const on = backStyle() === "custom" && !!BGM.url && practiceVisible();
+  $("bgMedia").hidden = !on;
+  const v = $("bgVid");
+  if (on && BGM.kind === "video"){ if (v.paused) v.play().catch(() => {}); } else if (!v.paused) v.pause();
+}
 const AQ = {fish: [], school: [], weed: [], bubbles: [], shark: null, nextShark: 0, last: 0, W: 0, H: 0};
 const WATER = [12, 70, 88];
 const mixc = (c, k) => `rgb(${Math.round(c[0] + (WATER[0] - c[0]) * k)},${Math.round(c[1] + (WATER[1] - c[1]) * k)},${Math.round(c[2] + (WATER[2] - c[2]) * k)})`;
@@ -4109,7 +4160,7 @@ function moodPalette(){
   const base = 330 + (key.root * 9) % 50 + sway;      // major: roses, warm ambers and magentas
   return [hsl3(base % 360, sat, 0.34), hsl3((base + 32) % 360, sat, 0.4), hsl3((base - 45 + 360) % 360, sat * 0.9, 0.32)];
 }
-function bgActive(){ return backStyle() !== "black" && !GFX.failed; }
+function bgActive(){ return backStyle() !== "black" && backStyle() !== "custom" && !GFX.failed; }
 function bgInit(){
   if (GFX.gl || GFX.failed) return !!GFX.gl;
   const c = $("bgcv"); const gl = c.getContext("webgl", {antialias: false, alpha: false, preserveDrawingBuffer: false}) || c.getContext("experimental-webgl");
@@ -6242,7 +6293,7 @@ function openPractice(id, inst){
   enterFullscreen(); keepAwake();
 }
 function closePractice(){
-  TS.on = false;
+  TS.on = false; setTimeout(() => { BGM.tried = false; syncBgMedia(); }, 0);
   if (COMP.on){ rdClose(); COMP.on = false; COMP.rec = false; document.body.classList.remove("composing"); $("compBar").hidden = true; $("countNum").hidden = true; }
   commitSession();
   setDrawer(false);
@@ -7052,7 +7103,19 @@ function showPhoneSound(){ instStatus(); }
 $("barSel").value = barStyle(); $("barSel").onchange = e => store.set("dg30.barColors", e.target.value);
 $("kbZoom").checked = store.get("dg30.kbZoom", true); $("kbZoom").onchange = e => { store.set("dg30.kbZoom", e.target.checked); if (practiceVisible()) layout(); };
 $("lhStripes").checked = leftStripes(); $("lhStripes").onchange = e => store.set("dg30.lhStripes", e.target.checked);
-$("backSel").value = backStyle(); $("backSel").onchange = e => store.set("dg30.backdrop", e.target.value);
+$("backSel").value = backStyle();
+$("bgCustomRow").hidden = backStyle() !== "custom";
+$("backSel").onchange = e => { store.set("dg30.backdrop", e.target.value); $("bgCustomRow").hidden = e.target.value !== "custom"; if (e.target.value === "custom" && !BGM.url) $("bgFile").click(); syncBgMedia(); };
+$("bgFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (!/^(image|video)\//.test(f.type)){ toast("That isn't a photo or a video", 2000); return; }
+  if (f.size > 300e6){ toast("That video is very big. Try a shorter one (under 300 MB)", 2600); return; }
+  try { await mediaPut({blob: f, name: f.name}); } catch(err){ toast("Couldn't save it. The phone may be low on space", 2600); return; }
+  store.set("dg30.backdrop", "custom"); $("backSel").value = "custom"; $("bgCustomRow").hidden = false;
+  bgMediaApply({blob: f, name: f.name}); toast("Background set", 1400);
+});
+$("bgRemove").onclick = async () => { try { await mediaPut(null); } catch(e){} bgMediaApply(null); store.set("dg30.backdrop", "aquarium"); $("backSel").value = "aquarium"; $("bgCustomRow").hidden = true; };
+mediaGet().then(rec => { if (rec && rec.blob) bgMediaApply(rec); else bgMediaApply(null); });
 $("fxSel").value = FX.kind; $("fxSel").onchange = e => { FX.kind = e.target.value; store.set("dg30.fx", FX.kind); SPARKS.length = 0; };
 $("outSel").onchange = e => { allNotesOff(); conn.outMode = e.target.value; store.set("dg30.out", conn.outMode); };
 

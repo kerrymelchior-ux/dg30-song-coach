@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.78">
+<meta name="version" content="1.79">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,6 +83,7 @@ button{cursor:pointer}
 .compbar .rec i{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--bad);margin-right:7px;vertical-align:-1px}
 .compbar .rec.on{background:var(--bad);border-color:var(--bad);color:#fff}.compbar .rec.on i{border-radius:2px;background:#fff;animation:recPulse 1s ease-in-out infinite}
 .compbar [aria-pressed="false"]{opacity:.55}
+.compbar #cPlay.on{background:var(--accent);border-color:var(--accent);color:#14110f}
 @media (max-width:640px){ .compbar{gap:5px} .compbar .btn{padding:0 9px;font-size:13px} }
 body.redoing #compBar{visibility:hidden}
 #redoBar{position:absolute;left:0;right:0;margin:0 auto;width:max-content;z-index:9;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;max-width:calc(100% - 16px);padding:8px 10px;border-radius:16px;background:rgba(20,17,15,.94);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.45);color:var(--ivory);font-size:14px}
@@ -704,6 +705,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="compbar" id="compBar" hidden>
       <button class="btn rec" id="cRec" type="button"><i></i><span>Record</span></button>
       <button class="btn" id="cMetro" type="button" aria-pressed="true" title="Click along while you record">Click</button>
+      <button class="btn" id="cPlay" type="button" title="Play your piece. Tap a bar on the music first to start from there">&#9654; Play</button>
       <button class="btn" id="cRedo" type="button" title="Play a few bars again and choose which version to keep">Redo bars</button>
       <button class="btn" id="cUndo" type="button" title="Take back the last change">Undo</button>
       <button class="btn" id="cClear" type="button">Clear</button>
@@ -1111,7 +1113,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.78";
+const APP_VERSION = "1.79";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -6674,7 +6676,7 @@ function openCompose(fromId){
   COMP.bpm = ex ? (ex.bpm || 90) : COMP.autoBpm ? 90 : +bpmSel || 90;
   COMP.free = COMP.autoBpm;   // no tempo yet: no count-in or click, the clock starts on your first note
   COMP.notes = ex ? loadNotes(fromId).map(n => ({t: n.t, d: n.d, p: n.p, v: n.v || 80})) : [];
-  COMP.held.clear(); COMP.takes = []; COMP.rec = false; COMP.dirty = false; COMP.savedId = ex ? fromId : null; COMP.on = true;
+  COMP.held.clear(); COMP.takes = []; COMP.rec = false; COMP.playFrom = 0; COMP.dirty = false; COMP.savedId = ex ? fromId : null; COMP.on = true;
   P.song = {id: "compose", title: COMP.title, bpm: COMP.bpm, beats: COMP.beats, timeLabel: COMP.sig};
   P.origChords = []; P.chords = []; P.lyricLines = []; P.words = false; P.transpose = 0; P.origKey = {root: 0, minor: false}; P.key = P.origKey;
   P.baseBpm = COMP.bpm; P.tempo = 1; P.pressed.clear(); P.flashes = [];
@@ -6694,6 +6696,8 @@ function syncCompBar(){
   $("cMetro").setAttribute("aria-pressed", String(COMP.metro));
   $("cUndo").disabled = !COMP.takes.length; $("cSave").disabled = !COMP.notes.length;
   $("cRedo").disabled = !COMP.notes.length || COMP.rec || COMP.free;
+  const pl = RDP.on && RDP.btn === "cPlay"; $("cPlay").innerHTML = pl ? "&#9632; Stop" : "&#9654; Play"; $("cPlay").classList.toggle("on", pl);
+  $("cPlay").disabled = !COMP.notes.length || COMP.rec || COMP.countUntil > performance.now();
 }
 function compStartRec(){
   audioCtx();
@@ -6780,7 +6784,7 @@ function compFitTiming(){
   P.song.bpm = COMP.bpm; P.song.beats = COMP.beats; P.song.timeLabel = COMP.sig; P.baseBpm = COMP.bpm;
   toast(fit ? `Wrote it out at ${COMP.bpm} BPM in ${COMP.sig}` : `Wrote it out in ${COMP.sig}`, 2400);
 }
-$("cRec").onclick = () => { if (RD.on) return; if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
+$("cRec").onclick = () => { if (RD.on) return; if (RDP.on){ stopListen(); syncCompBar(); } if (COMP.rec || COMP.countUntil > performance.now()) compStopRec(); else compStartRec(); };
 $("cMetro").onclick = () => { COMP.metro = !COMP.metro; store.set("dg30.compMetro", COMP.metro); syncCompBar(); };
 $("cUndo").onclick = () => { if (COMP.rec) compStopRec(); const k = COMP.takes.pop(); if (k == null) return; if (typeof k === "object") COMP.notes = k.notes.map(n => ({...n})); else COMP.notes.length = k; COMP.dirty = true; if (k === 0){ COMP.free = COMP.autoBpm; COMP.autoSig = COMP.autoSig0; } COMP.autoSig = COMP.autoSig0; compRefresh(); P.t = P.len; FOLLOW.key = null; buildFollow(); syncCompBar(); toast("Took back the last change", 1400); };
 $("cClear").onclick = () => {
@@ -6856,12 +6860,21 @@ function rdPlayStep(now){
   while (RDP.i < RDP.notes.length && RDP.notes[RDP.i].t <= t){ const n = RDP.notes[RDP.i++]; noteOut(n.p, n.v || 80, true); RDP.offs.push({p: n.p, at: Math.min(RDP.to, n.t + n.d)}); }
   RDP.offs = RDP.offs.filter(o => { if (o.at <= t){ noteOut(o.p, 0, false); return false; } return true; });
   if (RDP.move && t >= RDP.from) P.t = t;
-  if (t >= RDP.to){ stopListen(); rdUI(); }
+  if (t >= RDP.to){ const b = RDP.btn; stopListen(); rdUI(); if (b === "cPlay"){ COMP.playFrom = 0; syncCompBar(); } }
 }
 function stopListen(){ if (!RDP.on) return; for (const o of RDP.offs) noteOut(o.p, 0, false); RDP.offs = []; RDP.on = false; RDP.btn = null; }
 function rdToggleListen(btn, notes){
   if (RDP.on && RDP.btn === btn){ stopListen(); rdUI(); return; }
-  const [A, B] = rdSpan(); rdListen(notes, A, B, true, btn);
+  // with a bar before and after, so you hear how it fits in
+  const [A, B] = rdSpan(), bl = compBarLen(); rdListen(notes, Math.max(0, A - bl), B + bl, true, btn);
+}
+// play the whole piece (or from the bar you tapped), as many times as you like
+function compPlay(){
+  if (RDP.on && RDP.btn === "cPlay"){ stopListen(); syncCompBar(); return; }
+  if (!COMP.notes.length || COMP.rec) return;
+  const end = COMP.notes.reduce((m, n) => Math.max(m, n.t + (n.d || 0)), 0);
+  let from = COMP.playFrom || 0; if (from >= end - 0.05) from = 0;
+  rdListen(COMP.notes, from, end + 0.3, true, "cPlay"); syncCompBar();
 }
 function rdRecord(){
   stopListen(); audioCtx();
@@ -6901,7 +6914,8 @@ function rdKeep(useNew){
   RD.on = false; RD.before = RD.after = null; RD.phase = "pick";
   compRefresh(); FOLLOW.key = null; buildFollow(); syncCompBar(); rdUI();
 }
-$("cRedo").onclick = openRedo;
+$("cRedo").onclick = () => { if (RDP.btn === "cPlay"){ stopListen(); syncCompBar(); } openRedo(); };
+$("cPlay").onclick = compPlay;
 $("rdFrom").onchange = e => { RD.a = +e.target.value; if (RD.b < RD.a) RD.b = RD.a; RD.tap = 0; rdUI(); };
 $("rdTo").onchange = e => { RD.b = +e.target.value; if (RD.a > RD.b) RD.a = RD.b; RD.tap = 0; rdUI(); };
 $("rdHear").onclick = () => rdToggleListen("rdHear", COMP.notes);
@@ -6915,9 +6929,15 @@ $("rdKeepOld").onclick = () => rdKeep(false);
 $("rdAgain").onclick = () => { COMP.notes = RD.before; rdRecord(); };
 // tap the first bar, then the last one, right on the music
 $("follow").addEventListener("click", e => {
-  if (!COMP.on || !RD.on || RD.phase !== "pick" || !FOLLOW.boxes) return;
+  if (!COMP.on || !FOLLOW.boxes || COMP.rec) return;
   const ref = $("followInner").getBoundingClientRect(), x = e.clientX - ref.left, y = e.clientY - ref.top;
   const i = FOLLOW.boxes.findIndex(b => b && x >= b.x0 - 4 && x <= b.x1 + 4 && y >= b.y0 && y <= b.y1); if (i < 0) return;
+  if (!RD.on){   // not redoing: tapping a bar is where Play starts
+    COMP.playFrom = i * compBarLen(); P.t = COMP.playFrom;
+    if (RDP.on && RDP.btn === "cPlay"){ stopListen(); compPlay(); } else toast(`Play starts at bar ${i + 1}`, 1200);
+    return;
+  }
+  if (RD.phase !== "pick") return;
   const bar = Math.min(compBars(), i + 1);
   if (!RD.tap){ RD.a = RD.b = bar; RD.tap = 1; } else { if (bar < RD.a){ RD.b = RD.a; RD.a = bar; } else RD.b = bar; RD.tap = 0; }
   rdUI();

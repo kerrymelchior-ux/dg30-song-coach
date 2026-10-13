@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.79">
+<meta name="version" content="1.80">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -313,16 +313,33 @@ select{min-height:40px;border-radius:9px;border:1px solid var(--line);background
 .plpick{display:flex;align-items:center;gap:8px;min-height:38px;font-size:15px}
 /* Tuner */
 .tuner{align-items:stretch}
-.tmeter{position:relative;height:120px;border-radius:12px;background:var(--lacquer);border:1px solid var(--line);overflow:hidden}
+/* the tuner sizes itself to the screen: everything shrinks on short screens, and on a sideways phone it goes side by side */
+.tbody{display:flex;flex-direction:column;gap:clamp(8px,2vh,16px)}
+.tcol{display:flex;flex-direction:column;gap:clamp(6px,1.6vh,14px);min-width:0}
+.tintro{margin:0;font-size:clamp(13px,1.9vh,15px)}
+#tunerHint{margin:0}
+#tunerHint:empty,#tunerHz:empty{display:none}
+#headstock{display:flex;justify-content:center}
+#headstock svg{width:100%;height:auto;max-height:30vh;display:block}
+.tuner .seg button{min-height:36px}
+.tmeter{position:relative;height:clamp(70px,14vh,120px);border-radius:12px;background:var(--lacquer);border:1px solid var(--line);overflow:hidden}
 .tmeter.ok{border-color:var(--good);box-shadow:0 0 0 2px color-mix(in srgb,var(--good) 40%,transparent) inset}
 .tscale{position:absolute;left:12px;right:12px;bottom:8px;display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted)}
 .tneedle{position:absolute;left:50%;bottom:-70px;width:3px;height:170px;margin-left:-1.5px;background:var(--right);transform-origin:50% 100%;transition:transform .12s linear;border-radius:2px}
 .tmeter.ok .tneedle{background:var(--good)}
 .tmeter::after{content:"";position:absolute;left:50%;top:10px;width:2px;height:24px;margin-left:-1px;background:var(--ivory)}
-.tnote{font:700 64px/1 var(--f-display);text-align:center}
+.tnote{font:700 clamp(38px,8vh,64px)/1 var(--f-display);text-align:center}
+#tunerDlg{width:min(520px,calc(100% - 16px));max-height:calc(100% - 16px)}
+#tunerDlg .sheet{--sp:clamp(12px,2.4vh,20px);padding:var(--sp);gap:clamp(8px,1.8vh,16px)}
+#tunerDlg .topbar{margin:calc(var(--sp) * -1) calc(var(--sp) * -1) 0;padding:clamp(8px,1.6vh,14px) var(--sp)}
+@media (orientation:landscape) and (max-height:620px){
+  #tunerDlg{width:min(900px,calc(100% - 16px))}
+  .tbody{display:grid;grid-template-columns:1fr 1.15fr;gap:18px;align-items:center}
+  #headstock svg{max-height:44vh}
+  .tintro{display:none}
+}
 .tdir{text-align:center;font-weight:600;min-height:1.5em}
 .tstrings{align-self:center}
-#headstock svg{width:100%;height:auto;display:block}
 .hs-board{fill:#2b211c}.hs-fret{stroke:#8d8273;stroke-width:2}
 .hs-wood{fill:#191513;stroke:#5c4f45;stroke-width:1.5}
 .hs-nut{fill:var(--ivory)}
@@ -966,7 +983,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <dialog id="tunerDlg">
   <div class="sheet tuner">
     <h2>Guitar tuner</h2>
-    <p style="margin:0">Tap a peg to tune that string, or leave it on Auto and play any string.</p>
+    <div class="tbody"><div class="tcol">
+    <p class="tintro">Tap a peg to tune that string, or leave it on Auto and play any string.</p>
     <div class="tmeter" id="tunerMeter">
       <div class="tscale"><span>−50</span><span>0</span><span>+50</span></div>
       <div class="tneedle" id="tunerNeedle"></div>
@@ -974,16 +992,18 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="tnote" id="tunerNote">–</div>
     <div class="tdir" id="tunerDir"></div>
     <div class="status" id="tunerHz" style="text-align:center"></div>
+    <p id="tunerHint"></p>
+    </div><div class="tcol">
     <div id="headstock"></div>
     <div class="row" style="justify-content:center;gap:10px">
       <div class="seg" id="tunerStrings" role="group" aria-label="Which string"></div>
       <div class="seg" id="tunerLayout" role="group" aria-label="Headstock shape"></div>
     </div>
-    <p id="tunerHint"></p>
     <div class="row" style="justify-content:space-between">
       <label class="row" style="gap:6px;font-size:13px;color:var(--muted)">A = <input id="tunerA4" type="number" min="415" max="466" step="1" style="width:64px;min-height:34px;border-radius:8px;border:1px solid var(--line);background:var(--lacquer);padding:0 6px"> Hz</label>
       <button class="btn ghost" id="tunerClose" type="button" autofocus>Done</button>
     </div>
+    </div></div>
   </div>
 </dialog>
 
@@ -1113,7 +1133,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.79";
+const APP_VERSION = "1.80";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="1.84">
+<meta name="version" content="1.85">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1166,7 +1166,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "1.84";
+const APP_VERSION = "1.85";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -3720,67 +3720,193 @@ function drawBackdrop(now, W, Hh){
   else { cx.fillStyle = C.bg; cx.fillRect(0, 0, W, Hh); }
   if (aq) drawAquarium(now, W, Hh);
 }
-/* ---------------- aquarium: fish swimming behind the notes ----------------
-   A handful of fish of different kinds and sizes cruise back and forth, turn now and then, and swim a little
-   faster when the music plays. Seaweed sways along the bottom and bubbles rise. Kept soft so the notes stay clear. */
-const AQ = {fish: [], weed: [], bubbles: [], last: 0, W: 0};
-const FISH_KINDS = [
-  {body: "#ff8c42", fin: "#ffd166", stripe: "#ffffff", len: 1},            // clownfish
-  {body: "#3a86ff", fin: "#ffd60a", stripe: null, len: 1.1},              // blue tang
-  {body: "#ffd23f", fin: "#ffb000", stripe: null, len: 0.8, tall: 1.4},  // yellow tang
-  {body: "#c77dff", fin: "#ff70a6", stripe: null, len: 0.75},             // little purple fish
-  {body: "#9ef01a", fin: "#38b000", stripe: null, len: 0.7},              // neon tetra-ish
-  {body: "#e5e5e5", fin: "#adb5bd", stripe: "#495057", len: 1.5, tall: 1.6}   // angelfish
-];
+/* ---------------- aquarium: realistic fish swimming behind the notes ----------------
+   Each fish is drawn from its real body shape: a spine that bends in a travelling wave (stronger toward the tail),
+   a width profile for the species, shading dark on the back and pale underneath, see-through fins, a lateral line
+   and its own markings. Far-away fish are smaller and fade into the blue water. A school of silver fish moves as one,
+   and every so often a grey reef shark cruises through; the small fish dart out of its way. */
+const AQ = {fish: [], school: [], weed: [], bubbles: [], shark: null, nextShark: 0, last: 0, W: 0, H: 0};
+const WATER = [12, 70, 88];
+const mixc = (c, k) => `rgb(${Math.round(c[0] + (WATER[0] - c[0]) * k)},${Math.round(c[1] + (WATER[1] - c[1]) * k)},${Math.round(c[2] + (WATER[2] - c[2]) * k)})`;
+const smooth01 = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// width of the body along its length (u: 0 = nose, 1 = base of the tail), as a fraction of the body height
+const PROFILES = {
+  fusiform: u => Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.08 + 0.02)), 0.62) * (1 - 0.72 * smooth01(0.62, 1, u)) + 0.1 * smooth01(0.8, 1, u),
+  disc: u => Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.1 + 0.03)), 0.5) * (1 - 0.8 * smooth01(0.7, 1, u)) + 0.12 * smooth01(0.85, 1, u),
+  shark: u => Math.pow(Math.min(1, u / 0.3), 0.55) * (1 - 0.82 * smooth01(0.35, 1, u)) + 0.08 * smooth01(0.85, 1, u)
+};
+const SPECIES = {
+  bluetang: {len: 70, ht: 0.27, prof: "disc", back: [20, 50, 150], side: [35, 95, 205], belly: [70, 140, 220], fin: [25, 70, 170], tail: "lunate", tailCol: [235, 200, 40], dorsal: [0.18, 0.88, 0.3], anal: [0.45, 0.88, 0.22], amp: 0.05, mark: "tang"},
+  yellowtang: {len: 52, ht: 0.38, prof: "disc", back: [225, 185, 20], side: [245, 210, 40], belly: [250, 225, 90], fin: [240, 200, 30], tail: "fan", tailCol: [240, 200, 30], dorsal: [0.15, 0.85, 0.42], anal: [0.42, 0.85, 0.35], amp: 0.045, snout: true},
+  angel: {len: 64, ht: 0.42, prof: "disc", back: [30, 60, 140], side: [60, 120, 190], belly: [235, 200, 60], fin: [40, 90, 190], tail: "fan", tailCol: [245, 205, 40], dorsal: [0.2, 0.9, 0.55], anal: [0.4, 0.9, 0.5], amp: 0.04, mark: "angel"},
+  grouper: {len: 120, ht: 0.18, prof: "fusiform", back: [70, 55, 45], side: [125, 95, 70], belly: [190, 165, 135], fin: [95, 75, 60], tail: "fan", tailCol: [95, 75, 60], dorsal: [0.25, 0.85, 0.12], anal: [0.62, 0.85, 0.1], amp: 0.06, mark: "spots"},
+  snapper: {len: 85, ht: 0.17, prof: "fusiform", back: [175, 60, 55], side: [215, 105, 90], belly: [240, 190, 175], fin: [200, 90, 80], tail: "fork", tailCol: [205, 85, 75], dorsal: [0.25, 0.75, 0.12], anal: [0.62, 0.8, 0.08], amp: 0.07},
+  sardine: {len: 26, ht: 0.11, prof: "fusiform", back: [40, 90, 110], side: [150, 175, 185], belly: [225, 232, 236], fin: [170, 190, 200], tail: "fork", tailCol: [160, 185, 195], dorsal: [0.4, 0.55, 0.12], anal: [0.7, 0.8, 0.05], amp: 0.09, mark: "dots"},
+  shark: {len: 330, ht: 0.12, prof: "shark", back: [85, 98, 108], side: [120, 134, 142], belly: [222, 226, 228], fin: [90, 103, 112], tail: "shark", tailCol: [88, 100, 110], dorsal: null, anal: null, amp: 0.05, shark: true}
+};
 function aqSetup(W, H){
-  AQ.W = W; AQ.H = H; const n = Math.max(5, Math.min(10, Math.round(W / 110)));
-  AQ.fish = Array.from({length: n}, (_, i) => { const k = FISH_KINDS[i % FISH_KINDS.length], size = (14 + Math.random() * 14) * k.len * Math.min(1.4, Math.max(0.8, W / 900));
-    return {k, size, x: Math.random() * W, y: H * (0.12 + Math.random() * 0.68), dir: Math.random() < 0.5 ? -1 : 1, sp: 18 + Math.random() * 26, ph: Math.random() * 6.3, wob: 0.4 + Math.random() * 0.8, turnAt: performance.now() + 4000 + Math.random() * 12000, flip: 1}; });
-  AQ.weed = Array.from({length: Math.round(W / 70)}, (_, i) => ({x: (i + 0.3 + Math.random() * 0.4) * W / Math.round(W / 70), h: 0.12 + Math.random() * 0.16, ph: Math.random() * 6.3, c: Math.random() < 0.5 ? "#1e6f4f" : "#2d8a4e"}));
-  AQ.bubbles = [];
+  AQ.W = W; AQ.H = H; const sc = Math.min(1.3, Math.max(0.7, W / 900));
+  const kinds = ["bluetang", "yellowtang", "angel", "grouper", "snapper", "bluetang", "yellowtang", "snapper"];
+  const n = Math.max(4, Math.min(8, Math.round(W / 120)));
+  AQ.fish = kinds.slice(0, n).map((k, i) => { const z = 0.25 + 0.75 * Math.random();
+    return {sp: SPECIES[k], z, size: sc * (0.75 + 0.35 * Math.random()), x: Math.random() * W, y: H * (0.12 + Math.random() * 0.62), dir: Math.random() < 0.5 ? -1 : 1, flip: 1, v: 0.6 + Math.random() * 0.5, ph: Math.random() * 6.3, turnAt: performance.now() + 6000 + Math.random() * 14000, dart: 0}; });
+  AQ.fish.sort((a, b) => a.z - b.z);
+  const cnt = Math.round(10 + W / 80);
+  AQ.school = {x: W * 0.3, y: H * 0.35, dir: 1, flip: 1, ph: 0, z: 0.45, turnAt: performance.now() + 15000,
+    fish: Array.from({length: cnt}, () => ({ox: (Math.random() - 0.5) * 140 * sc, oy: (Math.random() - 0.5) * 60 * sc, x: 0, y: 0, ph: Math.random() * 6.3, s: sc * (0.8 + Math.random() * 0.4)}))};
+  AQ.weed = Array.from({length: Math.round(W / 60)}, (_, i) => ({x: (i + 0.2 + Math.random() * 0.6) * W / Math.round(W / 60), h: 0.1 + Math.random() * 0.18, ph: Math.random() * 6.3, c: Math.random() < 0.5 ? [32, 96, 70] : [56, 118, 66]}));
+  AQ.bubbles = []; AQ.shark = null; AQ.nextShark = performance.now() + 8000 + Math.random() * 10000;
+}
+// draw one fish facing right at the origin; t drives the swimming wave
+function drawFishBody(sp, L, t, fog, flap){
+  const H = L * sp.ht, prof = PROFILES[sp.prof], N = 22, A = sp.amp * L, k = 1.3;
+  const top = [], bot = [], spine = [];
+  for (let i = 0; i <= N; i++){
+    const u = i / N, x = L * 0.5 - u * L, ys = A * u * u * Math.sin(t - k * u * Math.PI * 2), w = H * prof(u);
+    spine.push([x, ys]); top.push([x, ys - w]); bot.push([x, ys + w * (sp.shark ? 0.75 : 1)]);
+  }
+  const col = c => mixc(c, fog);
+  const tailBase = spine[N], tb = top[N], bb = bot[N];
+  const slope = (spine[N][1] - spine[N - 2][1]) / (spine[N][0] - spine[N - 2][0] || -1);
+  const T = L * (sp.shark ? 0.3 : sp.tail === "fan" ? 0.2 : 0.22), tx = tailBase[0] - T, ty = tailBase[1] - slope * T;
+  // tail
+  cx.fillStyle = col(sp.tailCol); cx.beginPath();
+  if (sp.tail === "shark"){
+    cx.moveTo(tb[0], tb[1]); cx.quadraticCurveTo(tx + T * 0.3, ty - H * 0.9, tx - T * 0.15, ty - H * 1.25);
+    cx.quadraticCurveTo(tx + T * 0.35, ty - H * 0.2, tx + T * 0.2, ty + H * 0.05); cx.quadraticCurveTo(tx + T * 0.15, ty + H * 0.45, tx + T * 0.05, ty + H * 0.7); cx.lineTo(bb[0], bb[1]);
+  } else if (sp.tail === "fork"){
+    cx.moveTo(tb[0], tb[1]); cx.quadraticCurveTo(tx + T * 0.4, ty - H * 0.5, tx, ty - H * 1.0); cx.lineTo(tx + T * 0.45, ty); cx.lineTo(tx, ty + H * 1.0); cx.quadraticCurveTo(tx + T * 0.4, ty + H * 0.5, bb[0], bb[1]);
+  } else if (sp.tail === "lunate"){
+    cx.moveTo(tb[0], tb[1]); cx.lineTo(tx, ty - H * 0.75); cx.quadraticCurveTo(tx + T * 0.45, ty, tx, ty + H * 0.75); cx.lineTo(bb[0], bb[1]);
+  } else {
+    cx.moveTo(tb[0], tb[1]); cx.quadraticCurveTo(tx + T * 0.2, ty - H * 0.7, tx - T * 0.05, ty - H * 0.55); cx.quadraticCurveTo(tx - T * 0.15, ty, tx - T * 0.05, ty + H * 0.55); cx.quadraticCurveTo(tx + T * 0.2, ty + H * 0.7, bb[0], bb[1]);
+  }
+  cx.closePath(); cx.globalAlpha *= 0.9; cx.fill(); cx.globalAlpha /= 0.9;
+  // tail rays
+  cx.strokeStyle = "rgba(0,0,0,0.12)"; cx.lineWidth = 0.6;
+  for (let r = -2; r <= 2; r++){ cx.beginPath(); cx.moveTo(tailBase[0], tailBase[1]); cx.lineTo(tx + T * 0.15, ty + r * H * 0.28); cx.stroke(); }
+  // dorsal and anal fins (see-through)
+  const finAlong = (edge, u0, u1, hgt, up) => {
+    const i0 = Math.round(u0 * N), i1 = Math.round(u1 * N); cx.beginPath(); cx.moveTo(edge[i0][0], edge[i0][1]);
+    for (let i = i0; i <= i1; i++){ const f = Math.sin(Math.PI * (i - i0) / Math.max(1, i1 - i0)) * 0.6 + 0.4 * (i - i0) / Math.max(1, i1 - i0); cx.lineTo(edge[i][0], edge[i][1] + (up ? -1 : 1) * H * hgt * Math.pow(f, 0.8) * 2.2); }
+    cx.lineTo(edge[i1][0], edge[i1][1]); cx.closePath(); cx.fill();
+  };
+  cx.fillStyle = col(sp.fin); cx.globalAlpha *= 0.7;
+  if (sp.dorsal) finAlong(top, sp.dorsal[0], sp.dorsal[1], sp.dorsal[2], true);
+  if (sp.anal) finAlong(bot, sp.anal[0], sp.anal[1], sp.anal[2], false);
+  if (sp.shark){   // tall curved first dorsal, small second dorsal, and pelvic fins
+    const d = top[Math.round(0.33 * N)], d2 = top[Math.round(0.47 * N)];
+    cx.beginPath(); cx.moveTo(d[0] + H * 0.6, d[1] + 2); cx.quadraticCurveTo(d[0] + H * 0.05, d[1] - H * 0.75, d[0] - H * 0.55, d[1] - H * 1.05); cx.quadraticCurveTo(d[0] - H * 0.35, d[1] - H * 0.45, d[0] - H * 0.75, d[1] + 2); cx.closePath(); cx.fill();
+    const e = top[Math.round(0.72 * N)]; cx.beginPath(); cx.moveTo(e[0] + H * 0.25, e[1] + 1); cx.lineTo(e[0] - H * 0.15, e[1] - H * 0.45); cx.lineTo(e[0] - H * 0.35, e[1] + 1); cx.closePath(); cx.fill();
+    const pv = bot[Math.round(0.6 * N)]; cx.beginPath(); cx.moveTo(pv[0] + H * 0.3, pv[1] - 1); cx.lineTo(pv[0] - H * 0.4, pv[1] + H * 0.5); cx.lineTo(pv[0] - H * 0.3, pv[1] - 1); cx.closePath(); cx.fill();
+    void d2;
+  }
+  cx.globalAlpha /= 0.7;
+  // body
+  const body = new Path2D(); body.moveTo(top[0][0] + H * 0.12, (top[0][1] + bot[0][1]) / 2);
+  for (let i = 0; i < N; i++){ const a = top[i], b = top[i + 1]; body.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+  body.lineTo(top[N][0], top[N][1]); body.lineTo(bot[N][0], bot[N][1]);
+  for (let i = N; i > 0; i--){ const a = bot[i], b = bot[i - 1]; body.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+  body.quadraticCurveTo(bot[0][0] + H * 0.1, bot[0][1], top[0][0] + H * 0.12, (top[0][1] + bot[0][1]) / 2); body.closePath();
+  const gr = cx.createLinearGradient(0, -H, 0, H * (sp.shark ? 0.75 : 1));
+  gr.addColorStop(0, col(sp.back)); gr.addColorStop(0.45, col(sp.side)); gr.addColorStop(sp.shark ? 0.62 : 0.8, col(sp.belly)); gr.addColorStop(1, col(sp.belly));
+  cx.fillStyle = gr; cx.fill(body);
+  cx.save(); cx.clip(body);
+  // markings
+  if (sp.mark === "tang"){        // the blue tang's black "palette" mark
+    cx.fillStyle = mixc([10, 15, 30], fog); cx.globalAlpha *= 0.85; cx.beginPath();
+    cx.moveTo(L * 0.28, -H * 0.55); cx.quadraticCurveTo(-L * 0.05, -H * 0.15, -L * 0.42, -H * 0.5); cx.quadraticCurveTo(-L * 0.15, H * 0.05, L * 0.2, H * 0.05); cx.quadraticCurveTo(L * 0.05, -H * 0.15, L * 0.28, -H * 0.55); cx.fill(); cx.globalAlpha /= 0.85;
+  } else if (sp.mark === "angel"){
+    cx.strokeStyle = mixc([120, 200, 255], fog); cx.lineWidth = 1.2; cx.globalAlpha *= 0.5;
+    for (let i = 0; i < 7; i++){ cx.beginPath(); cx.moveTo(L * 0.4 - i * L * 0.12, -H); cx.quadraticCurveTo(L * 0.3 - i * L * 0.12, 0, L * 0.4 - i * L * 0.12, H); cx.stroke(); }
+    cx.globalAlpha /= 0.5;
+  } else if (sp.mark === "spots"){
+    cx.fillStyle = mixc([60, 42, 30], fog); cx.globalAlpha *= 0.45;
+    for (let i = 0; i < 26; i++){ const u = (i * 0.618) % 1, v = ((i * 0.381) % 1) * 2 - 1; cx.beginPath(); cx.arc(L * 0.4 - u * L * 0.85, v * H * 0.7, H * (0.08 + 0.06 * ((i * 7) % 3)), 0, 6.283); cx.fill(); }
+    cx.globalAlpha /= 0.45;
+  } else if (sp.mark === "dots"){
+    cx.fillStyle = mixc([30, 50, 60], fog); cx.globalAlpha *= 0.5;
+    for (let i = 0; i < 5; i++){ cx.beginPath(); cx.arc(L * 0.25 - i * L * 0.13, -H * 0.15, H * 0.12, 0, 6.283); cx.fill(); }
+    cx.globalAlpha /= 0.5;
+  }
+  // a soft sheen along the upper flank, and the lateral line
+  const sh = cx.createLinearGradient(0, -H, 0, H); sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.35, `rgba(255,255,255,${sp.shark ? 0.08 : 0.22})`); sh.addColorStop(0.55, "rgba(255,255,255,0)");
+  cx.fillStyle = sh; cx.fillRect(-L * 0.6, -H * 1.2, L * 1.2, H * 2.4);
+  cx.strokeStyle = "rgba(0,0,0,0.13)"; cx.lineWidth = Math.max(0.5, H * 0.025); cx.beginPath();
+  for (let i = 2; i < N - 1; i++){ const p = spine[i], w = top[i][1] - p[1]; i === 2 ? cx.moveTo(p[0], p[1] + w * 0.35) : cx.lineTo(p[0], p[1] + w * 0.35 + (sp.shark ? 0 : -w * 0.15 * Math.sin(Math.PI * i / N))); }
+  cx.stroke();
+  if (sp.shark){   // gill slits
+    cx.strokeStyle = "rgba(40,48,55,0.35)"; cx.lineWidth = 1.1;
+    for (let g = 0; g < 5; g++){ const i = Math.round((0.17 + g * 0.025) * N), p = spine[i]; cx.beginPath(); cx.moveTo(p[0], p[1] - H * 0.35); cx.quadraticCurveTo(p[0] - H * 0.08, p[1], p[0], p[1] + H * 0.3); cx.stroke(); }
+  }
+  cx.restore();
+  // pectoral fin, gently flapping
+  const pi = Math.round((sp.shark ? 0.27 : 0.3) * N), pp = spine[pi], ph = H * (sp.shark ? 1.1 : 0.55);
+  cx.fillStyle = col(sp.shark ? sp.fin : sp.fin); cx.globalAlpha *= sp.shark ? 0.95 : 0.5;
+  cx.beginPath(); cx.moveTo(pp[0] + H * 0.15, pp[1] + H * 0.25);
+  cx.quadraticCurveTo(pp[0] - ph * 0.5, pp[1] + ph * (0.6 + 0.25 * Math.sin(flap)), pp[0] - ph * (sp.shark ? 1.3 : 0.9), pp[1] + ph * (sp.shark ? 1.0 : 0.55 + 0.3 * Math.sin(flap)));
+  cx.quadraticCurveTo(pp[0] - ph * 0.2, pp[1] + H * 0.35, pp[0] + H * 0.15, pp[1] + H * 0.25); cx.fill(); cx.globalAlpha /= sp.shark ? 0.95 : 0.5;
+  // eye: small and dark, with a glint
+  const ei = sp.shark ? 2 : 2, ep = spine[ei], er = sp.shark ? H * 0.07 : H * 0.13, ex = ep[0] - (sp.shark ? H * 0.5 : H * 0.05), ey = ep[1] - H * (sp.shark ? 0.2 : 0.22);
+  if (!sp.shark){ cx.fillStyle = col([200, 190, 150]); cx.beginPath(); cx.arc(ex, ey, er * 1.35, 0, 6.283); cx.fill(); }
+  cx.fillStyle = "#0a0a0c"; cx.beginPath(); cx.arc(ex, ey, er, 0, 6.283); cx.fill();
+  cx.fillStyle = "rgba(255,255,255,0.7)"; cx.beginPath(); cx.arc(ex + er * 0.3, ey - er * 0.35, er * 0.3, 0, 6.283); cx.fill();
+  if (sp.snout){ cx.fillStyle = col(sp.back); cx.beginPath(); cx.ellipse(L * 0.5, (top[0][1] + bot[0][1]) / 2 + H * 0.12, H * 0.16, H * 0.08, 0.3, 0, 6.283); cx.fill(); }
+}
+function drawOneFish(f, sp, x, y, L, t, fog, alpha){
+  cx.save(); cx.translate(x, y); cx.scale(f.flip < 0 ? Math.min(-0.15, f.flip) : Math.max(0.15, f.flip), 1);
+  cx.globalAlpha = alpha; drawFishBody(sp, L, t, fog, t * 0.7);
+  cx.restore();
 }
 function drawAquarium(now, W, H){
   if (Math.abs(AQ.W - W) > 2 || Math.abs(AQ.H - H) > 2 || !AQ.fish.length) aqSetup(W, H);
   const dt = Math.min(0.1, (now - (AQ.last || now)) / 1000); AQ.last = now;
-  const t = now / 1000, lively = 1 + Math.min(1.2, (GFX.energy || 0) * 1.5) + (P.playing ? 0.25 : 0);
+  const t = now / 1000, lively = 1 + Math.min(0.8, (GFX.energy || 0)) + (P.playing ? 0.15 : 0);
   cx.save();
-  // seaweed along the bottom
+  // the shark: every half minute or so it cruises across, slowly
+  if (!AQ.shark && now > AQ.nextShark){ const d = Math.random() < 0.5 ? 1 : -1, L = SPECIES.shark.len * Math.min(1.3, Math.max(0.75, W / 900));
+    AQ.shark = {dir: d, flip: d, x: d > 0 ? -L : W + L, y: H * (0.3 + Math.random() * 0.3), L, z: 0.55 + Math.random() * 0.3, ph: 0}; }
+  const sk = AQ.shark;
+  // far fish first, then the school, the shark, and the near fish
+  const drawFishList = list => { for (const f of list){
+    if (now > f.turnAt){ f.dir *= -1; f.turnAt = now + 7000 + Math.random() * 15000; }
+    if (sk && Math.abs(sk.x - f.x) < sk.L * 0.9 && Math.abs(sk.y - f.y) < sk.L * 0.4 && !f.dart){ f.dart = 1.6; f.dir = Math.sign(f.x - sk.x) || 1; }   // get out of the shark's way
+    f.dart = Math.max(0, f.dart - dt * 0.6);
+    f.flip += (f.dir - f.flip) * Math.min(1, dt * 4.5);
+    const L = f.sp.len * f.size * (0.55 + 0.6 * f.z), speed = (22 + 28 * f.z) * f.v * lively * (1 + f.dart * 2);
+    f.x += f.dir * speed * dt * Math.max(0.15, Math.abs(f.flip)); f.y += Math.sin(t * 0.5 + f.ph) * 5 * dt;
+    if (f.x > W + L) { f.x = -L; f.y = H * (0.12 + Math.random() * 0.62); } if (f.x < -L) { f.x = W + L; f.y = H * (0.12 + Math.random() * 0.62); }
+    f.ph += dt * (5 + f.dart * 6) * lively;
+    drawOneFish(f, f.sp, f.x, f.y, L, f.ph, 0.6 * (1 - f.z), 0.45 + 0.4 * f.z);
+  } };
+  drawFishList(AQ.fish.filter(f => f.z < 0.55));
+  // the school of silver fish
+  const sc = AQ.school;
+  if (now > sc.turnAt){ sc.dir *= -1; sc.turnAt = now + 12000 + Math.random() * 12000; }
+  if (sk && Math.abs(sk.x - sc.x) < sk.L * 1.2 && Math.abs(sk.y - sc.y) < sk.L * 0.6){ sc.y += (sc.y > sk.y ? 1 : -1) * 60 * dt; sc.scatter = Math.min(1, (sc.scatter || 0) + dt * 2); } else sc.scatter = Math.max(0, (sc.scatter || 0) - dt * 0.5);
+  sc.flip += (sc.dir - sc.flip) * Math.min(1, dt * 1.5); sc.ph += dt;
+  sc.x += sc.dir * 30 * lively * dt; sc.y += Math.sin(sc.ph * 0.4) * 8 * dt; sc.y = Math.max(H * 0.1, Math.min(H * 0.75, sc.y));
+  if (sc.x > W + 200) sc.x = -200; if (sc.x < -200) sc.x = W + 200;
+  for (const m of sc.fish){
+    const tx = sc.x + m.ox * (1 + (sc.scatter || 0)) * Math.max(0.3, Math.abs(sc.flip)) + Math.sin(sc.ph * 0.7 + m.ph) * 8, ty = sc.y + m.oy * (1 + (sc.scatter || 0)) + Math.cos(sc.ph * 0.9 + m.ph) * 5;
+    m.x += (tx - m.x) * Math.min(1, dt * 2.2); m.y += (ty - m.y) * Math.min(1, dt * 2.2); m.ph += dt * 9 * lively;
+    drawOneFish({flip: sc.flip}, SPECIES.sardine, m.x, m.y, SPECIES.sardine.len * m.s, m.ph, 0.35, 0.7);
+  }
+  if (sk){
+    sk.ph += dt * 2.2; sk.x += sk.dir * 38 * dt; sk.y += Math.sin(sk.ph * 0.15) * 4 * dt;
+    drawOneFish(sk, SPECIES.shark, sk.x, sk.y, sk.L * (0.6 + 0.5 * sk.z), sk.ph, 0.45 * (1 - sk.z), 0.55 + 0.35 * sk.z);
+    if ((sk.dir > 0 && sk.x > W + sk.L) || (sk.dir < 0 && sk.x < -sk.L)){ AQ.shark = null; AQ.nextShark = now + 25000 + Math.random() * 30000; }
+  }
+  drawFishList(AQ.fish.filter(f => f.z >= 0.55));
+  // seaweed in front along the bottom, and rising bubbles
   for (const w of AQ.weed){
-    const h = H * w.h, sway = Math.sin(t * 0.9 + w.ph) * h * 0.18;
-    cx.strokeStyle = w.c; cx.globalAlpha = 0.55; cx.lineWidth = 6; cx.lineCap = "round";
-    cx.beginPath(); cx.moveTo(w.x, H); cx.quadraticCurveTo(w.x + sway * 0.4, H - h * 0.5, w.x + sway, H - h); cx.stroke();
-    cx.lineWidth = 4; cx.beginPath(); cx.moveTo(w.x + 6, H); cx.quadraticCurveTo(w.x + 6 - sway * 0.3, H - h * 0.35, w.x + 6 - sway * 0.6, H - h * 0.7); cx.stroke();
+    const h = H * w.h, sway = Math.sin(t * 0.8 + w.ph) * h * 0.2;
+    cx.strokeStyle = mixc(w.c, 0.25); cx.globalAlpha = 0.6; cx.lineCap = "round";
+    for (const [dx, f, lw] of [[0, 1, 5], [5, 0.7, 3.5], [-4, 0.55, 3]]){ cx.lineWidth = lw; cx.beginPath(); cx.moveTo(w.x + dx, H); cx.bezierCurveTo(w.x + dx - sway * 0.3, H - h * f * 0.35, w.x + dx + sway * 0.6, H - h * f * 0.7, w.x + dx + sway * f, H - h * f); cx.stroke(); }
   }
-  // bubbles
-  if (Math.random() < dt * 2.2) AQ.bubbles.push({x: Math.random() * W, y: H + 4, r: 1.5 + Math.random() * 3.5, sp: 25 + Math.random() * 35, ph: Math.random() * 6});
-  cx.globalAlpha = 0.35; cx.strokeStyle = "#cfefff"; cx.lineWidth = 1.2;
+  if (Math.random() < dt * 2) AQ.bubbles.push({x: Math.random() * W, y: H + 4, r: 1.2 + Math.random() * 3, sp: 25 + Math.random() * 35, ph: Math.random() * 6});
+  cx.globalAlpha = 0.3; cx.strokeStyle = "#d8f3ff"; cx.lineWidth = 1;
   AQ.bubbles = AQ.bubbles.filter(b => { b.y -= b.sp * dt; const x = b.x + Math.sin(t * 2 + b.ph) * 3; cx.beginPath(); cx.arc(x, b.y, b.r, 0, 6.283); cx.stroke(); return b.y > -10; });
-  // fish
-  for (const f of AQ.fish){
-    if (now > f.turnAt){ f.dir *= -1; f.turnAt = now + 5000 + Math.random() * 14000; }
-    f.flip += (f.dir - f.flip) * Math.min(1, dt * 3);                    // turn around smoothly
-    f.x += f.dir * f.sp * lively * dt * Math.max(0.2, Math.abs(f.flip));
-    f.y += Math.sin(t * f.wob + f.ph) * 6 * dt;
-    if (f.x > W + f.size * 3) { f.x = -f.size * 3; f.y = H * (0.12 + Math.random() * 0.68); }
-    if (f.x < -f.size * 3) { f.x = W + f.size * 3; f.y = H * (0.12 + Math.random() * 0.68); }
-    const s = f.size, k = f.k, tall = k.tall || 1, tail = Math.sin(t * 7 * lively + f.ph) * 0.35;
-    cx.save(); cx.translate(f.x, f.y); cx.scale(f.flip, 1); cx.globalAlpha = 0.6;
-    // tail
-    cx.fillStyle = k.fin; cx.beginPath(); cx.moveTo(-s * 0.85, 0);
-    cx.lineTo(-s * 1.55, -s * 0.5 * tall + tail * s * 0.4); cx.lineTo(-s * 1.4, tail * s * 0.3); cx.lineTo(-s * 1.55, s * 0.5 * tall + tail * s * 0.4); cx.closePath(); cx.fill();
-    // fins
-    cx.beginPath(); cx.moveTo(-s * 0.3, -s * 0.38 * tall); cx.quadraticCurveTo(0, -s * 0.85 * tall, s * 0.35, -s * 0.36 * tall); cx.fill();
-    cx.beginPath(); cx.moveTo(-s * 0.2, s * 0.36 * tall); cx.quadraticCurveTo(0.05 * s, s * 0.7 * tall, s * 0.3, s * 0.34 * tall); cx.fill();
-    // body
-    const gr = cx.createLinearGradient(0, -s * 0.45 * tall, 0, s * 0.45 * tall); gr.addColorStop(0, k.body); gr.addColorStop(1, "rgba(0,0,0,0.35)");
-    cx.fillStyle = k.body; cx.beginPath(); cx.ellipse(0, 0, s, s * 0.45 * tall, 0, 0, 6.283); cx.fill();
-    cx.fillStyle = gr; cx.globalAlpha = 0.25; cx.fill(); cx.globalAlpha = 0.6;
-    if (k.stripe){ cx.fillStyle = k.stripe; for (const sx of [0.35, -0.2]){ cx.beginPath(); cx.ellipse(s * sx, 0, s * 0.09, s * 0.42 * tall, 0, 0, 6.283); cx.fill(); } }
-    // eye
-    cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s * 0.6, -s * 0.1, s * 0.13, 0, 6.283); cx.fill();
-    cx.fillStyle = "#111"; cx.beginPath(); cx.arc(s * 0.64, -s * 0.1, s * 0.065, 0, 6.283); cx.fill();
-    cx.restore();
-  }
   cx.restore();
 }
 /* ---------------- moving backgrounds, drawn by the phone's graphics chip ----------------

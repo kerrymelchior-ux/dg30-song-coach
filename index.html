@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.12">
+<meta name="version" content="2.13">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1445,7 +1445,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.12";
+const APP_VERSION = "2.13";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -4001,7 +4001,7 @@ function drawPiano(now){
   }
   if (SC.flash > 0.01){ cx.fillStyle = SC.flashCol; cx.globalAlpha = SC.flash * 0.22; cx.fillRect(0, 0, W, hitY); cx.globalAlpha = 1; SC.flash *= 0.9; }
   const LBL = [];                                   // note letters are drawn last, on top of the light effects
-  const lblSize = k => Math.max(11, Math.min(33, Math.floor(k.w * 0.62)));
+  const lblSize = k => Math.max(11, Math.min(22, Math.floor(k.w * 0.41)));
   if (!noBars) for (const n of P.notes){
     if (n.t > horizon) break;
     if (n.t + n.d < P.t - 0.3) continue;

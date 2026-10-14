@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.08">
+<meta name="version" content="2.09">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -158,6 +158,17 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .libtabs button[aria-pressed="true"]{background:none;color:var(--ivory);border:0}
 .libtabs button[aria-pressed="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
 @media (max-width:520px){ .libtabs{grid-template-columns:none} }
+.libtabwrap{position:relative}
+.libtabwrap .tabmore{position:absolute;top:0;bottom:1px;width:56px;display:none;align-items:center;border:0;padding:0;color:var(--ivory);cursor:pointer;z-index:2}
+.libtabwrap .tabmore svg{width:22px;height:22px;animation:tabnudge 1.6s ease-in-out 3}
+.libtabwrap .tabmore.r{inset-inline-end:0;justify-content:flex-end;background:linear-gradient(to right,transparent,var(--lacquer) 55%)}
+.libtabwrap .tabmore.l{inset-inline-start:0;justify-content:flex-start;background:linear-gradient(to left,transparent,var(--lacquer) 55%)}
+[dir="rtl"] .libtabwrap .tabmore.r{background:linear-gradient(to left,transparent,var(--lacquer) 55%)}
+[dir="rtl"] .libtabwrap .tabmore.l{background:linear-gradient(to right,transparent,var(--lacquer) 55%)}
+[dir="rtl"] .libtabwrap .tabmore svg{transform:scaleX(-1)}
+.libtabwrap.more-r .tabmore.r,.libtabwrap.more-l .tabmore.l{display:flex}
+@keyframes tabnudge{0%,100%{translate:0}50%{translate:4px}}
+.libtabwrap .tabmore.l svg{animation:none}
 .search{position:relative}
 .search input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:0 14px 0 42px;font-size:15px}
 .search input::placeholder{color:var(--muted)}
@@ -1416,7 +1427,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.08";
+const APP_VERSION = "2.09";
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
 window.scrollTo(0, 0); window.addEventListener("load", () => window.scrollTo(0, 0));
@@ -4929,6 +4940,22 @@ function songById(id){
   const d = DEMOS[id]; return d ? {id, title: d.title, by: d.by, demo: true, count: d.count, len: d.len} : undefined;
 }
 let libTab = ["mine", "samples"].includes(store.get("dg30.libTab", null)) ? store.get("dg30.libTab", null) : null;
+// the song tabs scroll sideways on phones: show an arrow (and a fade) on whichever side has more tabs
+(function libTabHint(){
+  const seg = $("libSeg"); if (!seg) return;
+  const wrap = document.createElement("div"); wrap.className = "libtabwrap"; seg.before(wrap); wrap.append(seg);
+  const mk = (cls, d, lbl) => { const b = document.createElement("button"); b.type = "button"; b.className = "tabmore " + cls; b.setAttribute("aria-label", lbl);
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`; wrap.append(b); return b; };
+  const r = mk("r", "m9 5 7 7-7 7", "More tabs"), l = mk("l", "m15 5-7 7 7 7", "Earlier tabs");
+  const rtl = () => getComputedStyle(seg).direction === "rtl";
+  const upd = () => { const pos = Math.abs(seg.scrollLeft), max = seg.scrollWidth - seg.clientWidth;
+    wrap.classList.toggle("more-r", max > 4 && pos < max - 4); wrap.classList.toggle("more-l", max > 4 && pos > 4); };
+  const go = dir => seg.scrollBy({left: dir * (rtl() ? -1 : 1) * seg.clientWidth * 0.6, behavior: "smooth"});
+  r.onclick = () => go(1); l.onclick = () => go(-1);
+  seg.addEventListener("scroll", upd, {passive: true}); window.addEventListener("resize", upd);
+  try { new ResizeObserver(upd).observe(seg); } catch(e){}
+  setTimeout(upd, 0); setTimeout(upd, 1500);
+})();
 function renderLibrary(){
   try { renderHello(); } catch(e){}
   try { renderPlaylists(); } catch(e){}

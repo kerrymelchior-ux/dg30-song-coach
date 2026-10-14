@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.01">
+<meta name="version" content="2.02">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -318,6 +318,10 @@ body.syncing #wordsBtn{visibility:hidden}
 #resScore{font:700 20px/1.3 var(--f-body);font-variant-numeric:tabular-nums}#resScore small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
 #resNew{align-self:flex-start;font:800 14px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;border-radius:999px;background:linear-gradient(135deg,#ff5fb8,#ffb43c);color:#1a0d05;animation:resNew 1s ease-in-out infinite alternate}
 @keyframes resNew{to{transform:scale(1.07)}}
+/* the library header always fits the screen width: the title side shrinks, and on narrow phones the instrument chip is just its icon */
+.top .brand{min-width:0;flex:1 1 auto}.top .brand h1{white-space:nowrap}.progchip{max-width:100%;overflow:hidden;white-space:nowrap}
+@media (max-width:420px){#instName{display:none}.instchip{padding:0 11px}.topacts{gap:6px}}
+html,body{overflow-x:clip}
 /* the sign-in welcome screen */
 #acctDlg{width:min(460px,calc(100% - 24px))}
 #acctDlg .acct{align-items:stretch;text-align:center;gap:12px;padding:26px 22px 20px}
@@ -1362,7 +1366,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.01";
+const APP_VERSION = "2.02";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -8692,7 +8696,12 @@ async function syncSignIn(how, form){
   const P_ = form === "ac" ? {em: "acEmail", pw: "acPw", msg: "acMsg"} : {em: "syncEmail", pw: "syncPw", msg: "syncMsg"};
   try {
     const {auth} = await fbLoad(); $(P_.msg).textContent = "";
-    if (how === "google") await auth.signInWithPopup(CS.auth, new auth.GoogleAuthProvider());
+    if (how === "google"){
+      // Firebase asks for a 500×600 window; on phones and tablets that shows up tiny, so open it as an ordinary full tab
+      const open = window.open;
+      window.open = (url, name) => open.call(window, url, name);
+      try { await auth.signInWithPopup(CS.auth, new auth.GoogleAuthProvider()); } finally { window.open = open; }
+    }
     else {
       const em = $(P_.em).value.trim(), pw = $(P_.pw).value;
       if (!em || !pw){ $(P_.msg).textContent = tr("Type your email and a password."); return; }

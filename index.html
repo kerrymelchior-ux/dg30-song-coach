@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.02">
+<meta name="version" content="2.04">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -318,6 +318,7 @@ body.syncing #wordsBtn{visibility:hidden}
 #resScore{font:700 20px/1.3 var(--f-body);font-variant-numeric:tabular-nums}#resScore small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
 #resNew{align-self:flex-start;font:800 14px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;border-radius:999px;background:linear-gradient(135deg,#ff5fb8,#ffb43c);color:#1a0d05;animation:resNew 1s ease-in-out infinite alternate}
 @keyframes resNew{to{transform:scale(1.07)}}
+.gisbox{display:flex;justify-content:center;min-height:44px}#syncGis{justify-content:flex-start}
 /* the library header always fits the screen width: the title side shrinks, and on narrow phones the instrument chip is just its icon */
 .top .brand{min-width:0;flex:1 1 auto}.top .brand h1{white-space:nowrap}.progchip{max-width:100%;overflow:hidden;white-space:nowrap}
 @media (max-width:420px){#instName{display:none}.instchip{padding:0 11px}.topacts{gap:6px}}
@@ -818,7 +819,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       <div class="row"><button class="btn" id="syncCfgSave" type="button">Save setup</button><small id="syncMsg2" style="color:var(--muted)"></small></div>
     </div>
     <div id="syncOut" hidden>
-      <button class="btn primary" id="syncGoogle" type="button">Sign in with Google</button>
+      <button class="btn primary" id="syncGoogle" type="button">Sign in with Google</button><div id="syncGis" class="gisbox" hidden></div>
       <div class="field"><label class="label" for="syncEmail">Or with email</label>
         <input id="syncEmail" type="email" autocomplete="email" placeholder="you@example.com" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px;margin-bottom:6px">
         <input id="syncPw" type="password" autocomplete="current-password" placeholder="Password" style="min-height:42px;border-radius:9px;border:1px solid var(--line);background:var(--lacquer);padding:0 12px"></div>
@@ -1272,7 +1273,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="acicon" aria-hidden="true">☁️</div>
     <h2>Keep your music on all your devices</h2>
     <p class="acsub">Sign in and your songs, scores, stars and streaks are the same on your phone, tablet and every device you use. Everything still works offline.</p>
-    <button class="btn primary acbig" id="acGoogle" type="button">Sign in with Google</button>
+    <button class="btn primary acbig" id="acGoogle" type="button">Sign in with Google</button><div id="acGis" class="gisbox" hidden></div>
     <div class="acor"><span>or with email</span></div>
     <input id="acEmail" type="email" autocomplete="email" placeholder="you@example.com" class="acin">
     <input id="acPw" type="password" autocomplete="current-password" placeholder="Password" class="acin">
@@ -1366,7 +1367,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.02";
+const APP_VERSION = "2.04";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -8726,14 +8727,53 @@ $("acGoogle").onclick = () => syncSignIn("google", "ac");
 $("acIn").onclick = () => syncSignIn("email", "ac");
 $("acNew").onclick = () => syncSignIn("create", "ac");
 $("acReset").onclick = () => syncSignIn("reset", "ac");
-$("acSkip").onclick = () => { store.set("dg30.acctSkip", Date.now()); $("acctDlg").close(); };
+$("acSkip").onclick = () => { try { sessionStorage.setItem("dg30.acctSkip", "1"); } catch(e){} $("acctDlg").close(); };   // asks again next time the app opens
+
+/* Google's own sign-in (phone-friendly): the account picker slides up from the bottom on Android and opens full size
+   elsewhere. It hands us a Google ID token and Firebase signs in with it. Without a client ID, the Firebase pop-up is used. */
+const GOOGLE_CLIENT_ID = "211365892359-dotc48e9msai167daqdk2fr1u9ltpje9.apps.googleusercontent.com";
+let gisReady = null;
+function gisLoad(){
+  if (!GOOGLE_CLIENT_ID) return Promise.reject(new Error("no client id"));
+  return gisReady || (gisReady = new Promise((res, rej) => {
+    const sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.async = true;
+    sc.onload = () => {
+      try {
+        google.accounts.id.initialize({client_id: GOOGLE_CLIENT_ID, callback: gisDone, auto_select: false, cancel_on_tap_outside: true, use_fedcm_for_prompt: true, itp_support: true, context: "signin"});
+        res();
+      } catch(e){ rej(e); }
+    };
+    sc.onerror = () => { gisReady = null; rej(new Error("Google sign-in didn't load")); };
+    document.head.appendChild(sc);
+  }));
+}
+async function gisDone(resp){
+  try {
+    const {auth} = await fbLoad();
+    await auth.signInWithCredential(CS.auth, auth.GoogleAuthProvider.credential(resp.credential));
+    if ($("acctDlg").open) $("acctDlg").close();
+    toast(tr("Signed in. Your songs and scores will now sync."), 2600);
+  } catch(e){ const m = e.code || e.message; $("acMsg").textContent = m; $("syncMsg").textContent = m; }
+}
+function gisButtons(){
+  gisLoad().then(() => {
+    for (const [btn, box] of [["acGoogle", "acGis"], ["syncGoogle", "syncGis"]]){
+      const el = $(box); if (el.dataset.done) continue; el.dataset.done = "1";
+      google.accounts.id.renderButton(el, {type: "standard", theme: "filled_black", size: "large", shape: "pill", text: "signin_with", logo_alignment: "left",
+        width: Math.min(360, Math.max(220, (el.parentElement.clientWidth || 300) - 8)), locale: (LANG_LOCALE[LANG] || "en-US")});
+      el.hidden = false; $(btn).hidden = true;
+    }
+  }).catch(() => {});
+}
+function gisPrompt(){ gisButtons(); gisLoad().then(() => { try { google.accounts.id.prompt(); } catch(e){} }).catch(() => {}); }
+setTimeout(() => { if (GOOGLE_CLIENT_ID) gisButtons(); }, 2500);
 // on opening, if this device isn't signed in: offer it once (and again a month after "Not now")
 function maybeAskSignIn(){
   if (CS.user || $("acctDlg").open) return;
-  const skip = store.get("dg30.acctSkip", 0); if (skip && Date.now() - skip < 30 * 864e5) return;
+  try { if (sessionStorage.getItem("dg30.acctSkip")) return; } catch(e){}
   const busy = () => (document.getElementById("launch")) || !$("splash").hidden || document.querySelector("dialog[open]") || !$("practice").hidden;
   if (busy()){ setTimeout(maybeAskSignIn, 1500); return; }
-  $("acMsg").textContent = ""; $("acctDlg").showModal();
+  $("acMsg").textContent = ""; $("acctDlg").showModal(); gisPrompt();
 }
 $("syncEmailIn").onclick = () => syncSignIn("email");
 $("syncEmailNew").onclick = () => syncSignIn("create");

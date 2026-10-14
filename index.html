@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.04">
+<meta name="version" content="2.05">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1367,7 +1367,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.04";
+const APP_VERSION = "2.05";
 // writing-music state (declared early: the drawing code checks it)
 const COMP = { on: false, rec: false, notes: [], held: new Map(), bpm: 90, beats: 4, sig: "4/4", metro: (() => { try { return localStorage.getItem("dg30.compMetro") !== "false"; } catch(e){ return true; } })(),
   t0: 0, offset: 0, countUntil: 0, lastBeat: -1, takes: [], ver: 0, lastBuild: 0, dirty: false, savedId: null, title: "" };
@@ -8697,6 +8697,7 @@ async function syncSignIn(how, form){
   const P_ = form === "ac" ? {em: "acEmail", pw: "acPw", msg: "acMsg"} : {em: "syncEmail", pw: "syncPw", msg: "syncMsg"};
   try {
     const {auth} = await fbLoad(); $(P_.msg).textContent = "";
+    if (how === "google" && IOS_WEB){ googleRedirect(); return; }
     if (how === "google"){
       // Firebase asks for a 500×600 window; on phones and tablets that shows up tiny, so open it as an ordinary full tab
       const open = window.open;
@@ -8755,7 +8756,42 @@ async function gisDone(resp){
     toast(tr("Signed in. Your songs and scores will now sync."), 2600);
   } catch(e){ const m = e.code || e.message; $("acMsg").textContent = m; $("syncMsg").textContent = m; }
 }
+/* iPad and iPhone (Safari, Bluefy and every other iOS browser): Google's pop-up can't hand the answer back, which leaves a
+   blank Google page. There, the whole page goes to Google and Google sends it straight back here with the sign-in. */
+const IOS_WEB = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const appHome = () => location.origin + location.pathname.replace(/index\.html$/, "");
+function googleRedirect(){
+  const rnd = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
+  const state = rnd(), nonce = rnd();
+  try { sessionStorage.setItem("dg30.gState", state); localStorage.setItem("dg30.gState", state); } catch(e){}
+  const q = new URLSearchParams({client_id: GOOGLE_CLIENT_ID, redirect_uri: appHome(), response_type: "id_token", scope: "openid email profile",
+    nonce, state, prompt: "select_account"});
+  location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + q;
+}
+// coming back from Google: the sign-in is in the address after the #
+const G_BACK = (() => {
+  if (!/(^|[#&])(id_token|error)=/.test(location.hash)) return null;
+  const h = new URLSearchParams(location.hash.slice(1));
+  try { history.replaceState(null, "", location.pathname + location.search); } catch(e){}
+  let want = null; try { want = sessionStorage.getItem("dg30.gState") || localStorage.getItem("dg30.gState"); sessionStorage.removeItem("dg30.gState"); localStorage.removeItem("dg30.gState"); } catch(e){}
+  if (h.get("state") !== want) return {error: "state"};
+  return {token: h.get("id_token"), error: h.get("error")};
+})();
+if (G_BACK){
+  CS.askedOnce = true;
+  setTimeout(async () => {
+    const say = m => { toast(m, 5000); try { $("syncMsg").textContent = m; } catch(e){} };
+    if (!G_BACK.token){ if (G_BACK.error && G_BACK.error !== "access_denied") say(tr("Google sign-in didn't finish. Try again, or sign in with email.")); return; }
+    try {
+      const {auth} = await fbLoad();
+      await auth.signInWithCredential(CS.auth, auth.GoogleAuthProvider.credential(G_BACK.token));
+      if ($("acctDlg").open) $("acctDlg").close();
+      toast(tr("Signed in. Your songs and scores will now sync."), 2600);
+    } catch(e){ say(tr("Google sign-in didn't finish. Try again, or sign in with email.") + " (" + (e.code || e.message) + ")"); }
+  }, 0);
+}
 function gisButtons(){
+  if (IOS_WEB) return;
   gisLoad().then(() => {
     for (const [btn, box] of [["acGoogle", "acGis"], ["syncGoogle", "syncGis"]]){
       const el = $(box); if (el.dataset.done) continue; el.dataset.done = "1";
@@ -8765,7 +8801,7 @@ function gisButtons(){
     }
   }).catch(() => {});
 }
-function gisPrompt(){ gisButtons(); gisLoad().then(() => { try { google.accounts.id.prompt(); } catch(e){} }).catch(() => {}); }
+function gisPrompt(){ if (IOS_WEB) return; gisButtons(); gisLoad().then(() => { try { google.accounts.id.prompt(); } catch(e){} }).catch(() => {}); }
 setTimeout(() => { if (GOOGLE_CLIENT_ID) gisButtons(); }, 2500);
 // on opening, if this device isn't signed in: offer it once (and again a month after "Not now")
 function maybeAskSignIn(){

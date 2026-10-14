@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.16">
+<meta name="version" content="2.17">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -726,7 +726,12 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .pdrawer .stepper button{width:40px}
 .pdrawer .stepper span{min-width:54px;padding:0 4px}
 .pdrawer .stepper small{display:none}
-#nnsSeg button{min-width:52px}
+#nnsSeg button{min-width:48px}
+.pdrawer .drow{gap:10px 14px}
+.pdrawer .ptools{gap:6px}
+.pdrawer .ptool{padding:0 12px}
+.pdrawer .dgrp.dicons{gap:10px}
+.pdrawer .dicons .icon{width:44px;height:44px}
 /* phones: tempo and key live in the ⋯ panel (it's always there), so the top bar fits without scrolling */
 @media (max-width:600px),(max-height:520px) and (max-width:1000px){
   #bars .tkchip{display:none!important}
@@ -1499,7 +1504,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.16";
+const APP_VERSION = "2.17";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -8156,8 +8161,8 @@ $("gViewSeg").addEventListener("click", onGView); $("gViewSeg2").addEventListene
   const dr = $("pDrawer"); if (!dr || dr.querySelector(".drow")) return;
   const grp = el => el && el.closest(".dgrp");
   const rows = [
-    [grp($("tempoDown")), grp($("keyDown")), grp($("viewSeg")), $("backGrp"), $("tabLvlGrp"), $("magicGrp"), $("gameGrp"), $("nnsGrp")],
-    [grp($("metroBtn")), dr.querySelector(".dicons")]];
+    [grp($("tempoDown")), grp($("keyDown")), grp($("viewSeg")), $("backGrp"), $("tabLvlGrp"), $("magicGrp"), $("gameGrp")],
+    [grp($("metroBtn")), $("nnsGrp"), dr.querySelector(".dicons")]];
   const frag = document.createDocumentFragment();
   for (const r of rows){ const d = document.createElement("div"); d.className = "drow"; for (const g of r) if (g) d.appendChild(g); frag.appendChild(d); }
   dr.prepend(frag);

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.26">
+<meta name="version" content="2.27">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -855,6 +855,16 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   #bars .seg button{padding:0 9px}
   #bars .title{flex:1 1 30px}
 }
+@media (max-height:520px) and (max-width:900px){
+  #qVolPct{display:none}
+  #bars{gap:5px}
+  #bars .seg button{padding:0 7px}
+  #bars .title{min-width:0}
+  #bars .lyrbtn,#bars .btn.instr{padding-left:9px;padding-right:9px}
+  #bars{overflow-x:auto;scrollbar-width:none}
+  #bars::-webkit-scrollbar{display:none}
+}
+@media (max-height:520px) and (max-width:780px){ #bars .title{display:none} }
 
 /* drawer: name on top of every group, the icon buttons included, so they all line up */
 .dgrp.dicons{gap:14px}
@@ -1659,7 +1669,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.26";
+const APP_VERSION = "2.27";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -4774,7 +4784,8 @@ function drawBackdrop(now, W, Hh){
     cx.clearRect(0, 0, W, Hh); if (BGM.kind === "image") drawBubbles(now, W, Hh); return; }
   if (!$("bgMedia").hidden) syncBgMedia();
   const aq = backStyle() === "aquarium";
-  if (bgActive() && GFX.gl) cx.clearRect(0, 0, W, Hh);        // the moving background shows through
+  if (bgActive() && GFX.gl && !GFX.lost) cx.clearRect(0, 0, W, Hh);        // the moving background shows through
+  else if (backStyle() !== "black" && backStyle() !== "custom" && !aq) drawBg2D(now, W, Hh);   // no WebGL right now: a simpler moving version
   else if (aq){ const gr = cx.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, "#0b5163"); gr.addColorStop(1, "#04202b"); cx.fillStyle = gr; cx.fillRect(0, 0, W, Hh); }
   else { cx.fillStyle = C.bg; cx.fillRect(0, 0, W, Hh); }
   if (aq) drawAquarium(now, W, Hh);
@@ -5258,10 +5269,30 @@ function moodPalette(){
   return [hsl3(base % 360, sat, 0.34), hsl3((base + 32) % 360, sat, 0.4), hsl3((base - 45 + 360) % 360, sat * 0.9, 0.32)];
 }
 function bgActive(){ return backStyle() !== "black" && backStyle() !== "custom" && !GFX.failed; }
+// the same colors as the moving background, drawn with plain 2D gradients (used when the phone can't run WebGL)
+function drawBg2D(now, W, H){
+  const st = backStyle(), pal = st === "mood" ? moodPalette() : BG_PALETTES[st] || BG_PALETTES.aurora, t = now / 1000;
+  const rgb = (c, a) => `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${a})`;
+  cx.fillStyle = "#06070c"; cx.fillRect(0, 0, W, H);
+  const blobs = [[pal[0], 0.30, 0.35, 0.11, 0.07], [pal[1], 0.70, 0.30, 0.08, 0.13], [pal[2], 0.50, 0.75, 0.06, 0.09], [pal[1], 0.15, 0.80, 0.09, 0.05]];
+  const e = Math.min(1, GFX.energy || 0);
+  for (const [c, bx, by, fx, fy] of blobs){
+    const x = W * (bx + 0.18 * Math.sin(t * fx * 6)), y = H * (by + 0.15 * Math.cos(t * fy * 6)), r = Math.max(W, H) * (0.55 + 0.1 * e);
+    const g = cx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgb(c, 0.55 + 0.25 * e)); g.addColorStop(1, rgb(c, 0));
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  }
+  cx.fillStyle = "rgba(0,0,0,0.25)"; cx.fillRect(0, 0, W, H);      // keeps the notes easy to read
+}
 function bgInit(){
   if (GFX.gl || GFX.failed) return !!GFX.gl;
   const c = $("bgcv"); const gl = c.getContext("webgl", {antialias: false, alpha: false, preserveDrawingBuffer: false}) || c.getContext("experimental-webgl");
   if (!gl){ GFX.failed = true; return false; }
+  if (!GFX.lossWired){
+    GFX.lossWired = true;
+    c.addEventListener("webglcontextlost", ev => { ev.preventDefault(); GFX.lost = true; GFX.gl = null; GFX.prog = null; });
+    c.addEventListener("webglcontextrestored", () => { GFX.lost = false; GFX.failed = false; });
+  }
+  if (gl.isContextLost && gl.isContextLost()){ GFX.lost = true; return false; }
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   try {
     const prog = gl.createProgram();
@@ -5283,7 +5314,9 @@ function drawBg(now){
   c.hidden = false;
   if (now - GFX.last < 33) return;                       // about 30 frames a second is plenty for a background
   const dt = Math.min(0.1, (now - (GFX.last || now)) / 1000); GFX.last = now;
+  if (GFX.gl && GFX.gl.isContextLost && GFX.gl.isContextLost()){ GFX.lost = true; GFX.gl = null; }
   if (!bgInit()) { c.hidden = true; return; }
+  GFX.lost = false;
   const gl = GFX.gl, r = c.getBoundingClientRect(), scale = Math.min(1.25, window.devicePixelRatio || 1) * 0.6;
   const w = Math.max(2, Math.round(r.width * scale)), h = Math.max(2, Math.round(r.height * scale));
   if (c.width !== w || c.height !== h){ c.width = w; c.height = h; gl.viewport(0, 0, w, h); }

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.24">
+<meta name="version" content="2.25">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1650,7 +1650,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.24";
+const APP_VERSION = "2.25";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -1893,8 +1893,45 @@ Object.assign(DEMOS, Object.fromEntries(Object.entries(SAMPLE_SONGS).map(([id, o
    The notes live in samples.json next to the app and download the first time you open a sample. */
 const SAMPLE_CATALOG = [{"id":"smp-pathetique","title":"Pathétique Sonata (complete)","by":"Beethoven","key":"Cm","bpm":200,"beats":4.0,"timeLabel":"4/4","count":9980,"len":1241.92},{"id":"smp-pathetique-1","title":"Pathétique Sonata – 1st Movement","by":"Beethoven","key":"Cm","bpm":330,"beats":4.0,"timeLabel":"4/4","count":5958,"len":447.5},{"id":"smp-moonlight","title":"Moonlight Sonata (complete)","by":"Beethoven","key":"C#m","bpm":140,"beats":4.0,"timeLabel":"2/2","count":8608,"len":931.7},{"id":"smp-moonlight-3","title":"Moonlight Sonata – 3rd Movement","by":"Beethoven","key":"C#m","bpm":170,"beats":4.0,"timeLabel":"4/4","count":6413,"len":374.81},{"id":"smp-clair","title":"Clair de Lune","by":"Debussy","key":"Db","bpm":75,"beats":4.5,"timeLabel":"9/8","count":1490,"len":253.14},{"id":"smp-arabesque","title":"Arabesque No. 1","by":"Debussy","key":"E","bpm":130,"beats":4.0,"timeLabel":"4/4","count":1454,"len":226.7},{"id":"smp-fantaisie","title":"Fantaisie-Impromptu","by":"Chopin","key":"C#m","bpm":145,"beats":4.0,"timeLabel":"4/4","count":3044,"len":307.39},{"id":"smp-polonaise","title":"Heroic Polonaise","by":"Chopin","key":"Ab","bpm":82,"beats":3.0,"timeLabel":"3/4","count":6076,"len":372.07},{"id":"smp-rhapsody","title":"Rhapsody in Blue (piano solo)","by":"Gershwin","key":"Bb","bpm":120,"beats":4.0,"timeLabel":"4/4","count":10849,"len":951.3},{"id":"smp-rach2","title":"Piano Concerto No. 2 – 1st Movement","by":"Rachmaninoff","key":"Cm","bpm":132,"beats":4.0,"timeLabel":"2/2","count":8700,"len":653.71},{"id":"smp-barque","title":"Une barque sur l'océan","by":"Ravel","key":"F#m","bpm":48,"beats":2.0,"timeLabel":"2/4","count":4989,"len":420.38},{"id":"smp-carol","title":"Carol of the Bells","by":"Leontovych","key":"Gm","bpm":200,"beats":6.0,"timeLabel":"6/4","count":1568,"len":140.55},{"id":"smp-gnossienne","title":"Gnossienne No. 1","by":"Satie","key":"Fm","bpm":102,"beats":4.0,"timeLabel":"4/4","count":821,"len":192.76},{"id":"smp-moonlight-1","title":"Moonlight Sonata – 1st Movement","by":"Beethoven","key":"C#m","bpm":51,"beats":4.0,"timeLabel":"2/2","count":1146,"len":324.7},{"id":"smp-ballade1","title":"Ballade No. 1 in G minor","by":"Chopin","key":"Gm","bpm":119,"beats":4.0,"timeLabel":"4/4","count":5029,"len":528.74},{"id":"smp-passacaglia","title":"Passacaglia","by":"Handel–Halvorsen","key":"C","bpm":130,"beats":4,"timeLabel":"4/4","count":1029,"len":136.52},{"id":"smp-nocturne-9-2","title":"Nocturne in E-flat, Op. 9 No. 2","by":"Chopin","key":"Eb","bpm":60,"beats":6,"timeLabel":"12/8","count":1294,"len":219.37},{"id":"smp-entertainer","title":"The Entertainer","by":"Joplin","key":"C","bpm":70,"beats":2,"timeLabel":"2/4","count":1997,"len":260.14},{"id":"smp-carol-2","title":"Carol of the Bells (version 2)","by":"Leontovych","key":"F","bpm":180,"beats":3,"timeLabel":"3/4","count":1254,"len":120.75}];
 const SAMPLES = { notes: new Map(), loading: null, loaded: false };
+const LEVEL_TEST = ["smp-entertainer"];
+/* ---------------- skill levels ----------------
+   Makes an easier version of a full piano piece, keeping the whole tune so it still sounds like the song:
+   Beginner     — right hand: the tune only, one note at a time (no chords, no tiny grace notes);
+                  left hand: one bass note at the start of each bar, held for the bar.
+   Intermediate — right hand: the tune, plus one harmony note under it on the main beats;
+                  left hand: one bass note on every beat (the "oom", without the "pah" chords).
+   Pro is the piece as written. */
+function levelNotes(raw, level, meta){
+  const B = 60 / ((meta && meta.bpm) || 100), bar = B * ((meta && meta.beats) || 4);
+  const ns = raw.map(n => ({...n})).sort((a, b) => a.t - b.t || b.p - a.p);
+  // the tune: the highest right-hand note of each moment, plus the note just under it (for Intermediate's harmony)
+  const mel = [], under = new Map();
+  for (const n of ns){ if (n.h !== "R") continue; const l = mel[mel.length - 1];
+    if (l && n.t - l.t < 0.04){ if (n.p > l.p){ under.set(n, l); mel[mel.length - 1] = n; } else if (!under.has(l) || under.get(l).p < n.p) under.set(l, n); continue; }
+    mel.push(n); }
+  const tune = mel.filter(n => n.d >= B / 8);
+  const rh = tune.map(n => ({...n, v: Math.max(72, n.v || 80)}));
+  if (level === "intermediate") for (const n of tune){
+    const u = under.get(n), k = Math.round(n.t / B); if (!u || Math.abs(n.t - k * B) > 0.06 || n.p - u.p < 3) continue;   // only on the beat, and a clear interval
+    rh.push({...u, t: n.t, v: Math.max(60, (u.v || 70) - 8)});
+  }
+  // the bass: the lowest left-hand note near the start of each bar (Beginner) or each beat (Intermediate)
+  const step = level === "beginner" ? bar : B, lh = [], L = ns.filter(n => n.h === "L"), end = ns.length ? Math.max(...ns.map(n => n.t + n.d)) : 0;
+  for (let t0 = 0, i = 0; t0 < end; t0 += step){
+    while (i < L.length && L[i].t < t0 - B * 0.2) i++;
+    let low = null; for (let j = i; j < L.length && L[j].t < t0 + Math.min(step, B) * 0.6; j++) if (!low || L[j].p < low.p) low = L[j];
+    if (low) lh.push({t: low.t, d: step - 0.06, p: low.p, h: "L", v: Math.max(60, low.v || 64)});
+  }
+  return [...rh, ...lh].sort((a, b) => a.t - b.t || b.p - a.p);
+}
 const SAMPLE_GENRE = {"smp-rhapsody": "Jazz", "smp-carol": "Holiday", "smp-carol-2": "Holiday", "smp-entertainer": "Ragtime"};
-for (const m of SAMPLE_CATALOG) DEMOS[m.id] = { ...m, genre: SAMPLE_GENRE[m.id] || "Classical", lazy: true, notes: () => (SAMPLES.notes.get(m.id) || []).map(n => ({...n})) };
+for (const m of SAMPLE_CATALOG){
+  DEMOS[m.id] = { ...m, genre: SAMPLE_GENRE[m.id] || "Classical", lazy: true, notes: () => (SAMPLES.notes.get(m.id) || []).map(n => ({...n})) };
+  // a test of skill levels: easier versions made from the full piece (only The Entertainer for now)
+  if (LEVEL_TEST.includes(m.id)) for (const [lv, name] of [["beginner", "Beginner"], ["intermediate", "Intermediate"]])
+    DEMOS[m.id + "~" + lv] = { ...m, id: m.id + "~" + lv, title: m.title + " (" + name + ")", level: lv, genre: SAMPLE_GENRE[m.id] || "Classical", lazy: true,
+      notes: () => levelNotes(SAMPLES.notes.get(m.id) || [], lv, m) };
+}
 function ensureSamples(){
   if (SAMPLES.loaded) return Promise.resolve();
   return SAMPLES.loading || (SAMPLES.loading = fetch("samples.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
@@ -2245,12 +2282,25 @@ function organOn(p, v, kind){
   const lvl = (g.trim || 1) * (0.55 + 0.45 * v / 127) * 0.9;
   out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(lvl, t + 0.012);
   src.connect(out); out.connect(grandBus(a)); src.start(t);
-  synthOff(p); synthVoices.set(p, {g: out, srcs: [src]});
+  organKill(p);                                              // the same key again: stop the old one first, even under the pedal
+  const vc = {g: out, srcs: [src], organ: true}; synthVoices.set(p, vc); ORGAN_LIVE.add(vc);
+  // a safety net: a held organ note fades out by itself after 8 seconds, so a missed "key up" can never leave it droning
+  vc.timer = setTimeout(() => organStop(vc), 8000);
   return true;
 }
+const ORGAN_LIVE = new Set();
+function organStop(vc){
+  if (!vc || vc.done) return; vc.done = true; clearTimeout(vc.timer); ORGAN_LIVE.delete(vc);
+  try { const t = actx.currentTime; vc.g.gain.cancelScheduledValues(t); vc.g.gain.setValueAtTime(vc.g.gain.value, t); vc.g.gain.setTargetAtTime(0, t, 0.06); vc.srcs.forEach(x => x.stop(t + 0.5)); } catch(e){}
+}
+function organKill(p){ const v = synthVoices.get(p); if (v && v.organ){ organStop(v); synthVoices.delete(p); } }
+function organsOff(){ for (const vc of [...ORGAN_LIVE]) organStop(vc); for (const [p, v] of [...synthVoices]) if (v.organ) synthVoices.delete(p); }
+// nothing playing and no key down: make sure no organ note is left sounding
+setInterval(() => { if (!ORGAN_LIVE.size) return; const busy = (typeof P !== "undefined") && (P.playing || P.pressed.size || (typeof pedal !== "undefined" && pedal.down)); if (!busy) organsOff(); }, 1500);
 function synthOff(p, fromPedal){
   if (!fromPedal && typeof pedal !== "undefined" && pedal.down && synthVoices.has(p)){ pedal.held.add(p); return; }
   const s = synthVoices.get(p); if (!s || !actx) return;
+  if (s.organ){ organStop(s); synthVoices.delete(p); return; }
   const t = actx.currentTime; s.g.gain.cancelScheduledValues(t); s.g.gain.setValueAtTime(s.g.gain.value, t); s.g.gain.setTargetAtTime(0, t, 0.08);
   for (const o of s.srcs) try { o.stop(t + 0.6); } catch(e){}
   synthVoices.delete(p);
@@ -2662,14 +2712,14 @@ async function pickInstr(k){
     store.set("dg30.gtrSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k !== "synth") await loadGuitar(k === "twelve" ? "steel" : k);
     if (gtrSound() !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
-    if (P.playing){ instStatus(); return; }                       // a song is playing: you'll hear the new sound in it, no sample strum
+    if (P.playing || practiceVisible()){ instStatus(); return; }   // in a song: you'll hear the new sound in it, no sample strum
     [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
     allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k); else if (ORGANS.includes(k)) await loadGuitar(k);
     if (grand.want !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
-    if (P.playing){ instStatus(); return; }
+    if (P.playing || practiceVisible()){ instStatus(); return; }   // in a song: no sample chord, just the new sound when you play
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOff(p, true)), 2300);
@@ -3724,7 +3774,7 @@ function resetRun(fromT){
   buildMagic();
   updateStats();
 }
-function allNotesOff(){ pedalOut(false); for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; try { strumAlongOff(); } catch(e){} }
+function allNotesOff(){ pedalOut(false); for (const s of P.sounding) noteOut(s.p, 0, false); P.sounding = []; try { strumAlongOff(); } catch(e){} try { organsOff(); } catch(e){} }
 
 /* ---------------- progress, scores and trouble spots ----------------
    While you play (Wait or Play along, on piano) the app notes which bars went well and which didn't.

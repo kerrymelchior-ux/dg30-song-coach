@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.21">
+<meta name="version" content="2.22">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -452,7 +452,6 @@ html,body{overflow-x:clip}
 .setcard h2{font:500 21px/1.2 var(--f-display);margin:0}
 .mvgrp{display:flex;flex-direction:column;gap:12px}
 
-/* ----- leaderboard, Las Vegas style ----- */
 .lbav{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;overflow:hidden;flex:none;font:800 15px var(--f-body);color:#fff;background:linear-gradient(135deg,#ff4d6d,#7b2ff7);box-shadow:0 0 0 2px #f2b632,0 0 10px rgba(242,182,50,.5)}
 .lbav img{width:100%;height:100%;object-fit:cover;display:block}
 .lbav.emo{font-size:20px;line-height:1}
@@ -460,53 +459,71 @@ html,body{overflow-x:clip}
 .avgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
 .avgrid button{height:44px;border-radius:12px;border:1px solid var(--line);background:var(--lacquer);font-size:24px;line-height:1;padding:0}
 .avgrid button[aria-pressed="true"]{border-color:#f2b632;box-shadow:0 0 0 2px #f2b632}
-dialog.vegas{--gold:#f2b632;padding:0;border:0;background:transparent;max-width:min(560px,96vw);width:96vw}
-dialog.vegas .sheet{position:relative;overflow:hidden;color:#fff4d6;border-radius:22px;border:4px solid var(--gold);
-  background:radial-gradient(120% 80% at 50% 0%,#7a0a14 0%,#3a0309 45%,#12000a 100%);box-shadow:0 0 0 2px #7a3f05,0 0 40px rgba(255,170,40,.45),inset 0 0 60px rgba(0,0,0,.6);padding:22px 18px 16px}
-dialog.vegas .sheet::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
-  background-image:radial-gradient(circle,rgba(255,240,180,.9) 0 1px,transparent 1.5px),radial-gradient(circle,rgba(255,200,120,.7) 0 1px,transparent 1.5px);
-  background-size:90px 90px,140px 140px;background-position:0 0,40px 60px;animation:lbTwinkle 3s ease-in-out infinite alternate}
-@keyframes lbTwinkle{to{opacity:.15}}
-.lbmarq{position:absolute;inset:6px;border-radius:16px;pointer-events:none;
-  background:radial-gradient(circle,#fff6c2 0 2.6px,#ffcf4a 3.2px,transparent 4px) 0 0/22px 22px repeat-x,radial-gradient(circle,#fff6c2 0 2.6px,#ffcf4a 3.2px,transparent 4px) 11px 100%/22px 22px repeat-x;
-  -webkit-mask:linear-gradient(#000 0 0) top/100% 12px no-repeat,linear-gradient(#000 0 0) bottom/100% 12px no-repeat;mask:linear-gradient(#000 0 0) top/100% 12px no-repeat,linear-gradient(#000 0 0) bottom/100% 12px no-repeat;
-  filter:drop-shadow(0 0 4px #ffd24a);animation:lbChase .6s steps(2) infinite}
-@keyframes lbChase{to{background-position:11px 0,0 100%}}
-.lbtitle{margin:8px 0 4px;text-align:center;font:italic 900 clamp(26px,7vw,38px)/1.05 var(--f-body)!important;letter-spacing:.02em;text-transform:uppercase;
-  background:linear-gradient(#fffbe0,#ffd24a 45%,#ff8a1c);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1px #8a1a08;filter:drop-shadow(0 0 10px rgba(255,60,40,.85))}
-.lbtitle span{color:#ffd24a;-webkit-text-fill-color:#ffd24a;font-size:.6em;vertical-align:.25em;filter:none;animation:lbBlink 1s steps(2) infinite}
-@keyframes lbBlink{50%{opacity:.25}}
-dialog.vegas #lbSeg{border-color:var(--gold)}dialog.vegas #lbSeg button{color:#ffe9a8;font-weight:800}
-dialog.vegas #lbSeg button[aria-pressed="true"]{background:linear-gradient(#ffe27a,#e9a52c);color:#3a0309}
-dialog.vegas .btn{border-color:var(--gold);color:#ffe9a8;background:rgba(0,0,0,.35)}
-dialog.vegas small{color:#ffd9a0!important}
-.lbpodium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:8px;margin:10px 0 6px;min-height:0}
+/* ----- leaderboard: dark glass, soft color light, clean type ----- */
+dialog.lbmod{padding:0;border:0;background:transparent;max-width:min(520px,96vw);width:96vw;overflow:visible}
+dialog.lbmod::backdrop{background:rgba(6,8,14,.72);backdrop-filter:blur(6px)}
+dialog.lbmod .sheet{position:relative;overflow:hidden;isolation:isolate;color:#eef1f8;border-radius:28px;padding:26px 20px 18px;gap:14px;
+  background:linear-gradient(180deg,rgba(26,29,42,.96),rgba(14,16,24,.98));border:1px solid rgba(255,255,255,.09);
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)}
+dialog.lbmod .sheet::before{content:"";position:absolute;inset:-40% -20% auto;height:420px;z-index:-1;pointer-events:none;
+  background:radial-gradient(40% 50% at 30% 40%,rgba(124,92,255,.35),transparent 70%),radial-gradient(35% 45% at 75% 35%,rgba(255,176,64,.28),transparent 70%),radial-gradient(30% 40% at 55% 70%,rgba(56,189,248,.18),transparent 70%);
+  filter:blur(10px);animation:lbGlow 12s ease-in-out infinite alternate}
+@keyframes lbGlow{to{transform:translate3d(0,18px,0) scale(1.06)}}
+.lbhead{text-align:center;display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.lbeye{font:700 11px var(--f-body);letter-spacing:.22em;text-transform:uppercase;color:rgba(238,241,248,.55)}
+.lbtitle{margin:0;font:800 30px/1.1 var(--f-body)!important;letter-spacing:-.02em;background:linear-gradient(180deg,#fff,#c9cfe6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lbx{position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef1f8;display:grid;place-items:center;padding:0;backdrop-filter:blur(8px)}
+dialog.lbmod #lbSeg{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);border-radius:999px;padding:3px;gap:2px}
+dialog.lbmod #lbSeg button{border-radius:999px;min-height:34px;padding:0 16px;color:rgba(238,241,248,.7);font:700 13px var(--f-body);background:transparent}
+dialog.lbmod #lbSeg button[aria-pressed="true"]{background:#fff;color:#11131c;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+dialog.lbmod .btn{border-color:rgba(255,255,255,.14);color:#eef1f8;background:rgba(255,255,255,.06)}
+dialog.lbmod small{color:rgba(238,241,248,.6)!important;text-align:center}
+.lbpodium{display:grid;grid-template-columns:1fr 1.2fr 1fr;align-items:end;gap:10px;margin:6px 0 2px}
 .lbpodium:empty{display:none}
-.pod{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
-.pod .lbav{width:58px;height:58px;font-size:22px}.pod .lbav.emo{font-size:30px}
-.pod.p1 .lbav{width:78px;height:78px;font-size:30px;box-shadow:0 0 0 3px #ffd24a,0 0 22px #ffd24a}.pod.p1 .lbav.emo{font-size:42px}
-.pod.p2 .lbav{box-shadow:0 0 0 3px #dfe5ee,0 0 16px #c9ced6}.pod.p3 .lbav{box-shadow:0 0 0 3px #e0995a,0 0 16px #d08a4a}
-.pod .crown{font-size:28px;line-height:1;margin-bottom:-6px;animation:lbBob 1.6s ease-in-out infinite}
-@keyframes lbBob{50%{transform:translateY(-4px) rotate(-6deg)}}
-.pod .nm{font-weight:800;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pod .pt,.lbrow .pt{font:italic 900 18px var(--f-body);font-variant-numeric:tabular-nums;color:#fff1a6;text-shadow:0 0 8px #ff3b2f,0 0 2px #c0101a}
-.pod .blk{width:100%;border-radius:10px 10px 4px 4px;display:grid;place-items:center;font:900 26px var(--f-body);color:#3a0309;border:2px solid rgba(255,255,255,.35)}
-.pod.p1 .blk{height:74px;background:linear-gradient(#fff3a8,#f2b632 50%,#a8650a)}
-.pod.p2 .blk{height:52px;background:linear-gradient(#ffffff,#c9ced6 55%,#7d848f)}
-.pod.p3 .blk{height:40px;background:linear-gradient(#ffd7b0,#d08a4a 55%,#7a4515)}
-.pod.me .nm{color:#ffd24a}
-dialog.vegas .lblist{gap:8px;max-height:46vh}
-.lblist li.lbrow{display:grid!important;grid-template-columns:34px 38px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 12px!important;border-radius:14px!important;
-  background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(60,6,14,.6))!important;border:1px solid rgba(242,182,50,.45)!important}
-.lblist li.lbrow .rk{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:900 13px var(--f-body);color:#3a0309;background:radial-gradient(circle at 35% 30%,#fff7c4,#f0b429 60%,#a85c08)}
-.lblist li.lbrow .nm{text-align:start;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lbrow.me{border:2px solid #ffd24a!important;box-shadow:0 0 14px rgba(255,210,74,.55);animation:lbMe 1.4s ease-in-out infinite}
-.lbx{position:absolute;top:16px;right:16px;z-index:2;width:36px;height:36px;border-radius:50%;border:2px solid var(--gold);background:rgba(0,0,0,.5);color:#ffe9a8;font:800 16px var(--f-body);display:grid;place-items:center;padding:0}
-@keyframes lbMe{50%{box-shadow:0 0 22px rgba(255,210,74,.9)}}
-@media (prefers-reduced-motion:reduce){.lbmarq,dialog.vegas .sheet::after,.lbtitle span,.pod .crown,.lbrow.me{animation:none}}
+.pod{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0;padding:14px 6px 12px;border-radius:20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);animation:lbUp .5s cubic-bezier(.2,.8,.2,1) both}
+.pod.p1{padding-top:18px;background:linear-gradient(180deg,rgba(255,196,84,.18),rgba(255,255,255,.03));border-color:rgba(255,206,110,.35);animation-delay:.08s}
+.pod.p2{animation-delay:.16s}.pod.p3{animation-delay:.24s}
+.pod:not(.p1):not(.p2):not(.p3){visibility:hidden}
+@keyframes lbUp{from{opacity:0;transform:translateY(14px)}}
+.pod .ring{position:relative;border-radius:50%;padding:3px;background:conic-gradient(from 200deg,#9aa3b8,#eef1f8,#9aa3b8)}
+.pod.p1 .ring{background:conic-gradient(from 200deg,#ffb347,#fff1b8,#ff8a00,#ffd36a,#ffb347);box-shadow:0 0 32px rgba(255,180,60,.45)}
+.pod.p3 .ring{background:conic-gradient(from 200deg,#b7713d,#f3c79f,#9a5a2e,#e2a476)}
+.pod .ring .lbav{box-shadow:none;border:3px solid #141722;width:56px;height:56px;font-size:20px}.pod .ring .lbav.emo{font-size:28px}
+.pod.p1 .ring .lbav{width:76px;height:76px;font-size:26px}.pod.p1 .ring .lbav.emo{font-size:40px}
+.pod .badge1{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);min-width:22px;height:22px;padding:0 6px;border-radius:999px;display:grid;place-items:center;
+  font:800 12px var(--f-body);color:#11131c;background:#e8ecf5;border:2px solid #141722}
+.pod.p1 .badge1{background:linear-gradient(#ffe08a,#ffae2b)}.pod.p3 .badge1{background:linear-gradient(#f3c79f,#c98446)}
+.pod .crown{display:none}
+.pod .nm{margin-top:6px;font:700 14px var(--f-body);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef1f8}
+.pod .pt{font:800 17px var(--f-body);font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:#fff}
+.pod.p1 .pt{font-size:20px;background:linear-gradient(180deg,#fff6d6,#ffc65a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pod .ptl{font:600 10px var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:rgba(238,241,248,.45)}
+.pod .blk{display:none}
+.pod.me{outline:2px solid rgba(124,92,255,.7);outline-offset:-1px}
+dialog.lbmod .lblist{gap:4px;max-height:44vh;padding:2px}
+.lblist li.lbrow{display:grid!important;grid-template-columns:28px 40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:9px 12px!important;border-radius:14px!important;
+  background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.05)!important;animation:lbUp .45s cubic-bezier(.2,.8,.2,1) both}
+.lblist li.lbrow .rk{font:700 14px var(--f-body);color:rgba(238,241,248,.5);text-align:center;font-variant-numeric:tabular-nums}
+.lblist li.lbrow .lbav{width:40px;height:40px;box-shadow:none;border:2px solid rgba(255,255,255,.1)}
+.lblist li.lbrow .nm{text-align:start;font:600 15px var(--f-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef1f8}
+.lblist li.lbrow .pt{font:800 15px var(--f-body);font-variant-numeric:tabular-nums;color:#fff}
+.lblist li.lbrow.me{background:linear-gradient(90deg,rgba(124,92,255,.22),rgba(124,92,255,.08))!important;border-color:rgba(124,92,255,.55)!important}
+.lblist li.lbrow.me .nm::after{content:"You";margin-inline-start:8px;padding:2px 7px;border-radius:999px;font:700 10px var(--f-body);letter-spacing:.06em;color:#fff;background:#7c5cff;vertical-align:2px}
+@media (prefers-reduced-motion:reduce){dialog.lbmod .sheet::before,.pod,.lblist li.lbrow{animation:none}}
 .lbbox{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .lbchip{text-transform:none;letter-spacing:0;align-self:flex-start;display:inline-flex;align-items:center;gap:7px;margin-top:8px;height:36px;padding:0 14px;border-radius:999px;border:2px solid #e9a52c;background:linear-gradient(90deg,#4a0508,#1a0204);color:#ffe9a8;font:800 14px var(--f-body);box-shadow:0 0 12px rgba(242,182,50,.35);max-width:100%;white-space:nowrap}
 .lbchip b{font:italic 900 14px var(--f-body);color:#ffd24a}
+/* home: Leaderboard first, then today's progress, the same size, side by side */
+.homechips{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.homechips .lbchip,.homechips .progchip{margin:0;flex:0 0 auto;width:196px;max-width:calc(50% - 4px);height:38px;justify-content:center;overflow:hidden}
+.homechips .progchip{padding:0 12px;gap:7px}
+.homechips .progchip .pgring{width:22px;height:22px;flex:none;color:var(--ivory)}
+.brand .homechips span{font-size:13px;letter-spacing:0;text-transform:none;color:inherit;white-space:nowrap}
+.brand .homechips .lbchip .lblbl{font:700 13px var(--f-body);color:#fff}
+.homechips .pgshort{display:none}
+@media (max-width:440px){.homechips .lbchip,.homechips .progchip{width:auto;flex:1 1 0;min-width:0;max-width:none;padding:0 10px;gap:6px}.brand .homechips .lbchip .lblbl{display:none}.homechips .pglong{display:none}.brand .homechips .pgshort{display:inline}.homechips .pgsep{display:none}}
+
 .lbchip[hidden]{display:none}
 .lbbig{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;justify-content:flex-start;background:linear-gradient(90deg,#4a0508,#1a0204);color:#ffe9a8;border:2px solid #e9a52c;font:800 16px var(--f-body)}
 .lbbig small{margin-inline-start:auto;font:italic 900 15px var(--f-body);color:#ffd24a}
@@ -850,7 +867,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <!-- ================= LIBRARY ================= -->
 <main id="library">
   <header class="top">
-    <div class="brand"><h1>Song Coach</h1><p class="hello" id="hello" hidden></p><button class="progchip" id="progChip" type="button" aria-label="Your progress"></button><button class="lbchip" id="lbChip" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M9 20h6"/></svg><span>Leaderboard</span><b id="lbChipPts"></b></button></div>
+    <div class="brand"><h1>Song Coach</h1><p class="hello" id="hello" hidden></p><div class="homechips"><button class="lbchip" id="lbChip" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M9 20h6"/></svg><span class="lblbl">Leaderboard</span><b id="lbChipPts"></b></button><button class="progchip" id="progChip" type="button" aria-label="Your progress"></button></div></div>
     <div class="topacts">
       <button class="instchip" id="instChip" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 13v6M15 13v6" stroke-linecap="round"/><path d="M7.4 5v8h3.2V5M13.4 5v8h3.2V5" fill="currentColor" stroke="none"/></svg><span id="instName">Piano</span></button>
       <button class="ibtn conn" id="connPill" type="button" title="Connect piano"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span id="connText" class="vh">Connect piano</span></button>
@@ -1085,7 +1102,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="label" id="verLabel"></div>
     <div class="row" style="gap:10px;align-items:center"><button class="btn" id="updBtn" type="button">Check for updates</button><span id="updStatus" style="color:var(--muted);font-size:14px"></span></div>
     <small style="color:var(--muted)">© 2026 Kerry E. Melchior II. All rights reserved.</small>
-    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Kawai grand, Steinway B grand, Yamaha upright, harpsichord and FM piano from the Versilian Community Sample Library by Sam Gossner (CC0); Splendid Grand Piano (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer and CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); all via danigb/samples. Steel-string and electric guitars from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0); nylon-string guitar from FreePats (CC0). Sheet music drawn with abcjs.</small>
+    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Kawai grand, Steinway B grand, Yamaha upright, harpsichord and FM piano from the Versilian Community Sample Library by Sam Gossner (CC0); Splendid Grand Piano (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer and CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); all via danigb/samples. Steel-string and electric guitars from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0); nylon-string guitar from FreePats (CC0). Concert harp, folk harp, strumstick and đàn tranh from the Versilian Community Sample Library (CC0), via danigb/samples. Sheet music drawn with abcjs.</small>
   </section>
   </div></div>
   </div>
@@ -1481,11 +1498,10 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 </dialog>
 
 <!-- ================= RESULT SHEET ================= -->
-<dialog id="lbDlg" class="vegas" aria-labelledby="lbH">
+<dialog id="lbDlg" class="lbmod" aria-labelledby="lbH">
   <div class="sheet">
-    <div class="lbmarq" aria-hidden="true"></div>
-    <button class="lbx" id="lbX" type="button" aria-label="Close">✕</button>
-    <h2 id="lbH" class="lbtitle"><span>★</span> Leaderboard <span>★</span></h2>
+    <button class="lbx" id="lbX" type="button" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="lbhead"><span class="lbeye">Song Coach</span><h2 id="lbH" class="lbtitle">Leaderboard</h2></div>
     <div class="lbpodium" id="lbPodium"></div>
     <div class="seg" id="lbSeg" role="group" aria-label="Which leaderboard" style="align-self:center"><button type="button" data-v="week" aria-pressed="true">This week</button><button type="button" data-v="all" aria-pressed="false">All time</button></div>
     <ol class="lblist" id="lbList"></ol>
@@ -1615,7 +1631,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.21";
+const APP_VERSION = "2.22";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -2609,12 +2625,14 @@ async function pickInstr(k){
     store.set("dg30.gtrSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k !== "synth") await loadGuitar(k === "twelve" ? "steel" : k);
     if (gtrSound() !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
+    if (P.playing){ instStatus(); return; }                       // a song is playing: you'll hear the new sound in it, no sample strum
     [43, 47, 50, 55, 59, 67].forEach((p, i) => phoneGuitar(p, 0.8, i * 0.035));          // a G chord, strummed down
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
     allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
     if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k);
     if (grand.want !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
+    if (P.playing){ instStatus(); return; }
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOn(p, 70)), 700);
     setTimeout(() => [48, 60, 64, 67, 72].forEach(p => synthOff(p, true)), 2300);
@@ -2876,6 +2894,10 @@ const GTR_DEF = {
   steel: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-acoustic/", notes: noteRange(38, 74), file: p => smpName(TJ_N, p) + ".mp3"}],
   nylon: [{repo: "freepats/spanish-classical-guitar", ref: "main", dir: "samples/", notes: [36,37,38,39,40,41,43,45,47,48,50,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84], file: p => encodeURIComponent(smpName(FP_N, p)) + ".flac"},
           {repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-nylon/", notes: [35,38,40,42,44,45,47,49,50,52,54,55,57,59,61,63,64,66,68,69,71,73,74,76,78,79,80,81,82], file: p => smpName(TJ_N, p) + ".mp3"}],
+  harp: [{repo: "danigb/samples", ref: "main", dir: "audio/vcsl/Composite%20Chordophones/", map: {"28": "Concert Harp/KSHarp_E1_f1", "31": "Concert Harp/KSHarp_G1_mp1", "35": "Concert Harp/KSHarp_B1_mf1", "38": "Concert Harp/KSHarp_D2_mf1", "41": "Concert Harp/KSHarp_F2_mf1", "45": "Concert Harp/KSHarp_A2_mf1", "48": "Concert Harp/KSHarp_C3_mf3", "52": "Concert Harp/KSHarp_E3_mf1", "55": "Concert Harp/KSHarp_G3_mf1", "59": "Concert Harp/KSHarp_B3_mf1", "62": "Concert Harp/KSHarp_D4_mf1", "65": "Concert Harp/KSHarp_F4_mf1", "69": "Concert Harp/KSHarp_A4_mf1", "72": "Concert Harp/KSHarp_C5_mf1", "76": "Concert Harp/KSHarp_E5_mf1", "79": "Concert Harp/KSHarp_G5_mf1", "83": "Concert Harp/KSHarp_B5_mf1", "86": "Concert Harp/KSHarp_D6_mf1", "89": "Concert Harp/KSHarp_F6_mf1", "93": "Concert Harp/KSHarp_A6_mf1", "95": "Concert Harp/KSHarp_B6_mf1", "98": "Concert Harp/KSHarp_D7_f1", "101": "Concert Harp/KSHarp_F7_p1"}, notes: [28, 31, 35, 38, 41, 45, 48, 52, 55, 59, 62, 65, 69, 72, 76, 79, 83, 86, 89, 93, 95, 98, 101], file(p){ return this.map[p].split("/").map(encodeURIComponent).join("/") + ".m4a"; }}],
+  folkharp: [{repo: "danigb/samples", ref: "main", dir: "audio/vcsl/Composite%20Chordophones/", map: {"36": "Folk Harp/EWHarp_Normal_C1_v2_RR1", "38": "Folk Harp/EWHarp_Normal_D1_v2_RR1", "40": "Folk Harp/EWHarp_Normal_E1_v2_RR1", "42": "Folk Harp/EWHarp_Normal_F#1_v2_RR1", "44": "Folk Harp/EWHarp_Normal_G#1_v2_RR1", "46": "Folk Harp/EWHarp_Normal_A#1_v2_RR1", "48": "Folk Harp/EWHarp_Normal_C2_v2_RR1", "50": "Folk Harp/EWHarp_Normal_D2_v2_RR1", "52": "Folk Harp/EWHarp_Normal_E2_v2_RR1", "54": "Folk Harp/EWHarp_Normal_F#2_v2_RR1", "56": "Folk Harp/EWHarp_Normal_G#2_v2_RR1", "58": "Folk Harp/EWHarp_Normal_A#2_v2_RR1", "60": "Folk Harp/EWHarp_Normal_C3_v2_RR1", "62": "Folk Harp/EWHarp_Normal_D3_v2_RR1", "64": "Folk Harp/EWHarp_Normal_E3_v2_RR1", "66": "Folk Harp/EWHarp_Normal_F#3_v2_RR1", "68": "Folk Harp/EWHarp_Normal_G#3_v2_RR1", "70": "Folk Harp/EWHarp_Normal_A#3_v2_RR1", "72": "Folk Harp/EWHarp_Normal_C4_v2_RR1", "74": "Folk Harp/EWHarp_Normal_D4_v2_RR1", "76": "Folk Harp/EWHarp_Normal_E4_v2_RR1", "78": "Folk Harp/EWHarp_Normal_F#4_v2_RR1", "80": "Folk Harp/EWHarp_Normal_G#4_v2_RR1", "82": "Folk Harp/EWHarp_Normal_A#4_v2_RR1", "84": "Folk Harp/EWHarp_Normal_C5_v2_RR1", "86": "Folk Harp/EWHarp_Normal_D5_v2_RR1", "88": "Folk Harp/EWHarp_Normal_E5_v2_RR1", "90": "Folk Harp/EWHarp_Normal_F#5_v2_RR1", "92": "Folk Harp/EWHarp_Normal_G#5_v2_RR1"}, notes: [36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92], file(p){ return this.map[p].split("/").map(encodeURIComponent).join("/") + ".m4a"; }}],
+  strumstick: [{repo: "danigb/samples", ref: "main", dir: "audio/vcsl/Composite%20Chordophones/", map: {"50": "Strumstick/Finger/Strumstick_Finger_Str1_Main_D2_vl2_rr1", "52": "Strumstick/Finger/Strumstick_Finger_Str1_Main_E2_vl2_rr1", "54": "Strumstick/Finger/Strumstick_Finger_Str1_Main_F#2_vl2_rr1", "55": "Strumstick/Finger/Strumstick_Finger_Str1_Main_G2_vl2_rr1", "57": "Strumstick/Finger/Strumstick_Finger_Str2_Main_A2_vl2_rr1", "59": "Strumstick/Finger/Strumstick_Finger_Str2_Main_B2_vl2_rr1", "61": "Strumstick/Finger/Strumstick_Finger_Str2_Main_C#3_vl2_rr1", "62": "Strumstick/Finger/Strumstick_Finger_Str2_Main_D3_vl2_rr1", "64": "Strumstick/Finger/Strumstick_Finger_Str3_Main_E3_vl2_rr1", "66": "Strumstick/Finger/Strumstick_Finger_Str3_Main_F#3_vl2_rr1", "67": "Strumstick/Finger/Strumstick_Finger_Str3_Main_G3_vl2_rr1", "69": "Strumstick/Finger/Strumstick_Finger_Str3_Main_A3_vl2_rr1", "71": "Strumstick/Finger/Strumstick_Finger_Str3_Main_B3_vl2_rr1", "73": "Strumstick/Finger/Strumstick_Finger_Str3_Main_C#4_vl2_rr1", "74": "Strumstick/Finger/Strumstick_Finger_Str3_Main_D4_vl2_rr1", "76": "Strumstick/Finger/Strumstick_Finger_Str3_Main_E4_vl2_rr1", "78": "Strumstick/Finger/Strumstick_Finger_Str3_Main_F#4_vl2_rr1", "79": "Strumstick/Finger/Strumstick_Finger_Str3_Main_G4_vl1_rr1", "81": "Strumstick/Finger/Strumstick_Finger_Str3_Main_A4_vl2_rr1"}, notes: [50, 52, 54, 55, 57, 59, 61, 62, 64, 66, 67, 69, 71, 73, 74, 76, 78, 79, 81], file(p){ return this.map[p].split("/").map(encodeURIComponent).join("/") + ".m4a"; }}],
+  dantranh: [{repo: "danigb/samples", ref: "main", dir: "audio/vcsl/Zithers/", map: {"47": "Dan Tranh/Normal/B1_f_1", "49": "Dan Tranh/Normal/C#2_f_1", "51": "Dan Tranh/Normal/D#2_f_1", "54": "Dan Tranh/Normal/F#2_f_1", "56": "Dan Tranh/Normal/G#2_f_1", "59": "Dan Tranh/Normal/B2_f_1", "61": "Dan Tranh/Normal/C#3_f_1", "63": "Dan Tranh/Normal/D#3_f_1", "66": "Dan Tranh/Normal/F#3_f_1", "68": "Dan Tranh/Normal/G#3_f_1", "71": "Dan Tranh/Normal/B3_f_1", "73": "Dan Tranh/Normal/C#4_f_1", "75": "Dan Tranh/Normal/D#4_f_1", "78": "Dan Tranh/Normal/F#4_f_1", "80": "Dan Tranh/Normal/G#4_f_1", "83": "Dan Tranh/Normal/B4_f_1"}, notes: [47, 49, 51, 54, 56, 59, 61, 63, 66, 68, 71, 73, 75, 78, 80, 83], file(p){ return this.map[p].split("/").map(encodeURIComponent).join("/") + ".m4a"; }}],
   electric: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-electric/", notes: [37,40,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84], file: p => smpName(TJ_N, p) + ".mp3"}]
 };
 // the same files from several places; whichever answers first is tried first next time
@@ -3004,6 +3026,10 @@ const GUITARS = [
   ["nylon", "Nylon-string classical", "A Spanish classical guitar, soft and warm"],
   ["twelve", "12-string acoustic", "Doubled strings with a shimmering, chorus-like ring"],
   ["electric", "Clean electric guitar", "A clean electric, smooth and round"],
+  ["harp", "Concert harp", "A full pedal harp, recorded note by note"],
+  ["folkharp", "Folk harp", "A small Celtic-style lever harp, light and bright"],
+  ["strumstick", "Strumstick (mountain dulcimer)", "A fretted folk instrument with a twangy, banjo-like ring"],
+  ["dantranh", "Đàn tranh zither", "A Vietnamese plucked zither, shimmering and bright"],
   ["synth", "Simple plucked string", "Made on the phone, no download"]];
 const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return GUITARS.some(x => x[0] === v) ? v : "steel"; };
 function showGtrSound(){ instStatus(); }
@@ -8480,7 +8506,7 @@ function lbUI(){
   $("lbJoin").disabled = !CS.user;
   showOwnerUI();
   if ($("resLb")) $("resLb").hidden = !(pr.on && CS.user && g);
-  if ($("lbChip")){ $("lbChip").hidden = !g; $("lbChipPts").textContent = t.pts ? t.pts.toLocaleString() : ""; }
+  if ($("lbChip")){ $("lbChip").hidden = !g; $("lbChipPts").textContent = (t.pts || 0).toLocaleString(); $("lbChip").setAttribute("aria-label", "Leaderboard"); }
   if ($("pgLb")){ $("pgLb").hidden = !g; $("pgLbPts").textContent = t.pts ? t.pts.toLocaleString() + " " + tr("pts") : ""; }
 }
 $("ownerPlaySeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
@@ -8515,15 +8541,17 @@ async function lbOpen(){
     for (const i of [1, 0, 2]){ const r = rows[i]; const d = document.createElement("div");
       if (!r){ d.className = "pod"; pod.appendChild(d); continue; }
       d.className = "pod p" + (i + 1) + (r.id === CS.user.uid ? " me" : "");
-      if (i === 0){ const c = document.createElement("div"); c.className = "crown"; c.textContent = "👑"; d.appendChild(c); }
+      const ring = document.createElement("div"); ring.className = "ring"; ring.appendChild(lbAvatar(r.pic, r.name));
+      const bd = document.createElement("span"); bd.className = "badge1"; bd.textContent = String(i + 1); ring.appendChild(bd);
       const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = r.name || "Player"; nm.translate = false;
-      const blk = document.createElement("div"); blk.className = "blk"; blk.textContent = String(i + 1);
-      d.append(lbAvatar(r.pic, r.name), nm, ptEl(r[field] || 0), blk); pod.appendChild(d); }
+      const pl = document.createElement("div"); pl.className = "ptl"; pl.textContent = tr("points");
+      d.append(ring, nm, ptEl(r[field] || 0), pl); pod.appendChild(d); }
     if (!rows.length) pod.textContent = "";
     rows.slice(3).forEach((r, k) => {
       const li = document.createElement("li"); li.className = "lbrow" + (r.id === CS.user.uid ? " me" : "");
       const rk = document.createElement("span"); rk.className = "rk"; rk.textContent = String(k + 4);
       const n = document.createElement("span"); n.className = "nm"; n.textContent = r.name || "Player"; n.translate = false;
+      li.style.animationDelay = (0.28 + k * 0.04) + "s";
       li.append(rk, lbAvatar(r.pic, r.name), n, ptEl(r[field] || 0)); $("lbList").appendChild(li);
     });
     // points spin up like a slot machine paying out
@@ -9083,10 +9111,10 @@ function finishAchievements(acc, stars, full){
 function renderProgChip(){
   const b = $("progChip"); if (!b) return;
   const today = (PG.days[dayKey()] || {}).s || 0, g = goalMin(), n = dayStreak(), m = Math.floor(today / 60);
-  b.innerHTML = `<span class="pgflame${n ? "" : " off"}">🔥</span><b>${n}</b><span class="pgsep"></span>${ringSvg(Math.min(1, today / (g * 60)), 16, 3)}<span>${tr("{} of {} min").replace("{}", Math.min(m, 999)).replace("{}", g)}</span>`;
+  b.innerHTML = `<span class="pgflame${n ? "" : " off"}">🔥</span><b>${n}</b><span class="pgsep"></span>${ringSvg(Math.min(1, today / (g * 60)), 8, 3)}<span class="pglong">${tr("{} of {} min").replace("{}", Math.min(m, 999)).replace("{}", g)}</span><span class="pgshort">${Math.min(m, 999)}/${g}m</span>`;
   b.title = tr("Your progress");
 }
-const ringSvg = (f, r, w) => { const c = 2 * Math.PI * r, s = 2 * (r + w); return `<svg class="pgring" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}" aria-hidden="true"><circle cx="${r + w}" cy="${r + w}" r="${r}" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="${w}"/><circle cx="${r + w}" cy="${r + w}" r="${r}" fill="none" stroke="${f >= 1 ? "#7cf29a" : "var(--accent)"}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${c * f} ${c}" transform="rotate(-90 ${r + w} ${r + w})"/></svg>`; };
+const ringSvg = (f, r, w) => { const c = 2 * Math.PI * r, s = 2 * (r + w); return `<svg class="pgring" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}" aria-hidden="true"><circle cx="${r + w}" cy="${r + w}" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="${w}"/>${f > 0.005 ? `<circle cx="${r + w}" cy="${r + w}" r="${r}" fill="none" stroke="${f >= 1 ? "#2fbf5f" : "var(--accent)"}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${c * f} ${c}" transform="rotate(-90 ${r + w} ${r + w})"/>` : ""}</svg>`; };
 // week: Sunday start in English, Monday elsewhere
 function weekStart(off){ const d = new Date(); d.setHours(0, 0, 0, 0); const first = LANG === "en" ? 0 : 1; d.setDate(d.getDate() - ((d.getDay() - first + 7) % 7) + 7 * (off || 0)); return d; }
 function weekStats(off){

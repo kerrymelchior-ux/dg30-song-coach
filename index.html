@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.23">
+<meta name="version" content="2.24">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -186,10 +186,10 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .song:hover{background:transparent}
 .song:active{background:color-mix(in srgb,var(--panel) 80%,transparent)}
 .song .art,.song.hasart .art{grid-row:1/4;align-self:center;width:56px;height:56px;border-radius:10px}
-.song h3{grid-column:2;font:600 16px/1.3 var(--f-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
-.song .meta,.song.hasart .meta{grid-column:2;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song h3{grid-column:2;font:600 16px/1.3 var(--f-body);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+.song .meta,.song.hasart .meta{grid-column:2;font-size:13px;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
 .song .badges{grid-column:2;display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
-.badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border-radius:6px;font-size:11.5px;font-weight:600;line-height:1;color:var(--muted);border:1px solid var(--line)}
+.badge{display:inline-flex;align-items:center;gap:4px;height:22px;white-space:nowrap;flex:none;padding:0 8px 0 6px;border-radius:6px;font-size:11.5px;font-weight:600;line-height:1;color:var(--muted);border:1px solid var(--line)}
 .badge svg{width:14px;height:14px}
 .badge.on{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .badge.auto{border-style:dashed}
@@ -198,7 +198,7 @@ body[data-instr="guitar"]{--accent:var(--amber)}
 .badge.made.both{background:linear-gradient(90deg,var(--chrome) 0 50%,var(--amber) 50% 100%)}
 .badge.made svg{width:15px;height:15px}
 .badge.also{opacity:.85}
-.song .art .madechip{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#14110f;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.song .art .madechip{display:none!important;position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#14110f;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .song .art .madechip svg{width:14px;height:14px}
 .song .art .madechip.piano{background:var(--chrome)}.song .art .madechip.guitar{background:var(--amber)}
 .song .art .madechip.both{background:linear-gradient(135deg,var(--chrome) 0 50%,var(--amber) 50% 100%)}
@@ -350,7 +350,7 @@ body.syncing #wordsBtn{visibility:hidden}
 .gisbox{display:flex;justify-content:center;min-height:44px}#syncGis{justify-content:flex-start}
 /* the library header always fits the screen width: the title side shrinks, and on narrow phones the instrument chip is just its icon */
 .top .brand{min-width:0;flex:1 1 auto}.top .brand h1{white-space:nowrap}.progchip{max-width:100%;overflow:hidden;white-space:nowrap}
-@media (max-width:420px){#instName{display:none}.instchip{padding:0 11px}.topacts{gap:6px}}
+@media (max-width:440px){#instName{display:none}.instchip{padding:0 11px}.topacts{gap:6px}}
 html,body{overflow-x:clip}
 /* the sign-in welcome screen */
 #acctDlg{width:min(460px,calc(100% - 24px))}
@@ -408,7 +408,7 @@ html,body{overflow-x:clip}
 .song .award b{font:800 21px/1 var(--f-body);letter-spacing:-.5px;font-variant-numeric:tabular-nums}.song .award b small{font-size:11px;font-weight:800;margin-left:1px}
 .song .award span{font-size:10px;line-height:1;letter-spacing:1px;color:#5a3a00}.song .award span i{font-style:normal;opacity:.3}
 .song .award.gold::after{content:"";position:absolute;inset:-6px;border-radius:50%;box-shadow:0 0 14px rgba(255,201,74,.55);pointer-events:none}
-@media (max-width:380px){.song .award{width:50px;height:50px}.song .award b{font-size:17px}}
+@media (max-width:440px){.song,.song.hasart{gap:1px 10px}.song .award{width:46px;height:46px}.song .award b{font-size:16px}.song .award span{font-size:8px}.song .fav{width:30px}.song .more{width:30px}}
 
 /* right-to-left (Arabic): the page mirrors, but the keyboard, progress bar and notes keep low on the left */
 [dir="rtl"] input[type="range"],[dir="rtl"] .seekwrap,[dir="rtl"] #stage,[dir="rtl"] canvas{direction:ltr}
@@ -523,10 +523,14 @@ dialog.lbmod .lblist{gap:4px;max-height:44vh;padding:2px}
 .brand .homechips .lbchip .lblbl{font:700 13px var(--f-body);color:#fff}
 .homechips .pgshort{display:none}
 .lbicon{display:none;color:#ffd24a;background:linear-gradient(160deg,#5a0a10,#1a0204);border-color:#e9a52c}
-.lbicon svg{width:20px;height:20px}
+.lbicon svg{width:20px;height:20px;display:block;margin:auto}
 .progchip .pgbar,.progchip .pgmin{display:none}
 @media (max-width:440px){
- .lbicon:not([hidden]){display:inline-flex}
+ .lbicon:not([hidden]){display:grid;place-items:center}
+ .topacts{gap:5px}
+ .topacts .ibtn,.topacts .instchip{width:42px;height:42px;padding:0;justify-content:center;place-items:center}
+ .top .brand h1{font-size:clamp(21px,6.4vw,28px)}
+ .homechips .progchip{max-width:none;overflow:visible}
  .homechips .lbchip{display:none}
  .homechips{margin-top:8px}
  .homechips .progchip{width:100%;max-width:240px;flex:1 1 auto;height:auto;padding:0;border:0;background:none;gap:7px;justify-content:flex-start}
@@ -1117,7 +1121,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
     <div class="label" id="verLabel"></div>
     <div class="row" style="gap:10px;align-items:center"><button class="btn" id="updBtn" type="button">Check for updates</button><span id="updStatus" style="color:var(--muted);font-size:14px"></span></div>
     <small style="color:var(--muted)">© 2026 Kerry E. Melchior II. All rights reserved.</small>
-    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Kawai grand, Steinway B grand, Yamaha upright, harpsichord and FM piano from the Versilian Community Sample Library by Sam Gossner (CC0); Splendid Grand Piano (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer and CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); all via danigb/samples. Steel-string and electric guitars from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0); nylon-string guitar from FreePats (CC0). Concert harp, folk harp, strumstick and đàn tranh from the Versilian Community Sample Library (CC0), via danigb/samples. Banjo from the SX guitar-banjo samples by itsclipping (CC0) and mandolin by Lars Terkelsen, both via sfzinstruments; electric bass, organ, saxophone, trumpet, trombone, violin, cello, flute and clarinet from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0). Sheet music drawn with abcjs.</small>
+    <small style="color:var(--muted)">Sounds: concert grand from the Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0), recorded at three strengths. Kawai grand, Steinway B grand, Yamaha upright, harpsichord and FM piano from the Versilian Community Sample Library by Sam Gossner (CC0); Splendid Grand Piano (public domain); Rhodes from jRhodes3 by Jeff Learman (CC BY-NC); Wurlitzer and CP-80 from Greg Sullivan's E-Pianos (CC BY 3.0); all via danigb/samples. Steel-string and electric guitars from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0); nylon-string guitar from FreePats (CC0). Concert harp, folk harp, strumstick, đàn tranh and pipe organ from the Versilian Community Sample Library (CC0), via danigb/samples. Banjo from the SX guitar-banjo samples by itsclipping (CC0) and mandolin by Lars Terkelsen, both via sfzinstruments; electric bass, organ, saxophone, trumpet, trombone, violin, cello, flute and clarinet from tonejs-instruments by Nicholaus Brosowsky (CC BY 3.0). Sheet music drawn with abcjs.</small>
   </section>
   </div></div>
   </div>
@@ -1646,7 +1650,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.23";
+const APP_VERSION = "2.24";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -2128,7 +2132,8 @@ const PIANO_SRC = [
 // hard playing sounds bright, like a real piano, instead of one recording made quieter or louder.
 const LAYER_SRC = v => ({base: `https://cdn.jsdelivr.net/npm/@audio-samples/piano-mp3-velocity${v}@1.0.5/audio/`, name: (L, o) => encodeURIComponent(L + o + "v" + v) + ".mp3"});
 const LAYERS = [{key: "mid", v: 8, center: 0.6}, {key: "soft", v: 4, center: 0.3}, {key: "loud", v: 14, center: 0.92}];
-const PIANO_KINDS = ["grand","kawai","steinway","splendid","upright","honky","rhodes","wurli","cp80","fm","harpsi","simple"];
+const PIANO_KINDS = ["grand","kawai","steinway","splendid","upright","honky","rhodes","wurli","cp80","fm","harpsi","organ","pipeorgan","simple"];
+const ORGANS = ["organ", "pipeorgan"];
 const grand = { layers: {}, want: (() => { const v = ({bright: "splendid", epiano: "rhodes"})[store.get("dg30.phoneSound", "grand")] || store.get("dg30.phoneSound", "grand"); return PIANO_KINDS.includes(v) ? v : "grand"; })(), bufs: new Map(), state: "idle", loading: null, bus: null };
 function grandNotes(){ const out = []; for (let p = 21; p <= 108; p += 3) out.push(p); return out.sort((a, b) => Math.abs(a - 62) - Math.abs(b - 62)); }
 function loadGrand(){
@@ -2214,6 +2219,7 @@ function grandOn(p, v, bufs){
 function synthOn(p, v){
   if (grand.want === "grand"){ if (!grand.loading) loadGrand(); if (grandOn(p, v)) return; }
   else if (SFZ_OPT[grand.want]){ const s = siOf(grand.want); if (s.state === "none") siLoad(grand.want); if (siOn(p, v, grand.want)) return; }
+  else if (ORGANS.includes(grand.want) && organOn(p, v, grand.want)) return;
   const a = audioCtx(), t = a.currentTime, f = 440 * Math.pow(2, (p - 69) / 12);
   const g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter();
   o1.type = "triangle"; o2.type = "sine"; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -2226,6 +2232,21 @@ function synthOn(p, v){
   o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(vol.master);
   o1.start(t); o2.start(t); o1.stop(t + 3.6); o2.stop(t + 3.6);
   synthOff(p); synthVoices.set(p, {g, srcs:[o1, o2]});
+}
+// organs: the recorded note loops for as long as you hold the key, then stops when you let go
+function organOn(p, v, kind){
+  const g = GS[kind]; if (!g) return false;
+  if (g.state === "none") loadGuitar(kind);
+  if (!g.bufs.size) return false;
+  const nb = nearestBuf(g, p); if (!nb || Math.abs(nb[0] - p) > 7) return false;
+  const a = audioCtx(), t = a.currentTime, src = a.createBufferSource(), out = a.createGain(), b = nb[1];
+  src.buffer = b; src.playbackRate.value = Math.pow(2, (p - nb[0]) / 12);
+  src.loop = true; src.loopStart = Math.min(0.6, b.duration * 0.3); src.loopEnd = Math.max(src.loopStart + 0.2, b.duration - 0.5);
+  const lvl = (g.trim || 1) * (0.55 + 0.45 * v / 127) * 0.9;
+  out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(lvl, t + 0.012);
+  src.connect(out); out.connect(grandBus(a)); src.start(t);
+  synthOff(p); synthVoices.set(p, {g: out, srcs: [src]});
+  return true;
 }
 function synthOff(p, fromPedal){
   if (!fromPedal && typeof pedal !== "undefined" && pedal.down && synthVoices.has(p)){ pedal.held.add(p); return; }
@@ -2584,7 +2605,7 @@ function renderInstr(){
 }
 // the instrument cards: in the Instrument window, and on the Settings page under Main instrument
 const PIANO_GROUPS = [["Grand pianos", ["grand", "kawai", "steinway", "splendid"]], ["Upright pianos", ["upright", "honky"]],
-  ["Electric pianos", ["rhodes", "wurli", "cp80", "fm"]], ["Other keyboards", ["harpsi", "simple"]]];
+  ["Electric pianos", ["rhodes", "wurli", "cp80", "fm"]], ["Other keyboards", ["harpsi", "organ", "pipeorgan", "simple"]]];
 const PG_OPEN = {};      // which piano groups are open, per list
 // instruments are listed A to Z inside each group, by the name you see (in your language)
 const byName = (a, b) => tr(a).localeCompare(tr(b), (typeof LANG_LOCALE !== "undefined" && LANG_LOCALE[LANG]) || undefined, {numeric: true, sensitivity: "base"});
@@ -2624,7 +2645,7 @@ function renderSetInstr(){
   $("setPedalField").hidden = tab !== "piano";
   instCardsInto($("setInstCards"), tab); instStatus();
 }
-function instSampler(k, tab){ return k === "grand" ? grand : (tab || instTab) === "piano" ? siOf(k) : GS[k === "twelve" ? "steel" : k] || null; }
+function instSampler(k, tab){ return k === "grand" ? grand : (tab || instTab) === "piano" ? (ORGANS.includes(k) ? GS[k] : siOf(k)) : GS[k === "twelve" ? "steel" : k] || null; }
 function instStatus(){
   const boxes = [];
   if ($("instDlg").open) boxes.push($("instCards"));
@@ -2646,7 +2667,7 @@ async function pickInstr(k){
     setTimeout(() => [67, 59, 55, 50].forEach((p, i) => phoneGuitar(p, 0.55, i * 0.03)), 700);
   } else {
     allNotesOff(); grand.want = k; store.set("dg30.phoneSound", k); renderInstr(); renderSoundLabel(); renderSetInstr();
-    if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k);
+    if (k === "grand"){ loadGrand(); for (let i = 0; i < 300 && grand.state === "loading"; i++) await new Promise(r => setTimeout(r, 100)); } else if (SFZ_OPT[k]) await siLoad(k); else if (ORGANS.includes(k)) await loadGuitar(k);
     if (grand.want !== k || (!$("instDlg").open && $("tabSettings").hidden)) return;
     if (P.playing){ instStatus(); return; }
     [[60,0],[64,140],[67,280],[72,420]].forEach(([p, ms]) => setTimeout(() => synthOn(p, 80), ms));
@@ -2925,6 +2946,7 @@ const GTR_DEF = {
   cello: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/cello/", notes: [36, 39, 41, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 71, 72], sustain: true, file: p => smpName(TJ_N, p) + ".mp3"}],
   flute: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/flute/", notes: [60, 64, 69, 72, 76, 81, 84, 88, 93, 96], sustain: true, file: p => smpName(TJ_N, p) + ".mp3"}],
   clarinet: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/clarinet/", notes: [50, 53, 58, 62, 65, 70, 74, 77, 82, 86, 90], sustain: true, file: p => smpName(TJ_N, p) + ".mp3"}],
+  pipeorgan: [{repo: "danigb/samples", ref: "main", dir: "audio/vcsl/Edge-blown%20Aerophones/", map: {"36": "Pipe Organ/Loud/Rode_Man3Open_C1", "39": "Pipe Organ/Loud/Rode_Man3Open_D#1", "42": "Pipe Organ/Loud/Rode_Man3Open_F#1", "45": "Pipe Organ/Loud/Rode_Man3Open_A1", "48": "Pipe Organ/Loud/Rode_Man3Open_C2", "51": "Pipe Organ/Loud/Rode_Man3Open_D#2", "54": "Pipe Organ/Loud/Rode_Man3Open_F#2", "57": "Pipe Organ/Loud/Rode_Man3Open_A2", "60": "Pipe Organ/Loud/Rode_Man3Open_C3", "63": "Pipe Organ/Loud/Rode_Man3Open_D#3", "66": "Pipe Organ/Loud/Rode_Man3Open_F#3", "69": "Pipe Organ/Loud/Rode_Man3Open_A3", "72": "Pipe Organ/Loud/Rode_Man3Open_C4", "75": "Pipe Organ/Loud/Rode_Man3Open_D#4", "78": "Pipe Organ/Loud/Rode_Man3Open_F#4", "81": "Pipe Organ/Loud/Rode_Man3Open_A4", "84": "Pipe Organ/Loud/Rode_Man3Open_C5", "87": "Pipe Organ/Loud/Rode_Man3Open_D#5", "90": "Pipe Organ/Loud/Rode_Man3Open_F#5", "93": "Pipe Organ/Loud/Rode_Man3Open_A5", "96": "Pipe Organ/Loud/Rode_Man3Open_C6"}, notes: [36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96], sustain: true, file(p){ return this.map[p].split("/").map(encodeURIComponent).join("/") + ".m4a"; }}],
   electric: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-electric/", notes: [37,40,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84], file: p => smpName(TJ_N, p) + ".mp3"}]
 };
 // the same files from several places; whichever answers first is tried first next time
@@ -3047,6 +3069,8 @@ const PHONE_PIANOS = [
   ["cp80", "Yamaha CP-80 electric grand", "The 80s stage electric grand"],
   ["fm", "80s FM piano", "Glassy, shimmering FM electric piano from the 80s"],
   ["harpsi", "Harpsichord", "A French harpsichord, for Bach and baroque"],
+  ["organ", "Electric organ", "A warm electric organ that holds each note as long as you press"],
+  ["pipeorgan", "Pipe organ", "A real church pipe organ, full and grand"],
   ["simple", "Simple tone", "Made on the phone, no download"]];
 const GUITARS = [
   ["nylon", "Nylon-string classical", "A Spanish classical guitar, soft and warm"],
@@ -3060,7 +3084,6 @@ const GUITARS = [
   ["folkharp", "Folk harp", "A small Celtic-style lever harp, light and bright"],
   ["dantranh", "Đàn tranh zither", "A Vietnamese plucked zither, shimmering and bright"],
   ["bass", "Electric bass", "A real electric bass guitar, deep and round"],
-  ["organ", "Organ", "A warm electric organ"],
   ["sax", "Saxophone", "A real alto saxophone"],
   ["trumpet", "Trumpet", "A bright brass trumpet"],
   ["trombone", "Trombone", "A smooth, full brass trombone"],
@@ -3070,7 +3093,7 @@ const GUITARS = [
   ["clarinet", "Clarinet", "A warm, woody clarinet"],
   ["synth", "Simple plucked string", "Made on the phone, no download"]];
 const GUITAR_GROUPS = [["Guitars", ["nylon", "steel", "electric", "twelve"], true], ["Banjo, mandolin and folk strings", ["banjo", "mandolin", "strumstick", "harp", "folkharp", "dantranh"]],
-  ["Band instruments", ["bass", "organ", "sax", "trumpet", "trombone", "violin", "cello", "flute", "clarinet"]], ["Other", ["synth"]]];
+  ["Band instruments", ["bass", "sax", "trumpet", "trombone", "violin", "cello", "flute", "clarinet"]], ["Other", ["synth"]]];
 const gtrSound = () => { const v = store.get("dg30.gtrSound", "steel"); return GUITARS.some(x => x[0] === v) ? v : "steel"; };
 function showGtrSound(){ instStatus(); }
 function nearestBuf(g, p){ let best = null, bd = 99; for (const [q, b] of g.bufs){ const d = Math.abs(q - p); if (d < bd){ bd = d; best = [q, b]; } } return best; }
@@ -8565,7 +8588,7 @@ $("ownerPlaySeg").addEventListener("click", e => { const b = e.target.closest("b
 $("magicPtsTog").addEventListener("change", e => { store.set("dg30.magicPts", e.target.checked); toast(e.target.checked ? "Testing: Magic now earns points" : "Magic earns no points again", 2200); });
 $("lbJoin").addEventListener("change", e => {
   const on = e.target.checked, pr = lbPref();
-  store.set("dg30.lb", {on, name: pr.name || lbDefaultName()});
+  store.set("dg30.lb", {...pr, on, name: pr.name || lbDefaultName()});      // your picture and name stay saved while you're off the board
   if (on){ lbPush(); toast(tr("You're on the leaderboard as {}").replace("{}", lbPref().name || lbDefaultName()), 2600); } else { lbLeave(); toast(tr("You've left the leaderboard. Your points stay with you."), 2600); }
   lbUI();
 });
@@ -9807,6 +9830,7 @@ async function showStorageInfo(){
   songStoreReady.then(() => { renderLibrary(); runJobs(); setTimeout(() => autoLyrics(true).finally(autoGenres), 4000); });
   if (grand.want === "grand") setTimeout(() => { try { loadGrand(); } catch(e){} }, 2500);
   else if (SFZ_OPT[grand.want]) setTimeout(() => { try { siLoad(grand.want); } catch(e){} }, 2500);
+  else if (ORGANS.includes(grand.want)) setTimeout(() => { try { loadGuitar(grand.want); } catch(e){} }, 2500);
   { const gk = gtrSound(); if (gk !== "synth") setTimeout(() => { try { loadGuitar(gk === "twelve" ? "steel" : gk); } catch(e){} }, 4000); }   // ready before the first strum
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });

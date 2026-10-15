@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.27">
+<meta name="version" content="2.28">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1669,7 +1669,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.27";
+const APP_VERSION = "2.28";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -1807,7 +1807,7 @@ function loadNotes(id){
 function deleteSong(id){
   store.set("dg30.songs", store.get("dg30.songs", []).filter(s => s.id !== id));
   try { const keep = store.get("dg30.recs", []).filter(t => { if (t.songId === id){ store.del("dg30.rec." + t.id); return false; } return true; }); store.set("dg30.recs", keep); } catch(e){}
-  store.del("dg30.song." + id); store.del("dg30.best." + id); store.del("dg30.hi." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id); store.del("dg30.vox." + id); store.del("dg30.lyrraw." + id);
+  store.del("dg30.song." + id); store.del("dg30.gtab." + id); store.del("dg30.best." + id); store.del("dg30.hi." + id); store.del("dg30.lyrics." + id); store.del("dg30.tempo." + id); store.del("dg30.chords." + id); store.del("dg30.scan." + id); store.del("dg30.pedal." + id); store.del("dg30.transpose." + id); store.del("dg30.art." + id); store.del("dg30.vox." + id); store.del("dg30.lyrraw." + id);
 }
 
 /* ---------------- demo songs (public domain) ---------------- */
@@ -2961,6 +2961,17 @@ function songBeats(){ const d = P.song && P.song.id && DEMOS[P.song.id]; return 
 function strumAlongStep(t0, t1){
   if (!(P.chords || []).length || t1 <= t0 || t1 - t0 > 0.5) return;
   const beat = 60 / (P.baseBpm || 100), beats = songBeats(), pat = STRUM_PAT[beats] || STRUM_PAT[4];
+  // the song's own strumming pattern from its chord sheet, running through the whole song in time
+  const sp = P.song && P.song.strum;
+  if (sp && Array.isArray(sp.p) && sp.p.length && sp.len > 0){
+    const cyc = sp.len * beat, k0 = Math.max(0, Math.floor((t0 - (sp.at || 0)) / cyc) - 1);
+    for (let k = k0; (sp.at || 0) + k * cyc <= t1; k++)
+      for (const [off, dir, vel] of sp.p){
+        const t = (sp.at || 0) + k * cyc + off * beat; if (!(t > t0 && t <= t1)) continue;
+        const c = P.chords.find(c => c.t <= t + 1e-3 && t < c.end - 0.03); if (c) strumOnce(c, dir, vel);
+      }
+    return;
+  }
   for (const c of P.chords){
     if (c.end <= t0 || c.t > t1) continue;
     for (let bar = 0; c.t + bar * beats * beat < Math.min(c.end, t1); bar++){
@@ -3359,10 +3370,25 @@ function buildTabs(notes){
   return out;
 }
 const tabLevel = () => store.get("dg30.tabLevel", "easy") === "full" ? "full" : "easy";
+// the song's own guitar tab, string by string and fret by fret, when it came from a real tab or chord sheet
+// (not when the key has been changed: then the app works out a new fingering)
+function realTabs(){
+  const id = P.song && P.song.id; if (!id || P.transpose) return null;
+  const g = store.get("dg30.gtab." + id, null); if (!g || !Array.isArray(g.tab) || !g.tab.length) return null;
+  const open = Array.isArray(g.open) && g.open.length === 6 ? g.open : OPEN_STR;
+  return g.tab.map(x => ({t: x[0], d: x[1], s: x[2], f: x[3], p: open[x[2]] + x[3], v: 80})).filter(n => n.s >= 0 && n.s < 6).sort((a, b) => a.t - b.t || a.s - b.s);
+}
+function tabOpen(){ const g = P.song && !P.transpose && store.get("dg30.gtab." + P.song.id, null); return g && Array.isArray(g.open) && g.open.length === 6 ? g.open : OPEN_STR; }
 function ensureTabs(){
-  if (P.tabsFor !== P.notes || P.tabsLvl !== tabLevel() || P.tabsBpm !== P.baseBpm){ P.tabs = buildTabs(P.notes); P.tabsFor = P.notes; P.tabsLvl = tabLevel(); P.tabsBpm = P.baseBpm; }
+  const key = (P.song && P.song.id) + "|" + (P.transpose || 0);
+  if (P.tabsFor !== P.notes || P.tabsLvl !== tabLevel() || P.tabsBpm !== P.baseBpm || P.tabsKey !== key){
+    P.tabs = realTabs() || buildTabs(P.notes); P.tabsFor = P.notes; P.tabsLvl = tabLevel(); P.tabsBpm = P.baseBpm; P.tabsKey = key;
+  }
   return P.tabs;
 }
+// notes struck together (a chord or a strum) are one step in Wait: play any of them and the whole group moves on
+function tabGroup(n){ const tabs = ensureTabs(); return tabs.filter(m => !m.done && Math.abs(m.t - n.t) < 0.06); }
+function tabGroupDone(n){ for (const m of tabGroup(n)){ m.done = true; m.ok = true; } }
 // in Wait mode the mic listens for the one note to pick: its pitch has to be the strongest in the sound
 function guitarPlayTick(){
   const chroma = chromaFromMic(); if (!chroma){ mic.gN = 0; GM.prevTotal = 0; return; }
@@ -3370,9 +3396,10 @@ function guitarPlayTick(){
   if (tabsView()){
     let total = 0, maxI = 0; for (let i = 0; i < 12; i++){ total += chroma[i]; if (chroma[i] > chroma[maxI]) maxI = i; }
     const attack = total > (GM.prevTotal || 0) * 1.35; GM.prevTotal = total; if (attack) GM.attack = true;
-    const n = ensureTabs().find(n => !n.judged && P.t >= n.t - 0.2 && P.t <= n.t + 0.4); if (!n) return;
-    if (GM.attack && maxI === n.p % 12 && chroma[maxI] / total > 0.22){
-      GM.attack = false; n.judged = true; n.ok = true; const d = Math.abs(P.t - lag - n.t);
+    const win = ensureTabs().filter(n => !n.judged && P.t >= n.t - 0.2 && P.t <= n.t + 0.4); if (!win.length) return;
+    const n = win.find(m => m.p % 12 === maxI) || win[0];
+    if (GM.attack && maxI === n.p % 12 && chroma[maxI] / total > (win.length > 2 ? 0.14 : 0.22)){
+      GM.attack = false; for (const m of win) if (Math.abs(m.t - n.t) < 0.06){ m.judged = true; m.ok = true; } const d = Math.abs(P.t - lag - n.t);
       scoreHit(d < 0.12 ? "perfect" : d < 0.25 ? "great" : "", null); P.correct = Math.min(P.correct, P.total);
     }
     return;
@@ -3389,10 +3416,10 @@ function tabListenTick(){
   let total = 0, maxI = 0; for (let i = 0; i < 12; i++){ total += chroma[i]; if (chroma[i] > chroma[maxI]) maxI = i; }
   const attack = total > (GM.prevTotal || 0) * 1.35; GM.prevTotal = total;
   if (attack) GM.attack = true;
-  const pc = n.p % 12, prev = P.tabs[P.tabs.indexOf(n) - 1];
-  const needAttack = prev && prev.p % 12 === pc;              // the same note again has to be picked again
-  if (maxI === pc && chroma[pc] / total > 0.22 && (!needAttack || GM.attack)) mic.gN = (mic.gN || 0) + 1; else mic.gN = 0;
-  if (mic.gN >= 2){ mic.gN = 0; GM.attack = false; n.done = true; n.ok = true; scoreHit(waitKind(), null); P.waiting = false; P.waitTab = null; }
+  const grp = tabGroup(n), pcs = new Set(grp.map(m => m.p % 12)), prev = P.tabs[P.tabs.indexOf(grp[0] || n) - 1];
+  const needAttack = prev && pcs.has(prev.p % 12);            // the same note again has to be picked again
+  if (pcs.has(maxI) && chroma[maxI] / total > (grp.length > 2 ? 0.14 : 0.22) && (!needAttack || GM.attack)) mic.gN = (mic.gN || 0) + 1; else mic.gN = 0;
+  if (mic.gN >= 2){ mic.gN = 0; GM.attack = false; tabGroupDone(n); scoreHit(waitKind(), null); P.waiting = false; P.waitTab = null; }
 }
 function drawTabs(now, W, strumY){
   const tabs = ensureTabs(); if (!tabs.length) return;
@@ -3413,7 +3440,8 @@ function drawTabs(now, W, strumY){
   }
   for (let s = 0; s < 6; s++){ cx.strokeStyle = "rgba(243,236,224,0.45)"; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x0, lineY(s)); cx.lineTo(x1, lineY(s)); cx.stroke(); }
   cx.fillStyle = C.muted; cx.font = `600 ${Math.round(Math.min(14, gap * 0.45))}px ${css("--f-mono")}`; cx.textAlign = "center"; cx.textBaseline = "middle";
-  ["E","A","D","G","B","e"].forEach((nm, s) => cx.fillText(nm, x0 - 14, lineY(s)));
+  { const NM = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"], op = tabOpen();
+    op.forEach((p, s) => cx.fillText(s === 5 ? NM[p % 12].toLowerCase() : NM[p % 12], x0 - 14, lineY(s))); }
   // chord names above the tab
   cx.font = `700 ${Math.round(Math.min(22, gap * 0.6))}px ${css("--f-display")}`; cx.textAlign = "left"; cx.textBaseline = "bottom";
   for (const c of P.chords){ const x = playX + (c.t - P.t) * pps; if (x < x0 - 60) continue; if (x > x1) break; cx.fillStyle = C.chrome; cx.fillText(chordLabel(c.name), Math.max(x0, x), lineY(5) - gap * 0.5); }
@@ -3559,9 +3587,20 @@ function drawGuitar(now){
     // the note to play now (filled) and the next one (outline) on the neck
     const tabs = ensureTabs(); let i = tabs.findIndex(n => n.t + n.d > P.t); if (P.waitTab) i = tabs.indexOf(P.waitTab);
     const dot = (n, ghost) => { if (!n) return; const y = rowY(n.s);
-      const x = n.f === 0 ? nutX - 14 : (fretX(n.f - 1) + fretX(Math.min(n.f, 15))) / 2;
+      const x = n.f === 0 ? nutX - 14 : Math.min(nx1 - 12, (fretX(n.f - 1) + fretX(Math.min(n.f, 15))) / 2);
       cx.beginPath(); cx.arc(x, y, dotR * (ghost ? 0.85 : 1.1), 0, Math.PI * 2);
       if (ghost){ cx.strokeStyle = C.R; cx.lineWidth = 2; cx.stroke(); } else { cx.fillStyle = C.R; cx.fill(); cx.fillStyle = C.bg; cx.font = `700 ${Math.round(dotR * 1.1)}px ${css("--f-mono")}`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(String(n.f), x, y + 1); } };
+    // a real tab: every string of the strum or chord being played now (gold) and the next one (outlined)
+    const real = tabs.length && realTabs && P.song && !P.transpose && store.get("dg30.gtab." + P.song.id, null);
+    if (real && tabs.length){
+      let k = -1; for (let j = 0; j < tabs.length; j++){ if (tabs[j].t <= P.t + 0.03) k = j; else break; }
+      if (P.waitTab) k = tabs.indexOf(P.waitTab); if (k < 0) k = 0; i = k;
+      const g0 = tabs.filter(m => Math.abs(m.t - tabs[i].t) < 0.06), nx = tabs.find(m => m.t > tabs[i].t + 0.06);
+      const g1 = nx ? tabs.filter(m => Math.abs(m.t - nx.t) < 0.06) : [];
+      for (const m of g1) dot(m, true);
+      if (tabs[i].t <= P.t + 0.6) for (const m of g0) dot(m, false);
+      return;
+    }
     // the chord's shape in soft blue, so you can see where the whole hand goes; the note to pick is on top in gold
     if (cur && cur.frets){
       cur.frets.forEach((f, s) => {
@@ -6583,7 +6622,7 @@ async function restoreFrom(file){
     const mineById = new Map(mine.map(s => [s.id, s]));
     const newer = new Set(theirs.filter(s => mineById.has(s.id) && (s.rev || 0) > (mineById.get(s.id).rev || 0)).map(s => s.id));
     const have = new Set(mine.map(s => s.id).filter(id => !newer.has(id))); let added = 0, updated = 0;
-    for (const id of newer){ for (const k of ["chords", "lyrics", "lyrraw", "lyrtried", "tempo", "pedal", "scan", "vox"]) store.del("dg30." + k + "." + id); }
+    for (const id of newer){ for (const k of ["chords", "lyrics", "lyrraw", "lyrtried", "tempo", "pedal", "scan", "vox", "gtab"]) store.del("dg30." + k + "." + id); }
     for (const [k, v] of Object.entries(b.data)){
       if (k === "dg30.songs" || k === "dg30.playlists") continue;
       const m = k.match(/^dg30\.([a-z]+)\.(.+)$/); if (m && have.has(m[2])) continue;   // keep this device's copy of songs it already has
@@ -6608,7 +6647,7 @@ async function restoreFrom(file){
 
 /* ---------------- share one song as a file ----------------
    Everything the app knows about the song, so the person you send it to can add it without scanning or an API key. */
-const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal", "art", "vox", "lyrraw"];
+const SONG_KEYS = ["song", "lyrics", "chords", "scan", "pedal", "art", "vox", "lyrraw", "gtab"];
 function songPackage(id){
   const meta = songById(id);
   const pkg = {app:"DG30 Song Coach", kind:"song", version: APP_VERSION, meta: {...meta}};
@@ -8849,7 +8888,7 @@ function gtrPick(sp, vel){
   if (!P.playing && !P.waiting) return;
   const pc = sp.p % 12;
   if (P.waitTab){                                           // Wait in Tabs: the right note moves you on
-    if (pc === P.waitTab.p % 12){ const n = P.waitTab; n.done = true; n.ok = true; scoreHit(waitKind(), null); P.waiting = false; P.waitTab = null; }
+    if (tabGroup(P.waitTab).some(m => m.p % 12 === pc)){ tabGroupDone(P.waitTab); scoreHit(waitKind(), null); P.waiting = false; P.waitTab = null; }
     return;
   }
   if (P.waitChord){                                         // Wait in Chords: strum the chord's notes
@@ -8860,7 +8899,7 @@ function gtrPick(sp, vel){
   if (!playScoring()) return;
   if (tabsView()){
     const n = ensureTabs().find(n => !n.judged && P.t >= n.t - 0.2 && P.t <= n.t + 0.4 && n.p % 12 === pc);
-    if (n){ n.judged = true; n.ok = true; const d = Math.abs(P.t - n.t); scoreHit(d < 0.12 ? "perfect" : d < 0.25 ? "great" : "", null); P.correct = Math.min(P.correct, P.total); }
+    if (n){ for (const m of ensureTabs()) if (!m.judged && Math.abs(m.t - n.t) < 0.06){ m.judged = true; m.ok = true; } const d = Math.abs(P.t - n.t); scoreHit(d < 0.12 ? "perfect" : d < 0.25 ? "great" : "", null); P.correct = Math.min(P.correct, P.total); }
     return;
   }
   const c = (P.chords || []).find(c => !c.judged && P.t >= c.t - 0.2 && P.t <= c.t + chordWin(c));
@@ -9474,7 +9513,7 @@ function drawLadder(now){
 const FIREBASE_CONFIG = {apiKey: "AIzaSyAhpTqxgsENzOnslmbBwW-Mv29463vdlx4", authDomain: "song-coach.firebaseapp.com", projectId: "song-coach",
   storageBucket: "song-coach.firebasestorage.app", messagingSenderId: "211365892359", appId: "1:211365892359:web:96781fc170f43e904335a2"};          // filled in once the Firebase project exists (a web app's config is public, not a secret)
 const FB_VER = "10.12.2";
-const SYNC_RX = /^dg30\.((song|lyrics|lyrraw|chords|art|best|hi|stats|transpose|tempo|pedal|scan|vox|rec)\.[^/]+|songs|playlists|favs|recs|days|ach|done|name|goal|played|deletedSongs|lb|lbt|mode|backdrop|words|vol|sound|songVol|view|trainer|theme|tabLevel|scanModel|primary|phoneSound|pedalMode|metro|magicLvl|lhStripes|lang|kbZoom|headstock|hands|gview|gback3|gtrType|gtrSound|game|fx|countIn2|compMetro|chordNames|barColors|autoFs|a4|magicPts|ownerPlay)$/;
+const SYNC_RX = /^dg30\.((song|lyrics|lyrraw|chords|gtab|art|best|hi|stats|transpose|tempo|pedal|scan|vox|rec)\.[^/]+|songs|playlists|favs|recs|days|ach|done|name|goal|played|deletedSongs|lb|lbt|mode|backdrop|words|vol|sound|songVol|view|trainer|theme|tabLevel|scanModel|primary|phoneSound|pedalMode|metro|magicLvl|lhStripes|lang|kbZoom|headstock|hands|gview|gback3|gtrType|gtrSound|game|fx|countIn2|compMetro|chordNames|barColors|autoFs|a4|magicPts|ownerPlay)$/;
 const CS = { fb: null, auth: null, db: null, user: null, unsub: null, dirty: new Set(), timer: 0, applying: false, last: store.get("dg30sync.last", 0), status: "", first: false, remoteT: {},
   dev: (() => { let d = store.get("dg30sync.dev", ""); if (!d){ d = Math.random().toString(36).slice(2, 10); store.set("dg30sync.dev", d); } return d; })() };
 const syncT = () => store.get("dg30sync.t", {}) || {};

@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.25">
+<meta name="version" content="2.26">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -839,6 +839,15 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .pdrawer .ptool{padding:0 12px}
 .pdrawer .dgrp.dicons{gap:10px}
 .pdrawer .dicons .icon{width:44px;height:44px}
+/* always exactly two lines: on a narrower screen (or with bigger system text) the buttons tighten up, and if they still
+   don't fit the line slides sideways instead of breaking onto a third line */
+.pdrawer .drow{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pdrawer .drow::-webkit-scrollbar{display:none}
+.pdrawer .drow > *{flex:none}
+.pdrawer .ptools{flex-wrap:nowrap}
+.pdrawer .ptool{white-space:nowrap}
+@media (max-width:1100px){.pdrawer .drow{gap:10px 12px}.pdrawer .ptool{padding:0 10px}.pdrawer .ptools{gap:5px}.pdrawer .seg button{padding:0 11px}}
+@media (max-width:960px){.pdrawer .ptool{padding:0 8px;font-size:14px}.pdrawer .seg button{padding:0 9px}.pdrawer .dgrp.dicons{gap:8px}}
 /* phones: tempo and key live in the ⋯ panel (it's always there), so the top bar fits without scrolling */
 @media (max-width:600px),(max-height:520px) and (max-width:1000px){
   #bars .tkchip{display:none!important}
@@ -1650,7 +1659,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.25";
+const APP_VERSION = "2.26";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -2185,10 +2194,12 @@ function loadGrand(){
       const queue = grandNotes(), mid = layer.key === "mid";
       const one = async p => {
         const L = {0:"C", 3:"D#", 6:"F#", 9:"A"}[p % 12], o = Math.floor(p / 12) - 1;
-        for (const src of srcs){
+        let saved = null;
+        if (cache) for (const src of srcs){ const r = await cache.match(src.base + src.name(L, o)).catch(() => null); if (r){ saved = {src, r}; break; } }
+        for (const src of saved ? [saved.src, ...srcs.filter(x => x !== saved.src)] : srcs){
           const url = src.base + src.name(L, o);
           try {
-            let res = cache ? await cache.match(url).catch(() => null) : null;
+            let res = saved && saved.src === src ? saved.r : cache ? await cache.match(url).catch(() => null) : null;
             if (!res){ res = await fetch(url, {mode:"cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
             const full = await a.decodeAudioData(await res.arrayBuffer());
             map.set(p, trimSample(a, full, mid ? (p < 48 ? 9 : p < 72 ? 7 : 4.5) : (p < 48 ? 6 : p < 72 ? 5 : 3.5)));
@@ -2199,7 +2210,7 @@ function loadGrand(){
       };
       const workers = Array.from({length: 4}, async () => { while (queue.length) await one(queue.shift()); });
       await Promise.all(workers);
-      if (mid){ grand.state = grand.bufs.size >= 24 ? "ready" : grand.bufs.size ? "partial" : "failed"; showPhoneSound(); if (grand.state === "failed") break; }
+      if (mid){ grand.state = grand.bufs.size >= 24 ? "ready" : grand.bufs.size ? "partial" : "failed"; showPhoneSound(); if (grand.state === "ready") markDl("grand"); if (grand.state === "failed") break; }
     }
     if (grand.state === "failed") grand.loading = null;     // try again next time
     showPhoneSound();
@@ -2696,6 +2707,8 @@ function renderSetInstr(){
   instCardsInto($("setInstCards"), tab); instStatus();
 }
 function instSampler(k, tab){ return k === "grand" ? grand : (tab || instTab) === "piano" ? (ORGANS.includes(k) ? GS[k] : siOf(k)) : GS[k === "twelve" ? "steel" : k] || null; }
+const dlDone = () => { try { const v = JSON.parse(localStorage.getItem("dg30.dlDone") || "[]"); return Array.isArray(v) ? v : []; } catch(e){ return []; } };
+function markDl(k){ try { const v = dlDone(); if (!v.includes(k)){ v.push(k); localStorage.setItem("dg30.dlDone", JSON.stringify(v)); } } catch(e){} }
 function instStatus(){
   const boxes = [];
   if ($("instDlg").open) boxes.push($("instCards"));
@@ -2704,7 +2717,8 @@ function instStatus(){
     const k = b.dataset.k, g = instSampler(k, box.dataset.tab), el = b.querySelector(".ist"); if (!g){ el.textContent = ""; continue; }
     const total = k === "grand" ? 30 : g.total || 30;
     el.textContent = g.state === "loading" ? `Downloading… ${Math.min(99, Math.round(g.bufs.size / total * 100))}%`
-      : g.state === "ready" ? "Downloaded, works offline" : g.state === "partial" ? "Partly downloaded" : g.state === "failed" ? "Couldn't download. Tap to try again" : "Downloads once when you pick it";
+      : g.state === "ready" ? "Downloaded, works offline" : g.state === "partial" ? "Partly downloaded" : g.state === "failed" ? "Couldn't download. Tap to try again"
+      : dlDone().includes(k) ? "Downloaded, works offline" : "Downloads once when you pick it";
   }
 }
 async function pickInstr(k){
@@ -3000,7 +3014,7 @@ const GTR_DEF = {
   electric: [{repo: "nbrosowsky/tonejs-instruments", ref: "master", dir: "samples/guitar-electric/", notes: [37,40,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84], file: p => smpName(TJ_N, p) + ".mp3"}]
 };
 // the same files from several places; whichever answers first is tried first next time
-const MIRROR = {};
+const MIRROR = (() => { try { const m = JSON.parse(localStorage.getItem("dg30.mirror") || "null"); return m && typeof m === "object" ? m : {}; } catch(e){ return {}; } })();
 function ghUrls(repo, ref, path){
   const list = [`https://cdn.jsdelivr.net/gh/${repo}@${ref}/${path}`, `https://raw.githubusercontent.com/${repo}/${ref}/${path}`];
   if (repo === "danigb/samples") list.push(`https://danigb.github.io/samples/${path}`, `https://danigb.github.io/samples/${path.replace(/^audio\//, "")}`);
@@ -3010,12 +3024,17 @@ function ghUrls(repo, ref, path){
 const GS = {}; for (const k in GTR_DEF) GS[k] = {bufs: new Map(), state: "none", trim: 1, total: GTR_DEF[k][0].notes.length};
 const isGtrKind = k => !!GTR_DEF[k];
 async function fetchCached(cache, urls){
+  // first look for a copy already saved on this device, under any of the addresses it may have come from
+  if (cache) for (const u of urls){
+    const url = u.url || u;
+    try { const res = await cache.match(url); if (res){ if (u.repo) MIRROR[u.repo] = u.i; return await res.arrayBuffer(); } } catch(e){}
+  }
   for (const u of urls){
     const url = u.url || u;
     try {
-      let res = cache ? await cache.match(url).catch(() => null) : null;
-      if (!res){ res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status); if (cache) await cache.put(url, res.clone()).catch(() => {}); }
-      const ab = await res.arrayBuffer(); if (u.repo) MIRROR[u.repo] = u.i; return ab;
+      const res = await fetch(url, {mode: "cors"}); if (!res.ok) throw new Error(res.status);
+      if (cache) await cache.put(url, res.clone()).catch(() => {});
+      const ab = await res.arrayBuffer(); if (u.repo){ MIRROR[u.repo] = u.i; try { localStorage.setItem("dg30.mirror", JSON.stringify(MIRROR)); } catch(e){} } return ab;
     } catch(e){ /* next mirror */ }
   }
   return null;
@@ -3046,7 +3065,7 @@ function loadGuitar(kind){
       if (g.bufs.size >= set.notes.length * 0.6) break;
     }
     g.trim = 0.07 / (loudness(g.bufs.values()) || 0.07);
-    g.state = g.bufs.size >= 8 ? "ready" : g.bufs.size ? "partial" : "failed";
+    g.state = g.bufs.size >= 8 ? "ready" : g.bufs.size ? "partial" : "failed"; if (g.state === "ready"){ markDl(kind); if (kind === "steel") markDl("twelve"); }
     if (g.state === "failed") g.loading = null;
     showGtrSound();
   })();
@@ -3084,6 +3103,7 @@ function siLoad(kind){
       if (mid){
         s.trim = 0.065 / (loudness([...s.bufs.values()].map(r => r.buf)) * Math.pow(10, (list.reduce((t, x) => t + x[3], 0) / list.length) / 20) || 0.065);
         s.state = s.bufs.size >= list.length * 0.7 ? "ready" : s.bufs.size ? "partial" : "failed"; showPhoneSound();
+        if (s.state === "ready"){ markDl(kind); for (const k in SFZ_OPT) if ((SFZ_OPT[k].src || k) === key) markDl(k); }
         if (s.state === "failed") break;
       }
     }

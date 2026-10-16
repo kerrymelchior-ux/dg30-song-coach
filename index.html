@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.37">
+<meta name="version" content="2.38">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1780,7 +1780,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.37";
+const APP_VERSION = "2.38";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -6871,7 +6871,8 @@ async function restoreFrom(file){
     if (!b || !APP_IDS.includes(b.app) || !b.data) throw new Error("That file isn't a Song Coach backup.");
     // songs the backup says were taken out (e.g. older versions replaced by a better one) are removed here too
     let gone = 0; try { for (const id of JSON.parse(b.data["dg30.removed"] || "[]")) if (store.get("dg30.songs", []).some(s => s.id === id)){ deleteSong(id); gone++; } } catch(e){}
-    const mine = store.get("dg30.songs", []), theirs = JSON.parse(b.data["dg30.songs"] || "[]");
+    const theirs0 = JSON.parse(b.data["dg30.songs"] || "[]"); try { songUndelete(theirs0.map(s => s.id)); } catch(e){}
+    const mine = store.get("dg30.songs", []), theirs = theirs0;
     const mineById = new Map(mine.map(s => [s.id, s]));
     const newer = new Set(theirs.filter(s => mineById.has(s.id) && (s.rev || 0) > (mineById.get(s.id).rev || 0)).map(s => s.id));
     const have = new Set(mine.map(s => s.id).filter(id => !newer.has(id))); let added = 0, updated = 0;
@@ -6946,6 +6947,7 @@ async function importSongPackage(pkg){
     for (const j of SONG_KEYS) store.del(`dg30.${j}.${meta.id}`);
     throw new Error(storageProblem());
   }
+  try { songUndelete([meta.id]); } catch(e){}
   songs.unshift(meta); if (!store.set("dg30.songs", songs)) throw new Error(storageProblem());
   return {meta, dup: false, trimmed};
 }
@@ -10575,7 +10577,7 @@ function drawLadder(now){
 const FIREBASE_CONFIG = {apiKey: "AIzaSyAhpTqxgsENzOnslmbBwW-Mv29463vdlx4", authDomain: "song-coach.firebaseapp.com", projectId: "song-coach",
   storageBucket: "song-coach.firebasestorage.app", messagingSenderId: "211365892359", appId: "1:211365892359:web:96781fc170f43e904335a2"};          // filled in once the Firebase project exists (a web app's config is public, not a secret)
 const FB_VER = "10.12.2";
-const SYNC_RX = /^dg30\.((song|lyrics|lyrraw|chords|gtab|art|best|hi|stats|transpose|tempo|pedal|scan|vox|rec)\.[^/]+|songs|playlists|favs|recs|days|ach|done|name|goal|played|deletedSongs|lb|lbt|mode|backdrop|words|vol|sound|songVol|view|trainer|theme|tabLevel|scanModel|primary|phoneSound|pedalMode|metro|magicLvl|lhStripes|lang|kbZoom|headstock|hands|gview|gback3|gtrType|gtrSound|game|fx|countIn2|compMetro|chordNames|barColors|autoFs|a4|magicPts|ownerPlay)$/;
+const SYNC_RX = /^dg30\.((song|lyrics|lyrraw|chords|gtab|art|best|hi|stats|transpose|tempo|pedal|scan|vox|rec)\.[^/]+|songs|playlists|favs|recs|days|ach|done|name|goal|played|deletedSongs|delAt|undel|lb|lbt|mode|backdrop|words|vol|sound|songVol|view|trainer|theme|tabLevel|scanModel|primary|phoneSound|pedalMode|metro|magicLvl|lhStripes|lang|kbZoom|headstock|hands|gview|gback3|gtrType|gtrSound|game|fx|countIn2|compMetro|chordNames|barColors|autoFs|a4|magicPts|ownerPlay)$/;
 const CS = { fb: null, auth: null, db: null, user: null, unsub: null, dirty: new Set(), timer: 0, applying: false, last: store.get("dg30sync.last", 0), status: "", first: false, remoteT: {},
   dev: (() => { let d = store.get("dg30sync.dev", ""); if (!d){ d = Math.random().toString(36).slice(2, 10); store.set("dg30sync.dev", d); } return d; })() };
 const syncT = () => store.get("dg30sync.t", {}) || {};
@@ -10601,7 +10603,12 @@ function parseFbConfig(text){
   store._rawSet = set; store._rawDel = del;
 })();
 // a deleted song stays deleted everywhere
-(() => { const orig = deleteSong; deleteSong = function(id){ const d = new Set(store.get("dg30.deletedSongs", [])); d.add(id); store.set("dg30.deletedSongs", [...d].slice(-500)); return orig.apply(this, arguments); }; })();
+function songGone(id){ const at = (store.get("dg30.delAt", {}) || {})[id] || 0, un = (store.get("dg30.undel", {}) || {})[id] || 0;
+  const listed = (store.get("dg30.deletedSongs", []) || []).includes(id); return (listed || at > 0) && !(un > at); }
+function songUndelete(ids){ const u = {...(store.get("dg30.undel", {}) || {})}, now = Date.now(); let any = false;
+  for (const id of ids) if (songGone(id) || u[id]){ u[id] = now; any = true; } if (any) store.set("dg30.undel", u); }
+(() => { const orig = deleteSong; deleteSong = function(id){ const d = new Set(store.get("dg30.deletedSongs", [])); d.add(id); store.set("dg30.deletedSongs", [...d].slice(-500));
+  const at = {...(store.get("dg30.delAt", {}) || {})}; at[id] = Date.now(); store.set("dg30.delAt", at); return orig.apply(this, arguments); }; })();
 
 // how two copies of the same item are combined: best scores and stars keep the higher, practice time and
 // achievements add up, lists of songs join together; everything else, the newer change wins
@@ -10611,12 +10618,13 @@ function syncMerge(key, local, remote, lt, rt){
   const newer = rt > lt ? remote : local;
   try {
     if (k === "songs"){
-      const gone = new Set(store.get("dg30.deletedSongs", [])), by = new Map();
-      for (const s of [...remote, ...local]){ if (gone.has(s.id)) continue; const o = by.get(s.id); if (!o || (s.rev || s.added || 0) > (o.rev || o.added || 0)) by.set(s.id, s); }
+      const by = new Map();
+      for (const s of [...remote, ...local]){ if (songGone(s.id)) continue; const o = by.get(s.id); if (!o || (s.rev || s.added || 0) > (o.rev || o.added || 0)) by.set(s.id, s); }
       const order = (rt > lt ? [...remote, ...local] : [...local, ...remote]).map(s => s.id);
       return [...new Set(order)].filter(id => by.has(id)).map(id => by.get(id));
     }
     if (k === "deletedSongs" || k === "done") return [...new Set([...local, ...remote])].slice(-500);
+    if (k === "delAt" || k === "undel"){ const out = {...remote}; for (const [id, t] of Object.entries(local || {})) out[id] = Math.max(out[id] || 0, t); return out; }
     if (k === "best") return Math.max(+local || 0, +remote || 0);
     if (k === "lbt"){ const a = local || {}, b = remote || {}, wk = (a.wk || "") > (b.wk || "") ? a.wk : b.wk;
       const wp = x => x.wk === wk ? (x.wkPts || 0) : 0;
@@ -10667,8 +10675,8 @@ function syncStart(){
       }
       if (CS.first){ for (const k of store.keys()) if (SYNC_RX.test(k) && !(k in CS.remoteT)) CS.dirty.add(k); }
       // songs deleted on another device: take them off this one too
-      const gone = new Set(store.get("dg30.deletedSongs", [])), list = store.get("dg30.songs", []);
-      if (list.some(x => gone.has(x.id))){ store._rawSet("dg30.songs", list.filter(x => !gone.has(x.id))); touched = true; }
+      const list = store.get("dg30.songs", []);
+      if (list.some(x => songGone(x.id))){ store._rawSet("dg30.songs", list.filter(x => !songGone(x.id))); touched = true; }
       store._rawSet("dg30sync.t", t);
     } finally { CS.applying = false; }
     CS.first = false;

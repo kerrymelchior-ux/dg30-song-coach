@@ -10,7 +10,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Song Coach</title>
-<meta name="version" content="2.32">
+<meta name="version" content="2.33">
 <meta name="author" content="Kerry E. Melchior II">
 <meta name="copyright" content="© 2026 Kerry E. Melchior II. All rights reserved.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1762,7 +1762,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.32";
+const APP_VERSION = "2.33";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -4075,7 +4075,13 @@ function scoreMiss(){
   P.streak = 0;
 }
 // the score in the corner, the run and how close the next multiplier is, and the words that float up
+// the score meter, 90% of its full size and anchored to the top right, so it stays clear of the words and notes
 function drawScoreHud(now){
+  if (!L) return;
+  cx.save(); cx.translate(L.W, 0); cx.scale(0.9, 0.9); cx.translate(-L.W, 0);
+  try { drawScoreHud0(now); } finally { cx.restore(); }
+}
+function drawScoreHud0(now){
   if (!gameOn() || (P.mode === "listen" && !P.demo && !(KAF && KAF.on)) || noMagicPts() || !L || (typeof COMP !== "undefined" && COMP.on)) return;
   if (!P.playing && !SC.pts) return;
   const rolling = SC.pts - SC.shown > 0.5;
@@ -8339,7 +8345,7 @@ function karaWords(now, W, H, top, bot, big){
       const held = active && prog > 0 && prog < 1 && end - it.t > 0.9 ? Math.sin(now / 110) * 3 : 0;      // a long held word sways gently
       cx.globalAlpha = dim ? 0.45 : 1;
       cx.fillStyle = singer ? "#e6d9ff" : "#ffffff"; cx.shadowColor = "rgba(0,0,0,.6)"; cx.shadowBlur = 8; cx.fillText(parts[i], x, yy + held); cx.shadowBlur = 0;
-      if (prog > 0){ cx.save(); cx.beginPath(); cx.rect(x, yy - sz, w * prog, sz * 2); cx.clip(); cx.fillStyle = col; cx.shadowColor = col; cx.shadowBlur = 16; cx.fillText(parts[i], x, yy + held); cx.restore(); }
+      if (prog > 0){ cx.save(); cx.beginPath(); cx.rect(x, yy - sz, w * prog, sz * 2); cx.clip(); cx.fillStyle = col; cx.fillText(parts[i], x, yy + held); cx.restore(); }   // no glow here: a glow inside the clip leaves dark boxes behind the letters
       cx.globalAlpha = 1; x += w;
     });
   };
@@ -8350,11 +8356,10 @@ function karaWords(now, W, H, top, bot, big){
     for (let i = 0; i < 3; i++){ cx.globalAlpha = i < k ? 1 : 0.15; cx.beginPath(); cx.arc(W / 2 - 24 + i * 24, midY - size * 1.2, 7, 0, Math.PI * 2); cx.fill(); }
     cx.globalAlpha = 1; cx.shadowBlur = 0;
   }
-  if (big && li > 0) draw(lines[li - 1], midY - size * 1.35, small, false, true);
   if (KA.duet && line){ const sg = karaSingerLine(line.t0 + 0.01); cx.font = `800 ${Math.round(size * 0.34)}px ${css("--f-body")}`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillStyle = sg ? "#c9a2ff" : "#ffd24a"; cx.fillText(sg ? "♪ " + tr("Singer") : "🎤 " + tr("You"), W / 2, midY - size * 0.95); }
   draw(line, midY, size, true, false);
   draw(lines[li + 1], midY + size * 1.35, small, false, true);
-  if (big) draw(lines[li + 2], midY + size * 2.3, small * 0.85, false, true);
+  draw(lines[li + 2], midY + size * 1.35 + small * 1.5, small * 0.9, false, true);
 }
 
 $("kViewSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; KA.view = b.dataset.v; store.set("dg30.karaView", KA.view); karaApplyView(); karaUI(); });

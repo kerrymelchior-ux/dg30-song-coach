@@ -1909,7 +1909,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
    ============================================================ */
 
 const APP_IDS = ["DG30 Song Coach", "Song Coach"];   // internal file id stays "DG30 Song Coach" so older copies can read new files
-const APP_VERSION = "2.46";
+const APP_VERSION = "2.47";
 try { const lv = document.getElementById("launchVer"); if (lv) lv.textContent = "v" + APP_VERSION; } catch(e){}
 // a reload (update, language change) always starts at the top of the page, not where the browser last was
 try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch(e){}
@@ -4452,10 +4452,10 @@ window.addEventListener("pagehide", () => { if (M.linkOff){ try { sendMidi([0xB0
 document.addEventListener("visibilitychange", () => syncMagicLocal());
 
 function step(now){
-  if (typeof COMP !== "undefined" && COMP.on && practiceVisible()){ P.lastFrame = now; compStep(now); draw(); requestAnimationFrame(step); return; }
-  const dt = Math.min(0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
+  if (typeof COMP !== "undefined" && COMP.on && practiceVisible()){ P.lastFrame = now; compStep(now); draw(); schedStep(); return; }
+  const dt = Math.min(document.hidden ? 1 : 0.1, (now - (P.lastFrame || now)) / 1000); P.lastFrame = now;
   syncMagicLocal();
-  if (P.playing && countInTick()){ draw(); requestAnimationFrame(step); return; }      // counting in: the music waits
+  if (P.playing && countInTick()){ draw(); schedStep(); return; }      // counting in: the music waits
   if (P.playing){ metroTick(); loopCheck(); practiceTick(dt); runClock(); }
   if (P.playing && P.instr === "guitar"){ guitarStep(P.t + dt * P.tempo); syncScrub(); }
   else if (P.playing && magicOn()) magicStep(dt);
@@ -4487,9 +4487,11 @@ function step(now){
     if (SES) SES.maxT = Math.max(SES.maxT, P.t);
     syncScrub();
   }
-  draw();
-  requestAnimationFrame(step);
+  if (!document.hidden) draw();
+  schedStep();
 }
+let STEP_RAF = 0;
+function schedStep(){ if (document.hidden || STEP_RAF) return; STEP_RAF = requestAnimationFrame(t => { STEP_RAF = 0; step(t); }); }
 
 function updateStats(){
   const done = P.correct + P.steps.slice(0, P.stepIdx).filter(s => s.req.size && !s.ok).length;
@@ -4520,6 +4522,9 @@ function setPlaying(on){
   P.playing = on; $("playBtn").innerHTML = on ? "&#10074;&#10074;" : "&#9654;"; $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
   if (!on) allNotesOff(); else audioCtx();
   keepAwake();
+  // a quiet sound keeps the phone treating Song Coach as playing music while the screen is off
+  try { if (on) bgKeepAlive(true, (P.song && P.song.title) || "Song Coach"); else if (!jobsRunning) bgKeepAlive(false); } catch(e){}
+  try { mediaNow(); bgPlay(); } catch(e){}
 }
 // the end of a song: stars, a grade, the points, and confetti for a new high score or three stars
 const starsFor = acc => acc >= 90 ? 3 : acc >= 75 ? 2 : acc >= 50 ? 1 : 0;
@@ -4613,6 +4618,37 @@ function finish(){
 }
 
 /* ---------------- keep the screen on + full screen ---------------- */
+
+/* ---------------- playing in the background ----------------
+   With the screen off or another app in front, the browser stops drawing frames, so a timer keeps the song moving
+   (notes to the piano or the phone speaker, and the playlist on to the next song). Listen mode, playlists and karaoke
+   playlists carry on; practice that waits for your keys pauses. The phone shows the song with play/pause and next on
+   the lock screen. iPhones are told this is music playback, so it keeps going with the ringer switch on silent too. */
+const BGP = {timer: 0};
+function bgPlayOk(){ return P.playing && !$("practice").hidden && (P.mode === "listen" || !!PL.playing); }
+function bgPlay(){
+  const on = document.hidden && bgPlayOk();
+  if (on && !BGP.timer){ P.lastFrame = performance.now(); BGP.timer = setInterval(() => { if (!document.hidden){ clearInterval(BGP.timer); BGP.timer = 0; return; } try { step(performance.now()); } catch(e){} if (!bgPlayOk() && !(PL.playing)){ clearInterval(BGP.timer); BGP.timer = 0; } }, 25); }
+  if (!on && BGP.timer){ clearInterval(BGP.timer); BGP.timer = 0; }
+}
+// the lock screen / notification: what's playing, with play, pause, next and previous
+function mediaNow(){
+  if (!("mediaSession" in navigator)) return;
+  const ms = navigator.mediaSession;
+  try {
+    if (!P.song || $("practice").hidden){ if (!jobsRunning){ ms.metadata = null; ms.playbackState = "none"; } return; }
+    const s = songById(P.song.id) || P.song, art = (() => { try { return songArt(s); } catch(e){ return null; } })();
+    ms.metadata = new MediaMetadata({title: s.title || "Song Coach", artist: [s.artist || s.by, PL.playing ? PL.playing.name : ""].filter(Boolean).join(" · ") || "Song Coach",
+      album: "Song Coach", artwork: art ? [{src: art, sizes: "512x512"}] : [{src: "icon-512.png", sizes: "512x512", type: "image/png"}]});
+    ms.playbackState = P.playing ? "playing" : "paused";
+    ms.setActionHandler("play", () => { if (!P.playing) setPlaying(true); });
+    ms.setActionHandler("pause", () => { if (P.playing) setPlaying(false); });
+    ms.setActionHandler("nexttrack", PL.playing && PL.playing.i + 1 < PL.playing.ids.length ? () => playlistAdvance() : null);
+    ms.setActionHandler("previoustrack", PL.playing && PL.playing.i > 0 ? () => { if (P.playing) setPlaying(false); startPlaylist(PL.playing.id, PL.playing.i - 1); } : () => { resetRun(0); syncScrub(); });
+  } catch(e){}
+}
+// iPhone: this is music, so it plays with the silent switch on and keeps its audio when the screen locks
+try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch(e){}
 let wakeLock = null;
 async function keepAwake(){
   if (document.hidden) return;
@@ -6585,13 +6621,14 @@ function bgSoundUrl(){
   const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
   w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
   v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
-  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round((Math.random() * 2 - 1) * 6), true);   // inaudible hiss
+  // a very quiet 25 Hz hum: too low and too soft to hear, but loud enough that the phone counts it as playing sound
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 25 * i / sr) * 90), true);
   return BG.url = URL.createObjectURL(new Blob([buf], {type:"audio/wav"}));
 }
 function bgKeepAlive(on, title){
   if (!store.get("dg30.bgAudio", true)) on = false;
   if (on){
-    if (!BG.audio){ BG.audio = new Audio(bgSoundUrl()); BG.audio.loop = true; BG.audio.volume = 0.05; }
+    if (!BG.audio){ BG.audio = new Audio(bgSoundUrl()); BG.audio.loop = true; BG.audio.volume = 1; }
     if (BG.audio.paused) BG.audio.play().catch(() => {});
     if ("mediaSession" in navigator){
       try {
@@ -11723,7 +11760,10 @@ async function showStorageInfo(){
   else if (ORGANS.includes(grand.want)) setTimeout(() => { try { loadGuitar(grand.want); } catch(e){} }, 2500);
   { const gk = gtrSound(); if (gk !== "synth") setTimeout(() => { try { loadGuitar(gk === "twelve" ? "steel" : gk); } catch(e){} }, 4000); }   // ready before the first strum
   window.addEventListener("resize", () => { if (practiceVisible()) layout(); });
-  document.addEventListener("visibilitychange", () => { if (document.hidden){ if (P.playing) setPlaying(false); } else { keepAwake(); autoReconnect(true); runJobs(); } });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden){ if (P.playing && !bgPlayOk()) setPlaying(false); bgPlay(); }
+    else { bgPlay(); P.lastFrame = performance.now(); schedStep(); keepAwake(); autoReconnect(true); runJobs(); }
+  });
   $("banner").addEventListener("click", () => { if ($("banner").classList.contains("tap")){ setPlaying(false); $("connDlg").showModal(); } });
   autoReconnect(true);
   $("fsBtn").onclick = async () => { if (isFullscreen()) exitFullscreen(); else { enterFullscreen.manual = true; await enterFullscreen(); enterFullscreen.manual = false; } };
@@ -11731,7 +11771,7 @@ async function showStorageInfo(){
   $("autoFs").checked = store.get("dg30.autoFs", true);
   $("autoFs").onchange = e => store.set("dg30.autoFs", e.target.checked);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  requestAnimationFrame(step);
+  schedStep();
 })();
 
 /* exported for testing */
